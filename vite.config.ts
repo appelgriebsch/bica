@@ -126,15 +126,25 @@ function authPopupPlugin(): Plugin {
 }
 
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
-// Keep `nitro` gated to `build` (the Vercel deploy target): enabled in dev it
-// opens a second dev-server port, which breaks the single-port preview.
+// Keep `nitro` gated to `build`: enabled in dev it opens a second dev-server
+// port, which breaks the single-port preview.
+// Default preset stays `vercel`. `DEPLOY_TARGET=cloudflare` (`npm run build:cf`)
+// selects Nitro's module Worker preset without replacing the Vercel build.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
+const nitroPreset =
+  process.env.DEPLOY_TARGET === "cloudflare" ? "cloudflare-module" : NITRO_PRESET;
+
 export default defineConfig(({ command }) => ({
   server: {
     host: "0.0.0.0",
     port: 8080,
     strictPort: true,
+  },
+  define: {
+    "import.meta.env.BICA_CLOUDFLARE_BUILD": JSON.stringify(
+      process.env.DEPLOY_TARGET === "cloudflare" ? "1" : "",
+    ),
   },
   resolve: { tsconfigPaths: true },
   plugins: [
@@ -148,7 +158,7 @@ export default defineConfig(({ command }) => ({
     ...(command === "build"
       ? [
           nitro({
-            preset: NITRO_PRESET,
+            preset: nitroPreset,
             // Auto-registers server/middleware/* (the PWA install page +
             // manifest + head-tag middleware). Nitro v3 defaults serverDir to
             // false, so removing this silently unwires /?install=1 on deploys.

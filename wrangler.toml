@@ -1,0 +1,27 @@
+# Staging Worker only. Top-level publish has no workers.dev route and no
+# BICA_STAGE, so /api/health fails closed. Do not add a production
+# environment, routes, or a custom domain in this file.
+name = "bica"
+main = ".output/server/staging-entry.mjs"
+compatibility_date = "2026-10-05"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+# Nitro already bundled the server. Wrangler must not bundle it again.
+no_bundle = true
+
+[assets]
+binding = "ASSETS"
+directory = ".output/public"
+
+[observability]
+enabled = true
+
+[[rules]]
+type = "ESModule"
+globs = ["**/*.mjs", "**/*.js"]
+
+[env.staging]
+workers_dev = true
+
+[env.staging.vars]
+BICA_STAGE = "staging"

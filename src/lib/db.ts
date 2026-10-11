@@ -1,3 +1,5 @@
+import { resolveBicaStage } from "./health-stage.mjs";
+
 /** Which database backend is active. */
 export type DbSource = "neon" | "pglite";
 
@@ -7,6 +9,25 @@ const rawDatabaseUrl =
   typeof process !== "undefined" ? process.env.DATABASE_URL : undefined;
 const databaseUrl =
   rawDatabaseUrl && rawDatabaseUrl.trim() ? rawDatabaseUrl : undefined;
+
+function currentBicaStage(): string | undefined {
+  const workerEnv = (globalThis as { __env__?: { BICA_STAGE?: unknown } }).__env__;
+  return resolveBicaStage({
+    workerEnv: workerEnv?.BICA_STAGE,
+    processEnv: typeof process !== "undefined" ? process.env.BICA_STAGE : undefined,
+  });
+}
+
+/**
+ * PGLite is the preview database. It is not available on the staging Worker:
+ * skip it when `BICA_STAGE` is set (and on the Cloudflare build, where the
+ * stage binding may not exist yet at module init) unless `DATABASE_URL` is set.
+ */
+export function embeddedDbDisabled(): boolean {
+  if (databaseUrl) return false;
+  if (currentBicaStage()) return true;
+  return import.meta.env.BICA_CLOUDFLARE_BUILD === "1";
+}
 
 /**
  * Active backend: real **Neon** when `DATABASE_URL` is set (deployed / configured
@@ -217,6 +238,11 @@ async function createSql(): Promise<Sql> {
         "or a server route loader, never from client code.",
     );
   }
+  if (embeddedDbDisabled()) {
+    throw new Error(
+      "Database is unwired on this worker (BICA_STAGE is set and DATABASE_URL is not).",
+    );
+  }
   return dbSource === "neon" ? createNeonSql() : createPgliteSql();
 }
 
@@ -259,6 +285,7 @@ export async function getPglite(): Promise<import("@electric-sql/pglite").PGlite
  *   deploys where build-time migrate did not see DATABASE_URL).
  */
 export function ensureDbReady(): Promise<void> {
+  if (embeddedDbDisabled()) return Promise.resolve();
   return getSql().then(() => undefined);
 }
 
@@ -267,7 +294,7 @@ export function ensureDbReady(): Promise<void> {
 const globalBoot = globalThis as typeof globalThis & {
   __pgBootstrapPromise__?: Promise<void>;
 };
-if (typeof window === "undefined") {
+if (typeof window === "undefined" && !embeddedDbDisabled()) {
   globalBoot.__pgBootstrapPromise__ ??= ensureDbReady().catch((err) => {
     globalBoot.__pgBootstrapPromise__ = undefined;
     console.error("[db] bootstrap failed:", err);

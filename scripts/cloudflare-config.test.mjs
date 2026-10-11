@@ -27,6 +27,16 @@ test("deploy scripts always target the staging environment", () => {
   assert.equal(pkg.scripts.deploy, undefined);
   assert.doesNotMatch(workflow, /branches:\s*\[main\]/);
   assert.match(workflow, /branches:\s*\[staging\]/);
+  assert.match(workflow, /timeout-minutes:\s*60/);
+  assert.match(
+    workflow,
+    /actions\/checkout@[0-9a-f]{40}/,
+  );
+  assert.match(
+    workflow,
+    /actions\/setup-node@[0-9a-f]{40}/,
+  );
+  assert.doesNotMatch(workflow, /uses:\s*actions\/(?:checkout|setup-node)@v4\b/);
   assert.match(workflow, /wrangler deploy --env staging --config wrangler\.toml/);
   assert.doesNotMatch(workflow, /pull_request/);
 });

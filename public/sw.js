@@ -1,40 +1,34 @@
 /* Bica offline cache + notification click.
  *
- * Must not intercept module scripts — Safari reports that as
- * "Importing a module script failed" and the page dies.
- * Navigations stay network-first so a new deploy is never hidden
- * behind a cached shell that points at deleted /assets hashes.
+ * `npm run build` (scripts/precache.mjs) fills VERSION and PRECACHE with every
+ * static file of the build, including the SPA shell and all route chunks.
+ * Install fills a fresh cache for that version and fails if any file fails, so
+ * the previous worker (and its cache) keeps serving until a complete set of
+ * matching HTML + chunks is in place. No skipWaiting: an open page keeps the
+ * worker whose chunks it was built against.
+ *
+ * Only precached (hashed) URLs are answered from cache. Unknown scripts go to
+ * the network untouched — answering those is what made Safari report
+ * "Importing a module script failed".
  */
-const VERSION = "bica-offline-v3";
-const PAGES = VERSION + "-pages";
-const RUNTIME = VERSION + "-runtime";
-const ASSETS = VERSION + "-assets";
-
-const PRECACHE = [
-  "/favicon.svg",
-  "/icon-180.png",
-  "/icon-192.png",
-  "/icon-512.png",
-  "/icon-maskable-512.png",
-  "/og.jpg",
-  "/scenes/cafe.jpg",
-  "/scenes/tram.jpg",
-  "/scenes/radio.jpg",
-  "/scenes/books.jpg",
-];
+const VERSION = "dev";
+const PRECACHE = [];
+const CACHE = "bica-" + VERSION;
+const RUNTIME = CACHE + "-runtime";
+const SHELL = "/_shell.html";
+const NAV_TIMEOUT_MS = 4000;
+const precached = new Set(PRECACHE);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
-      const cache = await caches.open(RUNTIME);
-      await Promise.all(
-        PRECACHE.map((url) =>
-          cache.add(url).catch(() => {
-            /* missing file must not fail the whole install */
-          }),
-        ),
-      );
-      await self.skipWaiting();
+      const cache = await caches.open(CACHE);
+      try {
+        await cache.addAll(PRECACHE.map((url) => new Request(url, { cache: "reload" })));
+      } catch (err) {
+        await caches.delete(CACHE);
+        throw err;
+      }
     })(),
   );
 });
@@ -42,9 +36,10 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      const keep = new Set([PAGES, RUNTIME, ASSETS]);
       const keys = await caches.keys();
-      await Promise.all(keys.filter((k) => !keep.has(k)).map((k) => caches.delete(k)));
+      await Promise.all(
+        keys.filter((k) => k !== CACHE && k !== RUNTIME).map((k) => caches.delete(k)),
+      );
       await self.clients.claim();
     })(),
   );
@@ -100,34 +95,32 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   if (isNetworkOnly(url)) return;
-  if (isScriptRequest(req)) return;
 
   if (req.mode === "navigate") {
-    event.respondWith(networkFirstPage(req, url));
+    event.respondWith(networkFirstPage(req));
     return;
   }
 
-  if (url.pathname.startsWith("/assets/")) {
-    event.respondWith(networkFirstCache(req, ASSETS));
+  if (precached.has(url.pathname)) {
+    event.respondWith(cacheFirst(req, url.pathname));
     return;
   }
 
-  event.respondWith(staleWhileRevalidate(req, RUNTIME));
+  if (isScriptRequest(req)) return;
+  event.respondWith(staleWhileRevalidate(req));
 });
 
-async function networkFirstPage(req, url) {
-  const cache = await caches.open(PAGES);
+async function networkFirstPage(req) {
   try {
-    const fresh = await fetch(req, { cache: "no-store" });
-    if (fresh && fresh.ok && isHtml(fresh)) {
-      await cache.put(req, fresh.clone());
-      if (url.pathname === "/") await cache.put("/", fresh.clone());
-    }
-    return fresh;
+    return await Promise.race([
+      fetch(req),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), NAV_TIMEOUT_MS)),
+    ]);
   } catch {
+    // The shell renders only the root and hydrates whatever route the URL names,
+    // with chunks from this same cache.
     return (
-      (await cache.match(req)) ||
-      (await cache.match("/")) ||
+      (await caches.match(SHELL, { cacheName: CACHE })) ||
       new Response("Bica is offline.", {
         status: 503,
         headers: { "content-type": "text/plain; charset=utf-8" },
@@ -136,21 +129,13 @@ async function networkFirstPage(req, url) {
   }
 }
 
-async function networkFirstCache(req, cacheName) {
-  const cache = await caches.open(cacheName);
-  try {
-    const fresh = await fetch(req);
-    if (fresh && fresh.ok) await cache.put(req, fresh.clone());
-    return fresh;
-  } catch {
-    const hit = await cache.match(req);
-    if (hit) return hit;
-    throw new Error("offline");
-  }
+async function cacheFirst(req, path) {
+  const hit = await caches.match(path, { cacheName: CACHE });
+  return hit || fetch(req);
 }
 
-async function staleWhileRevalidate(req, cacheName) {
-  const cache = await caches.open(cacheName);
+async function staleWhileRevalidate(req) {
+  const cache = await caches.open(RUNTIME);
   const hit = await cache.match(req);
   const fetching = fetch(req)
     .then((fresh) => {
@@ -159,8 +144,4 @@ async function staleWhileRevalidate(req, cacheName) {
     })
     .catch(() => hit);
   return hit || fetching;
-}
-
-function isHtml(res) {
-  return String(res.headers.get("content-type") ?? "").includes("text/html");
 }

@@ -36,6 +36,7 @@ export function pickPtVoice(
   return pt.find((v) => v.localService) ?? (online ? pt[0] : undefined) ?? null;
 }
 
+// ponytail: raw navigator.onLine — #11's shared isOnline() (probe-confirmed) sits above this PR in the stack and replaces it there.
 function browserOnline() {
   return typeof navigator === "undefined" || navigator.onLine !== false;
 }
@@ -119,9 +120,10 @@ export async function speakPt(text: string, rate = 0.88): Promise<void> {
     utter.addEventListener(
       "error",
       (e) => {
-        // Our own cancel()/stop is not a failure; anything else means this voice can't speak here.
+        // Our own cancel()/stop is not a failure, nor is "not-allowed" (autoplay before a
+        // user gesture, e.g. review auto-speak); anything else means this voice can't speak here.
         const err = (e as SpeechSynthesisErrorEvent).error;
-        if (err !== "interrupted" && err !== "canceled") {
+        if (err !== "interrupted" && err !== "canceled" && err !== "not-allowed") {
           failed = true;
           refresh(s);
         }

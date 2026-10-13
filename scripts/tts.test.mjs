@@ -170,13 +170,16 @@ test("offline: an online-only pt-PT voice counts as none; back online it is used
   }
 });
 
-test("a speech error shows the notice (status none); cancel does not", async () => {
+test("a speech error shows the notice (status none); cancel and not-allowed do not", async () => {
   const s = mockSynth([voice("pt-PT", "Joana")]);
   s.speak = (u) => {
     s.spoken.push(u);
     setTimeout(() => u.fire("error", { error: s.nextError }), 0);
   };
   s.nextError = "interrupted";
+  await tts.speakPt("Olá");
+  assert.equal(tts.getPtVoiceStatus(), "ready");
+  s.nextError = "not-allowed"; // autoplay blocked before a gesture: not a missing voice
   await tts.speakPt("Olá");
   assert.equal(tts.getPtVoiceStatus(), "ready");
   s.nextError = "synthesis-failed";

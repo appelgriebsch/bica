@@ -14,7 +14,7 @@ import { buildOutput } from "./build-output.mjs";
 // cached redirect can't answer a navigation. sw.js serves it as text/html.
 export const SHELL = "/_shell";
 
-/** Every file under `dir` as a URL path, minus the worker itself and the install tutorial. */
+/** Every file under `dir` as a URL path, minus the worker itself, _headers and the install tutorial. */
 export async function collectPrecache(dir) {
   const files = await readdir(dir, { recursive: true, withFileTypes: true });
   const entries = [];
@@ -22,7 +22,8 @@ export async function collectPrecache(dir) {
     if (!f.isFile()) continue;
     const abs = join(f.parentPath ?? f.path, f.name);
     const url = "/" + relative(dir, abs).split(sep).join("/");
-    if (url === "/sw.js" || url.startsWith("/__grok/")) continue;
+    // _headers is host config (Workers consume it, never serve it): precaching it would 404.
+    if (url === "/sw.js" || url === "/_headers" || url.startsWith("/__grok/")) continue;
     entries.push({ url, bytes: await readFile(abs) });
   }
   entries.sort((a, b) => (a.url < b.url ? -1 : 1));

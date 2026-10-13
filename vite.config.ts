@@ -7,7 +7,7 @@ import { nitro } from "nitro/vite";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
 // @ts-expect-error JS module alongside the TS vite config
-import { NITRO_PRESET } from "./scripts/build-output.mjs";
+import { activePreset } from "./scripts/build-output.mjs";
 
 /**
  * Finish PGLite bootstrap during dev-server setup (before traffic). Vite awaits
@@ -132,8 +132,7 @@ function authPopupPlugin(): Plugin {
 // selects Nitro's module Worker preset without replacing the Vercel build.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
-const nitroPreset =
-  process.env.DEPLOY_TARGET === "cloudflare" ? "cloudflare-module" : NITRO_PRESET;
+const nitroPreset = activePreset();
 
 export default defineConfig(({ command }) => ({
   server: {

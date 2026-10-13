@@ -65,7 +65,8 @@ function fixture({
   return dir;
 }
 
-// Fake `npm` first on PATH: `outdated` prints `outdated` and exits 1 (as npm does), `ls` is clean.
+// Fake `npm` first on PATH: `outdated` prints the given text and exits 1 (as npm does);
+// `ls` reports no problems unless lsNpm() replaces it.
 function fakeNpm(dir, outdated) {
   const bin = join(dir, "bin");
   mkdirSync(bin);
@@ -174,10 +175,9 @@ test("in-range updates warn by default and fail with --strict", () => {
   assert.match(strict.out, /FAIL {2}1 in-range patch\/minor updates/);
 });
 
-// Fake `npm ls` that reports `dep` (and an unknown package) as extraneous.
-function extraneousNpm(dir) {
+// Fake `npm` whose `ls` reports the given problems.
+function lsNpm(dir, problems) {
   const env = fakeNpm(dir, "{}");
-  const problems = [`extraneous: dep@1.0.0 ${join(dir, "node_modules/dep")}`];
   writeFileSync(join(dir, "ls.json"), JSON.stringify({ problems }));
   writeFileSync(
     join(dir, "bin/npm"),
@@ -185,12 +185,20 @@ function extraneousNpm(dir) {
   );
   return env;
 }
+const extraneous = (dir) => [`extraneous: dep@1.0.0 ${join(dir, "node_modules/dep")}`];
 
 test("allows an extraneous package only when the lockfile has it as optional", () => {
   const optional = fixture({ lockEntry: { optional: true } });
-  assert.equal(check(optional, [], extraneousNpm(optional)).code, 0);
+  assert.equal(check(optional, [], lsNpm(optional, extraneous(optional))).code, 0);
   const required = fixture();
-  const r = check(required, [], extraneousNpm(required));
+  const r = check(required, [], lsNpm(required, extraneous(required)));
   assert.equal(r.code, 1);
   assert.match(r.out, /npm ls: extraneous: dep@1\.0\.0/);
+});
+
+test("a missing optional entry still fails", () => {
+  const dir = fixture({ lockEntry: { optional: true } });
+  const r = check(dir, [], lsNpm(dir, ["missing: dep@^1.0.0, required by fx@1.0.0"]));
+  assert.equal(r.code, 1);
+  assert.match(r.out, /npm ls: missing: dep@\^1\.0\.0/);
 });

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Serve the built Vercel output locally (static files + the server function),
- * because `vite preview` can't run the Nitro vercel preset. Test-only.
+ * Serve the built output locally (static files + the server function), because
+ * `vite preview` can't run the Nitro presets. DEPLOY_TARGET=cloudflare serves the
+ * Worker build's files under Node (not workerd). Test-only.
  * Usage: node scripts/serve-build.mjs [port]
  */
 import { createServer } from "node:http";
@@ -12,7 +13,7 @@ import { Readable } from "node:stream";
 import { pathToFileURL } from "node:url";
 import { buildOutput } from "./build-output.mjs";
 
-const { publicDir, serverEntry, serverLibs } = buildOutput();
+const { publicDir, serverEntry, serverLibs, embeddedDb } = buildOutput();
 const STATIC = join(process.cwd(), publicDir);
 const TYPES = {
   ".js": "text/javascript",
@@ -35,7 +36,8 @@ export async function loadBuildHandler() {
   const libs = join(process.cwd(), serverLibs);
   const copied = [];
   for (const f of ["pglite.data", "pglite.wasm", "initdb.wasm"]) {
-    if (!existsSync(join(libs, f))) {
+    // Only the Vercel bundle boots PGLite; the Worker bundle must stay without it.
+    if (embeddedDb && !existsSync(join(libs, f))) {
       await copyFile(
         join(process.cwd(), "node_modules/@electric-sql/pglite/dist", f),
         join(libs, f),

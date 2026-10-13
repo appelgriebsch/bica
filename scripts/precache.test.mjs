@@ -11,6 +11,7 @@ async function fakeBuild() {
   const files = {
     _shell: "<html>shell</html>",
     "sw.js": "worker",
+    _headers: "/assets/*",
     "og.jpg": "og",
     "assets/lesson-player-abc.js": "lesson",
     "assets/grammar-def.js": "grammar",
@@ -26,7 +27,7 @@ async function fakeBuild() {
   return dir;
 }
 
-test("manifest lists shell, every chunk and scene; skips sw.js and __grok", async () => {
+test("manifest lists shell, every chunk and scene; skips sw.js, _headers and __grok", async () => {
   const dir = await fakeBuild();
   try {
     const { urls } = await collectPrecache(dir);
@@ -42,6 +43,7 @@ test("manifest lists shell, every chunk and scene; skips sw.js and __grok", asyn
       assert.ok(urls.includes(u), u);
     }
     assert.ok(!urls.includes("/sw.js"));
+    assert.ok(!urls.includes("/_headers"));
     assert.ok(!urls.some((u) => u.startsWith("/__grok/")));
   } finally {
     await rm(dir, { recursive: true });
@@ -100,6 +102,10 @@ test("an empty or asset-less output folder fails the build", async () => {
   } finally {
     await rm(dir, { recursive: true });
   }
+});
+
+test("cloudflare-module output paths", () => {
+  assert.equal(buildOutput("cloudflare-module").publicDir, ".output/public");
 });
 
 test("unknown Nitro preset has no output paths", () => {

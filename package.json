@@ -9,9 +9,10 @@
   "scripts": {
     "dev": "vite dev --host 0.0.0.0 --port 8080",
     "build": "vite build && node scripts/precache.mjs && npm run db:migrate",
-    "build:cf": "DEPLOY_TARGET=cloudflare vite build && node scripts/write-cf-entry.mjs",
+    "build:cf": "DEPLOY_TARGET=cloudflare vite build && DEPLOY_TARGET=cloudflare node scripts/precache.mjs && node scripts/write-cf-entry.mjs",
     "deploy:staging": "npm run build:cf && wrangler deploy --env staging --config wrangler.toml",
     "db:migrate": "node scripts/migrate.mjs",
+    "db:migrate:staging": "node scripts/migrate.mjs --staging",
     "build:dev": "vite build --mode development",
     "preview": "vite preview --host 0.0.0.0 --port 8080",
     "typecheck": "tsc --noEmit",

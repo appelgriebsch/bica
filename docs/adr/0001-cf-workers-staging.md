@@ -29,3 +29,4 @@ Ship a staging-only Worker:
 - `*.workers.dev` is the only staging hostname. Domains and redirects are a separate change.
 - Login and progress sync on `bica-staging` stay unwired until Neon and `GROK_AUTH_*` exist.
 - Operators must not rename `[env.staging]` to `[env.preview]` to “match hiato”.
+- Follow-up (review W2): `DATABASE_URL`, `BETTER_AUTH_*`, `GROK_AUTH_*` and `XAI_API_KEY` are documented as Worker secrets in `docs/cloudflare-workers.md`, and the staging workflow migrates `DATABASE_URL` in its own step before deploying. Nothing is set on an account by this change.

@@ -12,6 +12,11 @@ no_bundle = true
 [assets]
 binding = "ASSETS"
 directory = ".output/public"
+# Serve files at their exact path: no .html stripping or trailing-slash
+# redirects (a cached redirect for /_shell would break offline navigations).
+html_handling = "none"
+# Unknown paths fall through to the Worker, which renders the app routes.
+not_found_handling = "none"
 
 [observability]
 enabled = true

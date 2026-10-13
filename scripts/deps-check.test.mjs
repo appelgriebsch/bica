@@ -173,3 +173,24 @@ test("in-range updates warn by default and fail with --strict", () => {
   assert.equal(strict.code, 1);
   assert.match(strict.out, /FAIL {2}1 in-range patch\/minor updates/);
 });
+
+// Fake `npm ls` that reports `dep` (and an unknown package) as extraneous.
+function extraneousNpm(dir) {
+  const env = fakeNpm(dir, "{}");
+  const problems = [`extraneous: dep@1.0.0 ${join(dir, "node_modules/dep")}`];
+  writeFileSync(join(dir, "ls.json"), JSON.stringify({ problems }));
+  writeFileSync(
+    join(dir, "bin/npm"),
+    `#!/bin/sh\nif [ "$1" = outdated ]; then echo '{}'; exit 1; fi\ncat "${join(dir, "ls.json")}"\n`,
+  );
+  return env;
+}
+
+test("allows an extraneous package only when the lockfile has it as optional", () => {
+  const optional = fixture({ lockEntry: { optional: true } });
+  assert.equal(check(optional, [], extraneousNpm(optional)).code, 0);
+  const required = fixture();
+  const r = check(required, [], extraneousNpm(required));
+  assert.equal(r.code, 1);
+  assert.match(r.out, /npm ls: extraneous: dep@1\.0\.0/);
+});

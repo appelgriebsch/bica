@@ -1,4 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
+import { isOnline, subscribeOnline } from "@/lib/online";
 
 /**
  * On-device speech only (Web Speech API), strictly European Portuguese.
@@ -36,11 +37,6 @@ export function pickPtVoice(
   return pt.find((v) => v.localService) ?? (online ? pt[0] : undefined) ?? null;
 }
 
-// ponytail: raw navigator.onLine — #11's shared isOnline() (probe-confirmed) sits above this PR in the stack and replaces it there.
-function browserOnline() {
-  return typeof navigator === "undefined" || navigator.onLine !== false;
-}
-
 function setStatus(next: PtVoiceStatus) {
   if (next === status) return;
   status = next;
@@ -50,7 +46,7 @@ function setStatus(next: PtVoiceStatus) {
 /** Re-read the voice list. An empty list is inconclusive until the timeout. */
 function refresh(s: SpeechSynthesis) {
   const list = s.getVoices();
-  voice = failed ? null : pickPtVoice(list, browserOnline());
+  voice = failed ? null : pickPtVoice(list, isOnline());
   setStatus(voice ? "ready" : failed || timedOut || list.length > 0 ? "none" : "loading");
 }
 
@@ -68,8 +64,7 @@ export function loadPtVoice(): Promise<SpeechSynthesisVoice | null> {
       if (status !== "loading") resolve(voice);
     };
     s.addEventListener("voiceschanged", retry);
-    window.addEventListener("online", retry);
-    window.addEventListener("offline", retry);
+    subscribeOnline(retry); // the shared, probe-confirmed online state
     refresh(s);
     if (status !== "loading") return resolve(voice);
     setTimeout(() => {

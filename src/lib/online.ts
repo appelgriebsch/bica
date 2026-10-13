@@ -106,7 +106,8 @@ export function isOnline() {
   return online;
 }
 
-function subscribe(listener: () => void) {
+/** Called on every confirmed online/offline change (starts the watch on first use). */
+export function subscribeOnline(listener: () => void) {
   startOnlineWatch();
   listeners.add(listener);
   return () => {
@@ -115,7 +116,7 @@ function subscribe(listener: () => void) {
 }
 
 export function useOnline(): boolean {
-  return useSyncExternalStore(subscribe, isOnline, () => true);
+  return useSyncExternalStore(subscribeOnline, isOnline, () => true);
 }
 
 // ── One polite live region for the whole app ────────────────────────────────

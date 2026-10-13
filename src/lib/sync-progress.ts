@@ -19,6 +19,8 @@ export async function syncProgressWithAccount(): Promise<{ ok: boolean; error?: 
     useProgress.getState().mergeRemote(remote);
     const changes = useProgress.getState().changes;
     await saveProgressSnapshot({ data: useProgress.getState().snapshot() });
+    // ponytail: a change that lands mid-push stays queued (syncPending) and is only sent on the
+    // next reconnect, tab return or sign-in; add an immediate re-push if that lag shows up.
     useProgress.getState().markSynced(changes);
     if (queued && !useProgress.getState().syncPending) announce("Synced");
     return { ok: true };

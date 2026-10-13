@@ -35,9 +35,13 @@ globalThis.window = {
   },
 };
 globalThis.location = { search: "", href: "https://bica.test/", origin: "https://bica.test" };
+// online.ts' own timers (debounce, 15 s retry) must never keep the test process
+// alive: a regression then fails fast instead of hanging. The test's waits use the real timer.
+const realSetTimeout = globalThis.setTimeout;
+globalThis.setTimeout = (fn, ms) => realSetTimeout(fn, ms).unref();
 const online = await load("src/lib/online.ts");
 const features = await load("src/lib/online-features.ts");
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const wait = (ms) => new Promise((r) => realSetTimeout(r, ms));
 
 test("online state: events, HEAD probe, debounce, request-failure flip", async (t) => {
   online.startOnlineWatch(); // what the hook's subscribe() does on first use
@@ -97,9 +101,12 @@ test("online state: events, HEAD probe, debounce, request-failure flip", async (
     await wait(online.DEBOUNCE_MS + 200);
     assert.equal(online.isOnline(), true);
     reachable = false;
-    await assert.rejects(window.fetch("https://cdn.example.com/x.js"));
-    assert.equal(online.isOnline(), true);
-    reachable = true;
+    try {
+      await assert.rejects(window.fetch("https://cdn.example.com/x.js"));
+      assert.equal(online.isOnline(), true, "cross-origin failure must not flip the app offline");
+    } finally {
+      reachable = true;
+    }
   });
 
   await t.test("fake offline wins over a working network", async () => {

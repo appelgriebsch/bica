@@ -14,7 +14,14 @@ const src = readFileSync(join(root, "src/lib/tts.ts"), "utf8");
 const out = ts.transpileModule(src, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-writeFileSync(join(tmp, "tts.mjs"), out);
+// Stand-in for @/lib/online: online = navigator.onLine, changes fired by the test.
+globalThis.__onlineSubs = [];
+writeFileSync(
+  join(tmp, "online-stub.mjs"),
+  `export const isOnline = () => globalThis.navigator?.onLine !== false;
+   export const subscribeOnline = (fn) => globalThis.__onlineSubs.push(fn);`,
+);
+writeFileSync(join(tmp, "tts.mjs"), out.replace('"@/lib/online"', '"./online-stub.mjs"'));
 const tts = await import(pathToFileURL(join(tmp, "tts.mjs")).href);
 
 function voice(lang, name = lang, localService = true) {
@@ -158,7 +165,7 @@ test("offline: an online-only pt-PT voice counts as none; back online it is used
     await tts.speakPt("Olá");
     assert.equal(s.spoken.length, 0);
     globalThis.navigator.onLine = true;
-    s.win.online();
+    globalThis.__onlineSubs.forEach((fn) => fn());
     assert.equal(tts.getPtVoiceStatus(), "ready");
     // a local voice is fine offline
     globalThis.navigator.onLine = false;

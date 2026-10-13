@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BookOpen, Check, Headphones, MessageCircle, PenLine, RotateCcw, WholeWord } from "lucide-react";
+import { OnlineOnly } from "@/components/online-only";
 import { AppShell } from "@/components/app-shell";
 import {
   dueVocab,
@@ -139,23 +140,25 @@ function PracticePage() {
           </Link>
         </li>
         <li>
-          <Link
-            to="/speak"
-            className="flex items-start gap-3 rounded-[var(--radius-lg)] bg-accent p-4 text-accent-fg no-underline"
-          >
-            <MessageCircle className="mt-0.5 size-5 shrink-0" />
-            <span>
-              <span className="block text-xs font-medium uppercase tracking-wider text-accent-fg/70">
-                Speak · {speakScenarios.length} scenes
+          <OnlineOnly feature="conversas" label="Conversas" placement="corner">
+            <Link
+              to="/speak"
+              className="flex items-start gap-3 rounded-[var(--radius-lg)] bg-accent p-4 text-accent-fg no-underline [&>svg:first-child]:text-accent-fg/70"
+            >
+              <MessageCircle className="mt-0.5 size-5 shrink-0" />
+              <span>
+                <span className="block text-xs font-medium uppercase tracking-wider text-accent-fg/70">
+                  Speak · {speakScenarios.length} scenes
+                </span>
+                <span className="mt-1 block font-display text-xl font-medium">
+                  Conversas
+                </span>
+                <span className="mt-1 block text-sm text-accent-fg/80">
+                  Café, tickets, disagreement — a Lisbon partner.
+                </span>
               </span>
-              <span className="mt-1 block font-display text-xl font-medium">
-                Conversas
-              </span>
-              <span className="mt-1 block text-sm text-accent-fg/80">
-                Café, tickets, disagreement — a Lisbon partner.
-              </span>
-            </span>
-          </Link>
+            </Link>
+          </OnlineOnly>
         </li>
         <li>
           <Link

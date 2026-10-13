@@ -14,6 +14,7 @@ export async function persistCompletion(
 ) {
   const xp = 8 + quizScore * 2;
   useProgress.getState().completeLesson(id, { quizScore, quizTotal, xp });
+  useProgress.getState().setSyncPending(true);
   try {
     await saveLessonProgress({
       data: { lessonId: id, quizScore, quizTotal, xp },
@@ -21,7 +22,7 @@ export async function persistCompletion(
     await saveProgressSnapshot({ data: useProgress.getState().snapshot() });
     useProgress.getState().markSynced();
   } catch {
-    /* guest, or the line dropped — the next ProgressSync will retry */
+    /* guest, or the line dropped — stays pending; ProgressSync flushes on reconnect / sign-in */
   }
   return xp;
 }

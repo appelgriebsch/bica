@@ -5,10 +5,12 @@ import { SpeakButton } from "@/components/speak-button";
 import { StartLevelPicker } from "@/components/start-level";
 import { DailyReminder } from "@/components/daily-reminder";
 import { InstallHint } from "@/components/pwa";
+import { OnlineOnly } from "@/components/online-only";
 import { lessons, vocabFromCompleted, workingLevel } from "@/data/curriculum";
 import { signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useProgress } from "@/lib/progress-store";
+import { useOnline } from "@/lib/online";
 import { syncProgressWithAccount } from "@/lib/sync-progress";
 
 export const Route = createFileRoute("/me")({ component: MePage });
@@ -22,6 +24,8 @@ function MePage() {
   const lastSyncedAt = useProgress((s) => s.lastSyncedAt);
   const syncing = useProgress((s) => s.syncing);
   const syncError = useProgress((s) => s.syncError);
+  const syncPending = useProgress((s) => s.syncPending);
+  const online = useOnline();
   const doneIds = Object.keys(completed);
   const doneSet = new Set(doneIds);
   const lessonDone = lessons.filter((l) => doneSet.has(l.id)).length;
@@ -46,6 +50,8 @@ function MePage() {
               <p className="mt-2 text-sm text-subtle">
                 {syncing
                   ? "Saving this path to the account…"
+                  : syncPending && !online
+                    ? "Waiting to sync, changes saved on this device."
                   : syncError
                     ? syncError
                     : lastSyncedAt
@@ -53,14 +59,19 @@ function MePage() {
                       : "Lessons on this account follow you. If a device is behind, open Bica there while signed in."}
               </p>
               {user && !syncing ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2 px-0"
-                  onClick={() => void syncProgressWithAccount()}
+                <OnlineOnly
+                  feature="sync"
+                  label={syncError ? "Try again" : "Refresh from account"}
                 >
-                  {syncError ? "Try again" : "Refresh from account"}
-                </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 px-0"
+                    onClick={() => void syncProgressWithAccount()}
+                  >
+                    {syncError ? "Try again" : "Refresh from account"}
+                  </Button>
+                </OnlineOnly>
               ) : null}
             </div>
             <Button variant="ghost" size="sm" onClick={() => void signOut()}>
@@ -76,7 +87,9 @@ function MePage() {
                 : "Sign in to keep the streak if you switch phones, and to speak with a live partner."}
             </p>
             <Button asChild className="mt-4">
-              <Link to="/login">Sign in</Link>
+              <OnlineOnly feature="signIn" label="Sign in">
+                <Link to="/login">Sign in</Link>
+              </OnlineOnly>
             </Button>
           </div>
         )}

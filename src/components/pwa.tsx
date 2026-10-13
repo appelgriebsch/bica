@@ -3,24 +3,6 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { clearModuleReloadToken } from "@/lib/error-component";
 
-export function useOnline() {
-  const [online, setOnline] = useState(true);
-
-  useEffect(() => {
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener("online", on);
-    window.addEventListener("offline", off);
-    setOnline(navigator.onLine);
-    return () => {
-      window.removeEventListener("online", on);
-      window.removeEventListener("offline", off);
-    };
-  }, []);
-
-  return online;
-}
-
 function isEmbeddedFrame() {
   try {
     return window.parent !== window;
@@ -70,31 +52,6 @@ export function PwaRegister() {
     return () => window.removeEventListener("load", register);
   }, []);
   return null;
-}
-
-export function OfflineBanner() {
-  const online = useOnline();
-  const [dismissed, setDismissed] = useState(false);
-  if (online || dismissed) return null;
-
-  return (
-    <div
-      role="status"
-      className="mb-4 flex items-start gap-3 rounded-[var(--radius-md)] bg-soft px-3 py-2.5 text-sm text-fg"
-    >
-      <p className="min-w-0 flex-1">
-        You're offline. The path, grammar, verbs, and Palavras still work. Conversas needs a
-        connection.
-      </p>
-      <button
-        type="button"
-        className="min-h-11 shrink-0 px-1 text-sm font-medium text-accent"
-        onClick={() => setDismissed(true)}
-      >
-        Hide
-      </button>
-    </div>
-  );
 }
 
 export function InstallHint({ className }: { className?: string }) {

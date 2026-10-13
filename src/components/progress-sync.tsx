@@ -1,16 +1,21 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useOnline } from "@/lib/online";
 import { useProgress } from "@/lib/progress-store";
 import { syncProgressWithAccount } from "@/lib/sync-progress";
 
 /**
  * Pull the account, union it with this device, push the union back.
- * Runs on sign-in, on return to the tab, and when the line comes back.
+ * Runs on sign-in, on return to the tab, and when the line comes back
+ * (confirmed by the shared online hook) — that last one flushes the offline
+ * queue (`syncPending`) and says "Synced".
  */
 export function ProgressSync() {
   const { user, isPending } = useCurrentUserState();
   const hydrated = useProgress((s) => s.hydrated);
   const userId = user?.id ?? null;
+  const online = useOnline();
+  const wasOnline = useRef(online);
 
   useEffect(() => {
     if (useProgress.getState().hydrated) return;
@@ -45,14 +50,20 @@ export function ProgressSync() {
     const onVisible = () => {
       if (document.visibilityState === "visible") void sync();
     };
-    window.addEventListener("online", sync);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
-      window.removeEventListener("online", sync);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [userId, isPending, hydrated]);
+
+  useEffect(() => {
+    const back = online && !wasOnline.current;
+    wasOnline.current = online;
+    if (!back || isPending || !userId || !hydrated) return;
+    if (!useProgress.getState().syncPending) return;
+    void syncProgressWithAccount();
+  }, [online, userId, isPending, hydrated]);
 
   return null;
 }

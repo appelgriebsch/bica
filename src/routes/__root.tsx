@@ -8,6 +8,7 @@ import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { PwaRegister } from "@/components/pwa";
 import { PtVoiceNotice } from "@/components/pt-voice-notice";
+import { OfflineStatus } from "@/components/offline-status";
 import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 
@@ -87,6 +88,7 @@ export const Route = createRootRoute({
         <PreviewHostBridge />
         <PwaRegister />
         <PtVoiceNotice />
+        <OfflineStatus />
         <AuthProvider>
           <Outlet />
         </AuthProvider>

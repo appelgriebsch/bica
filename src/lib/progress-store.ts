@@ -31,6 +31,9 @@ export type ProgressState = {
   lastSyncedAt: string | null;
   syncing: boolean;
   syncError: string | null;
+  /** Local changes not yet pushed to the account (the offline sync queue). Persisted. */
+  syncPending: boolean;
+  setSyncPending: (pending: boolean) => void;
   markHydrated: () => void;
   markSynced: () => void;
   setSyncing: (syncing: boolean) => void;
@@ -76,8 +79,16 @@ export const useProgress = create<ProgressState>()(
       lastSyncedAt: null,
       syncing: false,
       syncError: null,
+      syncPending: false,
+      setSyncPending: (syncPending) => set({ syncPending }),
       markHydrated: () => set({ hydrated: true }),
-      markSynced: () => set({ lastSyncedAt: new Date().toISOString(), syncError: null, syncing: false }),
+      markSynced: () =>
+        set({
+          lastSyncedAt: new Date().toISOString(),
+          syncError: null,
+          syncing: false,
+          syncPending: false,
+        }),
       setSyncing: (syncing) => set({ syncing }),
       setSyncError: (syncError) => set({ syncError, syncing: false }),
       setFloor: (level) => set({ floor: level }),
@@ -179,6 +190,7 @@ export const useProgress = create<ProgressState>()(
         lastStudyDate: s.lastStudyDate,
         floor: s.floor,
         cards: s.cards,
+        syncPending: s.syncPending,
       }),
       onRehydrateStorage: () => (_state, error) => {
         if (!error) useProgress.getState().markHydrated();

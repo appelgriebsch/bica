@@ -6,7 +6,7 @@ import { useProgress } from "@/lib/progress-store";
 import { cn } from "@/lib/utils";
 import { ProgressSync } from "@/components/progress-sync";
 import { AzulejoMark } from "@/components/azulejo-mark";
-import { OfflineBanner } from "@/components/pwa";
+import { OfflineChip } from "@/components/offline-status";
 
 const nav = [
   { to: "/", label: "Today", icon: House, match: (p: string) => p === "/" },
@@ -65,6 +65,7 @@ export function AppShell({
             })}
           </div>
           <div className="flex items-center gap-3">
+            <OfflineChip />
             {streak > 0 && (
               <p className="text-xs font-medium tabular-nums text-muted">{streak}d</p>
             )}
@@ -106,7 +107,6 @@ export function AppShell({
           hideNav ? "pb-8" : "pb-28 md:pb-12",
         )}
       >
-        <OfflineBanner />
         {children}
       </main>
 

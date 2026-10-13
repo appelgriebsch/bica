@@ -3,7 +3,11 @@ import { usePtVoiceStatus } from "@/lib/tts";
 
 export const NO_VOICE_NOTE = "No European Portuguese voice on this device. Text only.";
 
-/** Install hint per platform (Chrome's "Google português do Brasil" and Edge "Natural" voices are online and don't count). */
+/**
+ * Install hint per platform. Chrome's "Google português do Brasil" is pt-BR, so it
+ * never qualifies; Edge's "Online (Natural)" pt-PT voices are network-only and are
+ * used only while online — the hints point at the local voices.
+ */
 export function voiceInstallHint(ua: string, touchMac = false): string {
   if (/iPad|iPhone|iPod/.test(ua) || touchMac)
     return "Settings › Accessibility › Spoken Content › Voices › Portuguese (Portugal): Joana.";

@@ -118,7 +118,7 @@ function ListenPlayer({ bulletin }: { bulletin: RadioBulletin }) {
                 onClick={() => void play()}
                 disabled={noVoice}
                 title={noVoice ? NO_VOICE_NOTE : undefined}
-                className="grid size-20 disabled:opacity-40 place-items-center rounded-full bg-accent text-accent-fg shadow-[var(--shadow-border)]"
+                className="grid size-20 place-items-center rounded-full bg-accent text-accent-fg shadow-[var(--shadow-border)] disabled:opacity-40"
                 aria-label={playing ? "Stop" : "Play bulletin"}
               >
                 {playing ? (

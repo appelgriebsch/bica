@@ -13,6 +13,8 @@ export const VOICE_TIMEOUT_MS = 1500;
 let status: PtVoiceStatus = "loading";
 let voice: SpeechSynthesisVoice | null = null;
 let timedOut = false;
+/** Set when an utterance errors; cleared when voices or connectivity change. */
+let failed = false;
 let loading: Promise<SpeechSynthesisVoice | null> | null = null;
 let currentResolve: (() => void) | null = null;
 const listeners = new Set<() => void>();
@@ -25,9 +27,17 @@ export function isPtPt(lang: string): boolean {
   return lang.replace(/_/g, "-").toLowerCase() === "pt-pt";
 }
 
-export function pickPtVoice(voices: readonly SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+/** Local pt-PT voice first; a network voice (e.g. Edge "Online (Natural)") only while online. */
+export function pickPtVoice(
+  voices: readonly SpeechSynthesisVoice[],
+  online = true,
+): SpeechSynthesisVoice | null {
   const pt = voices.filter((v) => isPtPt(v.lang));
-  return pt.find((v) => v.localService) ?? pt[0] ?? null;
+  return pt.find((v) => v.localService) ?? (online ? pt[0] : undefined) ?? null;
+}
+
+function browserOnline() {
+  return typeof navigator === "undefined" || navigator.onLine !== false;
 }
 
 function setStatus(next: PtVoiceStatus) {
@@ -39,8 +49,8 @@ function setStatus(next: PtVoiceStatus) {
 /** Re-read the voice list. An empty list is inconclusive until the timeout. */
 function refresh(s: SpeechSynthesis) {
   const list = s.getVoices();
-  voice = pickPtVoice(list);
-  setStatus(voice ? "ready" : timedOut || list.length > 0 ? "none" : "loading");
+  voice = failed ? null : pickPtVoice(list, browserOnline());
+  setStatus(voice ? "ready" : failed || timedOut || list.length > 0 ? "none" : "loading");
 }
 
 /** Resolves with the pt-PT voice, or null. Safe before any user gesture; keeps listening for later voices. */
@@ -51,10 +61,14 @@ export function loadPtVoice(): Promise<SpeechSynthesisVoice | null> {
     return Promise.resolve(null);
   }
   loading ??= new Promise((resolve) => {
-    s.addEventListener("voiceschanged", () => {
+    const retry = () => {
+      failed = false;
       refresh(s);
       if (status !== "loading") resolve(voice);
-    });
+    };
+    s.addEventListener("voiceschanged", retry);
+    window.addEventListener("online", retry);
+    window.addEventListener("offline", retry);
     refresh(s);
     if (status !== "loading") return resolve(voice);
     setTimeout(() => {
@@ -102,7 +116,19 @@ export async function speakPt(text: string, rate = 0.88): Promise<void> {
     };
     currentResolve = done;
     utter.addEventListener("end", done, { once: true });
-    utter.addEventListener("error", done, { once: true });
+    utter.addEventListener(
+      "error",
+      (e) => {
+        // Our own cancel()/stop is not a failure; anything else means this voice can't speak here.
+        const err = (e as SpeechSynthesisErrorEvent).error;
+        if (err !== "interrupted" && err !== "canceled") {
+          failed = true;
+          refresh(s);
+        }
+        done();
+      },
+      { once: true },
+    );
     s.speak(utter);
   });
 }
@@ -119,6 +145,7 @@ export function resetPtVoiceForTests() {
   status = "loading";
   voice = null;
   timedOut = false;
+  failed = false;
   loading = null;
   currentResolve = null;
 }

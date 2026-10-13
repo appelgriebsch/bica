@@ -37,7 +37,12 @@ function mockSynth(voices) {
     },
     spoken,
   };
-  globalThis.window = { speechSynthesis: synth };
+  const win = {};
+  globalThis.window = {
+    speechSynthesis: synth,
+    addEventListener: (t, fn) => (win[t] = fn),
+  };
+  synth.win = win;
   return synth;
 }
 
@@ -49,8 +54,8 @@ globalThis.SpeechSynthesisUtterance = class {
   addEventListener(type, fn) {
     this.handlers[type] = fn;
   }
-  fire(type) {
-    this.handlers[type]?.();
+  fire(type, event) {
+    this.handlers[type]?.(event);
   }
 };
 
@@ -121,14 +126,62 @@ test("stopSpeaking resolves the pending utterance", async () => {
   assert.equal(s.spoken.length, 1);
 });
 
-test("no xAI TTS left in src", () => {
+// .grok/ is the platform's generic xAI API skill doc, not app code.
+test("no xAI TTS anywhere in the tracked tree", () => {
   let hits = "";
   try {
-    hits = execFileSync("grep", ["-rnE", "api\\.x\\.ai/v1/tts|synthesizePt", join(root, "src")], {
-      encoding: "utf8",
-    });
+    hits = execFileSync(
+      "git",
+      [
+        "grep",
+        "-nE",
+        "api\\.x\\.ai/v1/tts|synthesizePt",
+        "--",
+        ".",
+        ":!scripts/tts.test.mjs",
+        ":!.grok/",
+      ],
+      { cwd: root, encoding: "utf8" },
+    );
   } catch (err) {
     if (err.status !== 1) throw err; // 1 = no match
   }
   assert.equal(hits, "");
+});
+
+test("offline: an online-only pt-PT voice counts as none; back online it is used", async () => {
+  globalThis.navigator = { onLine: false };
+  const s = mockSynth([voice("pt-PT", "Online (Natural)", false)]);
+  try {
+    assert.equal(await tts.loadPtVoice(), null);
+    assert.equal(tts.getPtVoiceStatus(), "none");
+    await tts.speakPt("Olá");
+    assert.equal(s.spoken.length, 0);
+    globalThis.navigator.onLine = true;
+    s.win.online();
+    assert.equal(tts.getPtVoiceStatus(), "ready");
+    // a local voice is fine offline
+    globalThis.navigator.onLine = false;
+    s.voices = [voice("pt-PT", "Joana", true)];
+    s.fire();
+    assert.equal(tts.getPtVoiceStatus(), "ready");
+  } finally {
+    delete globalThis.navigator;
+  }
+});
+
+test("a speech error shows the notice (status none); cancel does not", async () => {
+  const s = mockSynth([voice("pt-PT", "Joana")]);
+  s.speak = (u) => {
+    s.spoken.push(u);
+    setTimeout(() => u.fire("error", { error: s.nextError }), 0);
+  };
+  s.nextError = "interrupted";
+  await tts.speakPt("Olá");
+  assert.equal(tts.getPtVoiceStatus(), "ready");
+  s.nextError = "synthesis-failed";
+  await tts.speakPt("Olá");
+  assert.equal(tts.getPtVoiceStatus(), "none");
+  s.fire(); // voices change → try again
+  assert.equal(tts.getPtVoiceStatus(), "ready");
 });

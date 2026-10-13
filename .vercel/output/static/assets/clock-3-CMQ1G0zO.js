@@ -1,1 +1,0 @@
-import{n as e}from"./preload-helper-BoD0txsC.js";var t=e(`clock-3`,[[`circle`,{cx:`12`,cy:`12`,r:`10`,key:`1mglay`}],[`polyline`,{points:`12 6 12 12 16.5 12`,key:`1aq6pp`}]]);export{t};

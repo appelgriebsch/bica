@@ -54,9 +54,13 @@ export function PwaRegister() {
     if (isEmbeddedFrame()) return;
     const register = () => {
       clearModuleReloadToken();
-      void navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).catch(() => {
-        /* install still works from the manifest; cache can wait */
-      });
+      void navigator.serviceWorker
+        .register("/sw.js", { updateViaCache: "none" })
+        // Ask the browser not to evict the offline precache (iOS evicts readily).
+        .then(() => navigator.storage?.persist?.())
+        .catch(() => {
+          /* install still works from the manifest; cache can wait */
+        });
     };
     if (document.readyState === "complete") {
       register();
@@ -79,8 +83,8 @@ export function OfflineBanner() {
       className="mb-4 flex items-start gap-3 rounded-[var(--radius-md)] bg-soft px-3 py-2.5 text-sm text-fg"
     >
       <p className="min-w-0 flex-1">
-        You're offline. The path, grammar, verbs, and Palavras still work.
-        Conversas needs a connection.
+        You're offline. The path, grammar, verbs, and Palavras still work. Conversas needs a
+        connection.
       </p>
       <button
         type="button"

@@ -10,9 +10,10 @@ import { existsSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { Readable } from "node:stream";
 import { pathToFileURL } from "node:url";
+import { buildOutput } from "./build-output.mjs";
 
-const OUT = join(process.cwd(), ".vercel/output");
-const STATIC = join(OUT, "static");
+const { publicDir, serverEntry, serverLibs } = buildOutput();
+const STATIC = join(process.cwd(), publicDir);
 const TYPES = {
   ".js": "text/javascript",
   ".css": "text/css",
@@ -31,7 +32,7 @@ const TYPES = {
  * back a cleanup that removes the copies again.
  */
 export async function loadBuildHandler() {
-  const libs = join(OUT, "functions/__server.func/_libs");
+  const libs = join(process.cwd(), serverLibs);
   const copied = [];
   for (const f of ["pglite.data", "pglite.wasm", "initdb.wasm"]) {
     if (!existsSync(join(libs, f))) {
@@ -42,9 +43,7 @@ export async function loadBuildHandler() {
       copied.push(join(libs, f));
     }
   }
-  const { default: handler } = await import(
-    pathToFileURL(join(OUT, "functions/__server.func/index.mjs")).href
-  );
+  const { default: handler } = await import(pathToFileURL(join(process.cwd(), serverEntry)).href);
   return { handler, cleanup: () => Promise.all(copied.map((f) => rm(f, { force: true }))) };
 }
 
@@ -89,5 +88,5 @@ export async function startBuildServer(port = 8090) {
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.argv[2] || 8090);
   await startBuildServer(port);
-  console.log(`serving .vercel/output on http://127.0.0.1:${port}`);
+  console.log(`serving ${publicDir} on http://127.0.0.1:${port}`);
 }

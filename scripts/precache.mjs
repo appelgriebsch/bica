@@ -8,8 +8,11 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
+import { buildOutput } from "./build-output.mjs";
 
-export const SHELL = "/_shell.html";
+// No .html: Workers' html_handling (auto-trailing-slash) would redirect it, and a
+// cached redirect can't answer a navigation. sw.js serves it as text/html.
+export const SHELL = "/_shell";
 
 /** Every file under `dir` as a URL path, minus the worker itself and the install tutorial. */
 export async function collectPrecache(dir) {
@@ -30,6 +33,15 @@ export async function collectPrecache(dir) {
     version: hash.digest("hex").slice(0, 16),
     bytes: entries.reduce((n, e) => n + e.bytes.length, 0),
   };
+}
+
+/** Fail the build rather than ship a worker that precaches nothing. */
+export function assertManifest({ urls }) {
+  if (!urls.some((u) => u.startsWith("/assets/")) || !urls.includes(SHELL)) {
+    throw new Error(
+      `[precache] no build assets or shell found (${urls.length} files); is the output folder in scripts/build-output.mjs right?`,
+    );
+  }
 }
 
 export function injectManifest(sw, { urls, version }) {
@@ -57,10 +69,11 @@ async function renderShell() {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const dir = join(process.cwd(), ".vercel/output/static");
+  const dir = join(process.cwd(), buildOutput().publicDir);
   const { html, cleanup } = await renderShell();
   await writeFile(join(dir, SHELL), html);
   const manifest = await collectPrecache(dir);
+  assertManifest(manifest);
   const swPath = join(dir, "sw.js");
   await writeFile(swPath, injectManifest(await readFile(swPath, "utf8"), manifest));
   console.log(

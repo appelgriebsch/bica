@@ -10,6 +10,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium } from "playwright";
+import { buildOutput } from "./build-output.mjs";
 import { startBuildServer } from "./serve-build.mjs";
 
 const PORT = Number(process.env.PORT || 8093);
@@ -78,11 +79,22 @@ try {
     return keys.filter((r) => new URL(r.url).pathname.startsWith("/scenes/")).length;
   });
   console.log("scenes cached", scenes);
+  const shell = await page.evaluate(async (v) => {
+    const r = await (await caches.open(v)).match("/_shell");
+    return r && { status: r.status, redirected: r.redirected };
+  }, version);
+  const shellOk = shell && shell.status === 200 && !shell.redirected;
+  console.log(
+    shellOk ? "ok  " : "FAIL",
+    "cached shell is a 200, not a redirect",
+    JSON.stringify(shell),
+  );
+  if (!shellOk) failures.push("shell");
   if (scenes !== 20) failures.push("scenes");
   await context.setOffline(false);
 
   // Upgrade with a broken asset: the new install must fail, old cache stays.
-  const swPath = join(process.cwd(), ".vercel/output/static/sw.js");
+  const swPath = join(process.cwd(), buildOutput().publicDir, "sw.js");
   const original = await readFile(swPath, "utf8");
   await writeFile(
     swPath,

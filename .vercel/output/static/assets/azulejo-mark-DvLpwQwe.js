@@ -1,1 +1,0 @@
-import{o as e}from"./useStore-DCim0WvV.js";import{n as t}from"./utils-DxWkH6WR.js";var n=e();function r({className:e,title:r}){return(0,n.jsx)(`img`,{src:`/favicon.svg`,alt:r??``,width:32,height:32,draggable:!1,className:t(`size-8 shrink-0`,e)})}export{r as t};

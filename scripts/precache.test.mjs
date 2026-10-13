@@ -3,12 +3,13 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { collectPrecache, injectManifest, SHELL } from "./precache.mjs";
+import { buildOutput } from "./build-output.mjs";
+import { assertManifest, collectPrecache, injectManifest, SHELL } from "./precache.mjs";
 
 async function fakeBuild() {
   const dir = await mkdtemp(join(tmpdir(), "bica-precache-"));
   const files = {
-    "_shell.html": "<html>shell</html>",
+    _shell: "<html>shell</html>",
     "sw.js": "worker",
     "og.jpg": "og",
     "assets/lesson-player-abc.js": "lesson",
@@ -71,7 +72,7 @@ test(
   "the built worker precaches every scene and route chunk",
   { skip: !process.env.BICA_BUILT && "set BICA_BUILT=1 after npm run build" },
   async () => {
-    const root = new URL("../.vercel/output/static/", import.meta.url);
+    const root = new URL(`../${buildOutput().publicDir}/`, import.meta.url);
     const sw = await readFile(new URL("sw.js", root), "utf8");
     const urls = JSON.parse(sw.match(/const PRECACHE = (\[.*\]);/)[1]);
     const { urls: onDisk } = await collectPrecache(root.pathname);
@@ -86,3 +87,25 @@ test(
     assert.ok(urls.includes(SHELL));
   },
 );
+
+test("an empty or asset-less output folder fails the build", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "bica-empty-"));
+  try {
+    assert.throws(() => assertManifest({ urls: [] }), /no build assets/);
+    assert.throws(() => assertManifest({ urls: ["/og.jpg", SHELL] }), /no build assets/);
+    assert.throws(() => assertManifest({ urls: ["/assets/a.js"] }), /no build assets/);
+    assert.doesNotThrow(() => assertManifest({ urls: ["/assets/a.js", SHELL] }));
+    const empty = await collectPrecache(dir);
+    assert.throws(() => assertManifest(empty));
+  } finally {
+    await rm(dir, { recursive: true });
+  }
+});
+
+test("unknown Nitro preset has no output paths", () => {
+  assert.throws(() => buildOutput("cloudflare_module"), /no output paths/);
+});
+
+test("shell path has no .html (Workers auto-trailing-slash would redirect it)", () => {
+  assert.ok(!SHELL.endsWith(".html"));
+});

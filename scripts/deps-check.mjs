@@ -27,7 +27,7 @@ export function bumpKind(current, latest) {
   if (!current || !latest || current === latest) return "none";
   if (/-/.test(latest) || /-/.test(current)) return "prerelease";
   const [a, b] = [current, latest].map((v) => v.split(".").map(Number));
-  if (b[0] !== a[0]) return a[0] === 0 && b[0] === 0 ? "minor" : "major";
+  if (b[0] !== a[0]) return "major";
   if (a[0] === 0) return b[1] !== a[1] ? "major" : "patch"; // 0.x: minor is breaking
   return b[1] !== a[1] ? "minor" : "patch";
 }

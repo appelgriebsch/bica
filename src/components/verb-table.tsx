@@ -40,7 +40,7 @@ export function VerbCard({ verb }: { verb: VerbEntry }) {
               <li key={row.person} className="border-t border-border/70">
                 <button
                   type="button"
-                  onClick={() => void speakPt(spoken, 0.88, "eve")}
+                  onClick={() => void speakPt(spoken, 0.88)}
                   className={cn(grid, "min-h-11 w-full py-2 text-left")}
                 >
                   <span className="min-w-0 text-sm text-subtle">{row.person}</span>

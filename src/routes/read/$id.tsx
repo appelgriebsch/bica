@@ -77,7 +77,6 @@ function ReadPlayer({ piece }: { piece: ReadingPiece }) {
         ) : phase === "quiz" ? (
           <QuizBlock
             questions={piece.quiz}
-            voice="luna"
             onFinished={(n) => void finish(n)}
           />
         ) : (
@@ -105,7 +104,7 @@ function ReadPlayer({ piece }: { piece: ReadingPiece }) {
                       >
                         <p className="font-display text-xl leading-relaxed">{p.pt}</p>
                       </button>
-                      <SpeakButton text={p.pt} voice="luna" rate={0.9} />
+                      <SpeakButton text={p.pt} rate={0.9} />
                     </div>
                     {shown && <p className="mt-3 text-sm text-muted">{p.en}</p>}
                   </div>

@@ -119,7 +119,7 @@ function ReviewPage() {
 
   useEffect(() => {
     if (phase !== "session" || !card || card.kind !== "flip" || flipped) return;
-    void speakPt(card.pt, 0.88, "eve");
+    void speakPt(card.pt, 0.88);
   }, [phase, card?.id, card?.kind, flipped]);
 
   return (

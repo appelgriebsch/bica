@@ -1,113 +1,124 @@
-import { synthesizePt } from "@/lib/tts-server";
+import { useEffect, useSyncExternalStore } from "react";
 
-let voicesReady = false;
-let currentAudio: HTMLAudioElement | null = null;
+/**
+ * On-device speech only (Web Speech API), strictly European Portuguese.
+ * A pt-BR or bare "pt" voice is never used: no pt-PT voice means text only.
+ */
+
+export type PtVoiceStatus = "ready" | "loading" | "none";
+
+/** Some browsers never fire `voiceschanged`; after this we stop waiting. */
+export const VOICE_TIMEOUT_MS = 1500;
+
+let status: PtVoiceStatus = "loading";
+let voice: SpeechSynthesisVoice | null = null;
+let timedOut = false;
+let loading: Promise<SpeechSynthesisVoice | null> | null = null;
 let currentResolve: (() => void) | null = null;
-const urlCache = new Map<string, string>();
+const listeners = new Set<() => void>();
 
-function pickPtVoice(): SpeechSynthesisVoice | null {
-  if (typeof window === "undefined" || !window.speechSynthesis) return null;
-  const voices = window.speechSynthesis.getVoices();
-  return (
-    voices.find((v) => v.lang === "pt-PT") ??
-    voices.find((v) => v.lang.toLowerCase().startsWith("pt-pt")) ??
-    voices.find((v) => v.lang.toLowerCase().startsWith("pt")) ??
-    null
-  );
+function synth(): SpeechSynthesis | undefined {
+  return typeof window === "undefined" ? undefined : window.speechSynthesis;
 }
 
-export function warmVoices() {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  const mark = () => {
-    voicesReady = true;
-  };
-  window.speechSynthesis.addEventListener("voiceschanged", mark, { once: true });
-  void window.speechSynthesis.getVoices();
+export function isPtPt(lang: string): boolean {
+  return lang.replace(/_/g, "-").toLowerCase() === "pt-pt";
 }
 
-function speakBrowser(text: string, rate: number) {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = "pt-PT";
-  utter.rate = rate;
-  const voice = pickPtVoice();
-  if (voice) utter.voice = voice;
-  if (!voicesReady) void window.speechSynthesis.getVoices();
-  window.speechSynthesis.speak(utter);
+export function pickPtVoice(voices: readonly SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  const pt = voices.filter((v) => isPtPt(v.lang));
+  return pt.find((v) => v.localService) ?? pt[0] ?? null;
 }
 
-function playDataUrl(url: string): Promise<void> {
+function setStatus(next: PtVoiceStatus) {
+  if (next === status) return;
+  status = next;
+  for (const l of listeners) l();
+}
+
+/** Re-read the voice list. An empty list is inconclusive until the timeout. */
+function refresh(s: SpeechSynthesis) {
+  const list = s.getVoices();
+  voice = pickPtVoice(list);
+  setStatus(voice ? "ready" : timedOut || list.length > 0 ? "none" : "loading");
+}
+
+/** Resolves with the pt-PT voice, or null. Safe before any user gesture; keeps listening for later voices. */
+export function loadPtVoice(): Promise<SpeechSynthesisVoice | null> {
+  const s = synth();
+  if (!s) {
+    setStatus("none");
+    return Promise.resolve(null);
+  }
+  loading ??= new Promise((resolve) => {
+    s.addEventListener("voiceschanged", () => {
+      refresh(s);
+      if (status !== "loading") resolve(voice);
+    });
+    refresh(s);
+    if (status !== "loading") return resolve(voice);
+    setTimeout(() => {
+      timedOut = true;
+      refresh(s);
+      resolve(voice);
+    }, VOICE_TIMEOUT_MS);
+  });
+  // Later voiceschanged events update `voice`; return the current one, not the first.
+  return loading.then(() => voice);
+}
+
+export function getPtVoiceStatus(): PtVoiceStatus {
+  return status;
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function usePtVoiceStatus(): PtVoiceStatus {
+  useEffect(() => {
+    void loadPtVoice();
+  }, []);
+  return useSyncExternalStore(subscribe, getPtVoiceStatus, () => "loading");
+}
+
+/** Speaks `text` with the pt-PT voice; resolves when it ends, errors or is stopped. No voice: resolves at once. */
+export async function speakPt(text: string, rate = 0.88): Promise<void> {
+  const trimmed = text.trim();
+  const s = synth();
+  if (!trimmed || !s) return;
+  const v = await loadPtVoice();
+  if (!v) return;
   stopSpeaking();
-  return new Promise((resolve) => {
-    const audio = new Audio(url);
-    currentAudio = audio;
-    currentResolve = resolve;
+  await new Promise<void>((resolve) => {
+    const utter = new SpeechSynthesisUtterance(trimmed);
+    utter.voice = v;
+    utter.lang = "pt-PT";
+    utter.rate = rate;
     const done = () => {
-      if (currentAudio === audio) currentAudio = null;
-      if (currentResolve === resolve) currentResolve = null;
+      if (currentResolve === done) currentResolve = null;
       resolve();
     };
-    audio.addEventListener("ended", done, { once: true });
-    audio.addEventListener("error", done, { once: true });
-    void audio.play().catch(() => done());
+    currentResolve = done;
+    utter.addEventListener("end", done, { once: true });
+    utter.addEventListener("error", done, { once: true });
+    s.speak(utter);
   });
 }
 
-export type SpeakVoice = "eve" | "leo" | "luna";
-
-export async function speakPt(
-  text: string,
-  rate = 0.88,
-  voice: SpeakVoice = "eve",
-): Promise<void> {
-  const trimmed = text.trim();
-  if (!trimmed || typeof window === "undefined") return;
-
-  const speed = Math.min(1.5, Math.max(0.7, rate));
-  const cacheKey = `${voice}|${speed}|${trimmed}`;
-  const hit = urlCache.get(cacheKey);
-  if (hit) {
-    await playDataUrl(hit);
-    return;
-  }
-
-  try {
-    const res = await synthesizePt({
-      data: { text: trimmed.slice(0, 1500), speed, voice },
-    });
-    if (res.ok) {
-      const url = `data:audio/mpeg;base64,${res.audio}`;
-      if (urlCache.size > 200) {
-        const first = urlCache.keys().next().value;
-        if (first) urlCache.delete(first);
-      }
-      urlCache.set(cacheKey, url);
-      await playDataUrl(url);
-      return;
-    }
-  } catch {
-    /* fall through to the browser voice */
-  }
-
-  speakBrowser(trimmed, rate);
-}
-
 export function stopSpeaking() {
-  if (typeof window === "undefined") return;
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.src = "";
-    currentAudio = null;
-  }
-  if (currentResolve) {
-    const r = currentResolve;
-    currentResolve = null;
-    r();
-  }
+  synth()?.cancel();
+  const r = currentResolve;
+  currentResolve = null;
+  r?.();
 }
 
-export function canSpeak(): boolean {
-  return typeof window !== "undefined" && "speechSynthesis" in window;
+/** Test hook: forget the loaded voice so a new mocked speechSynthesis is read. */
+export function resetPtVoiceForTests() {
+  status = "loading";
+  voice = null;
+  timedOut = false;
+  loading = null;
+  currentResolve = null;
 }

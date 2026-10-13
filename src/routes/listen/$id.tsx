@@ -2,13 +2,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Pause, Play } from "lucide-react";
 import { useState } from "react";
 import { DoneCard } from "@/components/lesson-player";
+import { NO_VOICE_NOTE } from "@/components/pt-voice-notice";
 import { QuizBlock } from "@/components/quiz-block";
 import { Button } from "@/components/ui/button";
 import { getBulletin, radioBulletins } from "@/data/curriculum";
 import type { RadioBulletin } from "@/data/types";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { persistCompletion } from "@/lib/record-progress";
-import { speakPt, stopSpeaking } from "@/lib/tts";
+import { speakPt, stopSpeaking, usePtVoiceStatus } from "@/lib/tts";
 
 export const Route = createFileRoute("/listen/$id")({ component: ListenPage });
 
@@ -37,6 +38,8 @@ function ListenPlayer({ bulletin }: { bulletin: RadioBulletin }) {
   const [correct, setCorrect] = useState(0);
   const next = radioBulletins[radioBulletins.findIndex((b) => b.id === bulletin.id) + 1];
 
+  const noVoice = usePtVoiceStatus() === "none";
+
   async function play() {
     if (playing) {
       stopSpeaking();
@@ -44,7 +47,7 @@ function ListenPlayer({ bulletin }: { bulletin: RadioBulletin }) {
       return;
     }
     setPlaying(true);
-    await speakPt(bulletin.script, slow ? 0.78 : 0.96, "leo");
+    await speakPt(bulletin.script, slow ? 0.78 : 0.96);
     setPlaying(false);
   }
 
@@ -90,7 +93,6 @@ function ListenPlayer({ bulletin }: { bulletin: RadioBulletin }) {
         ) : phase === "quiz" ? (
           <QuizBlock
             questions={bulletin.quiz}
-            voice="leo"
             onFinished={(n) => void finish(n)}
           />
         ) : (
@@ -114,7 +116,9 @@ function ListenPlayer({ bulletin }: { bulletin: RadioBulletin }) {
               <button
                 type="button"
                 onClick={() => void play()}
-                className="grid size-20 place-items-center rounded-full bg-accent text-accent-fg shadow-[var(--shadow-border)]"
+                disabled={noVoice}
+                title={noVoice ? NO_VOICE_NOTE : undefined}
+                className="grid size-20 disabled:opacity-40 place-items-center rounded-full bg-accent text-accent-fg shadow-[var(--shadow-border)]"
                 aria-label={playing ? "Stop" : "Play bulletin"}
               >
                 {playing ? (

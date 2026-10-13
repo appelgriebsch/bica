@@ -1,18 +1,18 @@
 import { useRef, useState } from "react";
+import { NO_VOICE_NOTE } from "@/components/pt-voice-notice";
 import { Button } from "@/components/ui/button";
 import type { QuizQuestion } from "@/data/types";
-import { speakPt, type SpeakVoice } from "@/lib/tts";
+import { speakPt, usePtVoiceStatus } from "@/lib/tts";
 import { answersMatch, cn } from "@/lib/utils";
 
 export function QuizBlock({
   questions,
   onFinished,
-  voice = "eve",
 }: {
   questions: QuizQuestion[];
   onFinished: (correct: number) => void;
-  voice?: SpeakVoice;
 }) {
+  const noVoice = usePtVoiceStatus() === "none";
   const [index, setIndex] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const [typed, setTyped] = useState("");
@@ -66,7 +66,9 @@ export function QuizBlock({
           type="button"
           variant="outline"
           className="mt-3"
-          onClick={() => void speakPt(question.speak!, 0.86, voice)}
+          disabled={noVoice}
+          title={noVoice ? NO_VOICE_NOTE : undefined}
+          onClick={() => void speakPt(question.speak!, 0.86)}
         >
           Play the line
         </Button>

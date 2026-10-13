@@ -17,7 +17,7 @@ import {
   verbDesks,
   workingLevel,
 } from "@/data/curriculum";
-import { warmVoices } from "@/lib/tts";
+import { loadPtVoice } from "@/lib/tts";
 import { useProgress } from "@/lib/progress-store";
 import { greetingForHour, todayKey } from "@/lib/utils";
 
@@ -33,7 +33,7 @@ function Home() {
 
   useEffect(() => {
     setHour(new Date().getHours());
-    warmVoices();
+    void loadPtVoice();
   }, []);
 
   const greet = greetingForHour(hour);

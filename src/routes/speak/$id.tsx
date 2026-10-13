@@ -10,7 +10,8 @@ import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { sceneImageFor } from "@/lib/scene-image";
 import { cn } from "@/lib/utils";
-import { useOnline } from "@/components/pwa";
+import { OnlineOnly } from "@/components/online-only";
+import { useOnline } from "@/lib/online";
 
 export const Route = createFileRoute("/speak/$id")({ component: SpeakScene });
 
@@ -45,7 +46,8 @@ function SpeakScene() {
       </AppShell>
     );
   }
-  if (!user) return <RedirectToSignIn />;
+  // Offline the session can't be checked; the scene (bundled) still opens read-only.
+  if (!user && online) return <RedirectToSignIn />;
   if (!scenario) {
     return (
       <AppShell>
@@ -57,7 +59,7 @@ function SpeakScene() {
 
   async function onSend() {
     const text = draft.trim();
-    if (!text || busy || !scenario || !online) return;
+    if (!text || busy || !scenario || !online || !user) return;
     const nextTurns: Turn[] = [...turns, { role: "user", content: text }];
     setTurns(nextTurns);
     setDraft("");
@@ -147,7 +149,7 @@ function SpeakScene() {
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}
       {!online && (
         <p className="mt-3 text-sm text-muted">
-          You're offline. The opener is here; replies wait for a connection.
+          You're offline. Your transcript stays here; replies need internet and nothing is sent until you're back.
         </p>
       )}
 
@@ -169,9 +171,11 @@ function SpeakScene() {
           maxLength={500}
           className="h-12 min-h-12 flex-1 rounded-[var(--radius-md)] border border-border bg-surface px-3 text-base text-fg outline-none ring-accent placeholder:text-subtle focus:ring-2"
         />
-        <Button type="submit" size="icon" disabled={busy || !online || !draft.trim()} aria-label="Send">
-          <Send />
-        </Button>
+        <OnlineOnly feature="conversas" label="Send">
+          <Button type="submit" size="icon" disabled={busy || (online && !draft.trim())}>
+            <Send />
+          </Button>
+        </OnlineOnly>
       </form>
     </AppShell>
   );

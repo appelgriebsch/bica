@@ -1,4 +1,5 @@
 import { fetchProgress, saveProgressSnapshot } from "@/lib/progress-server";
+import { announce, isOnline } from "@/lib/online";
 import { useProgress } from "@/lib/progress-store";
 
 /**
@@ -9,12 +10,19 @@ import { useProgress } from "@/lib/progress-store";
 export async function syncProgressWithAccount(): Promise<{ ok: boolean; error?: string }> {
   const progress = useProgress.getState();
   if (progress.syncing) return { ok: true };
+  // Offline: stay queued (syncPending); ProgressSync flushes on a confirmed reconnect.
+  if (!isOnline()) return { ok: false, error: "offline" };
+  const queued = progress.syncPending;
   progress.setSyncing(true);
   try {
     const remote = await fetchProgress();
     useProgress.getState().mergeRemote(remote);
+    const changes = useProgress.getState().changes;
     await saveProgressSnapshot({ data: useProgress.getState().snapshot() });
-    useProgress.getState().markSynced();
+    // ponytail: a change that lands mid-push stays queued (syncPending) and is only sent on the
+    // next reconnect, tab return or sign-in; add an immediate re-push if that lag shows up.
+    useProgress.getState().markSynced(changes);
+    if (queued && !useProgress.getState().syncPending) announce("Synced");
     return { ok: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not reach the account.";

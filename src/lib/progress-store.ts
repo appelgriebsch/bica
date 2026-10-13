@@ -31,8 +31,13 @@ export type ProgressState = {
   lastSyncedAt: string | null;
   syncing: boolean;
   syncError: string | null;
+  /** Local changes not yet pushed to the account (the offline sync queue). Persisted. */
+  syncPending: boolean;
+  /** Bumped by every local change (not persisted); markSynced compares it to the snapshot's. */
+  changes: number;
   markHydrated: () => void;
-  markSynced: () => void;
+  /** Clears syncPending only if nothing changed since `changesAtSnapshot` (the `changes` read before the push). */
+  markSynced: (changesAtSnapshot?: number) => void;
   setSyncing: (syncing: boolean) => void;
   setSyncError: (syncError: string | null) => void;
   setFloor: (level: CefrLevel) => void;
@@ -76,11 +81,23 @@ export const useProgress = create<ProgressState>()(
       lastSyncedAt: null,
       syncing: false,
       syncError: null,
+      syncPending: false,
+      changes: 0,
       markHydrated: () => set({ hydrated: true }),
-      markSynced: () => set({ lastSyncedAt: new Date().toISOString(), syncError: null, syncing: false }),
+      markSynced: (changesAtSnapshot) =>
+        set((s) => ({
+          lastSyncedAt: new Date().toISOString(),
+          syncError: null,
+          syncing: false,
+          syncPending:
+            changesAtSnapshot !== undefined && s.changes !== changesAtSnapshot
+              ? s.syncPending
+              : false,
+        })),
       setSyncing: (syncing) => set({ syncing }),
       setSyncError: (syncError) => set({ syncError, syncing: false }),
-      setFloor: (level) => set({ floor: level }),
+      setFloor: (level) =>
+        set((s) => ({ floor: level, syncPending: true, changes: s.changes + 1 })),
       completeLesson: (lessonId, result) => {
         const today = todayKey();
         const prev = get();
@@ -103,6 +120,8 @@ export const useProgress = create<ProgressState>()(
           xp: prev.xp + deltaXp,
           streak,
           lastStudyDate,
+          syncPending: true,
+          changes: prev.changes + 1,
         });
       },
       gradeVocab: (cardId, knew) => {
@@ -113,6 +132,8 @@ export const useProgress = create<ProgressState>()(
             ...prev.cards,
             [cardId]: gradeCard(prev.cards[cardId], knew, today),
           },
+          syncPending: true,
+          changes: prev.changes + 1,
         });
       },
       touchStudy: (xp = 0) => {
@@ -127,6 +148,8 @@ export const useProgress = create<ProgressState>()(
           xp: prev.xp + xp,
           streak,
           lastStudyDate,
+          syncPending: true,
+          changes: prev.changes + 1,
         });
       },
       mergeRemote: (remote) => {
@@ -179,6 +202,7 @@ export const useProgress = create<ProgressState>()(
         lastStudyDate: s.lastStudyDate,
         floor: s.floor,
         cards: s.cards,
+        syncPending: s.syncPending,
       }),
       onRehydrateStorage: () => (_state, error) => {
         if (!error) useProgress.getState().markHydrated();

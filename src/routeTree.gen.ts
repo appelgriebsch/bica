@@ -18,6 +18,7 @@ import { Route as PracticeRouteImport } from './routes/practice'
 import { Route as ReviewRouteImport } from './routes/review'
 import { Route as SpeakRouteImport } from './routes/speak'
 import { Route as VerbsRouteImport } from './routes/verbs'
+import { Route as ApiPingRouteImport } from './routes/api/ping'
 import { Route as GrammarIndexRouteImport } from './routes/grammar/index'
 import { Route as GrammarIdRouteImport } from './routes/grammar/$id'
 import { Route as LessonIdRouteImport } from './routes/lesson/$id'
@@ -72,6 +73,11 @@ const SpeakRoute = SpeakRouteImport.update({
 const VerbsRoute = VerbsRouteImport.update({
   id: '/verbs',
   path: '/verbs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPingRoute = ApiPingRouteImport.update({
+  id: '/api/ping',
+  path: '/api/ping',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GrammarIndexRoute = GrammarIndexRouteImport.update({
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/review': typeof ReviewRoute
   '/speak': typeof SpeakRouteWithChildren
   '/verbs': typeof VerbsRouteWithChildren
+  '/api/ping': typeof ApiPingRoute
   '/grammar/$id': typeof GrammarIdRoute
   '/lesson/$id': typeof LessonIdRoute
   '/listen/$id': typeof ListenIdRoute
@@ -153,6 +160,7 @@ export interface FileRoutesByTo {
   '/path': typeof PathRoute
   '/practice': typeof PracticeRoute
   '/review': typeof ReviewRoute
+  '/api/ping': typeof ApiPingRoute
   '/grammar/$id': typeof GrammarIdRoute
   '/lesson/$id': typeof LessonIdRoute
   '/listen/$id': typeof ListenIdRoute
@@ -175,6 +183,7 @@ export interface FileRoutesById {
   '/review': typeof ReviewRoute
   '/speak': typeof SpeakRouteWithChildren
   '/verbs': typeof VerbsRouteWithChildren
+  '/api/ping': typeof ApiPingRoute
   '/grammar/$id': typeof GrammarIdRoute
   '/lesson/$id': typeof LessonIdRoute
   '/listen/$id': typeof ListenIdRoute
@@ -198,6 +207,7 @@ export interface FileRouteTypes {
     | '/review'
     | '/speak'
     | '/verbs'
+    | '/api/ping'
     | '/grammar/$id'
     | '/lesson/$id'
     | '/listen/$id'
@@ -216,6 +226,7 @@ export interface FileRouteTypes {
     | '/path'
     | '/practice'
     | '/review'
+    | '/api/ping'
     | '/grammar/$id'
     | '/lesson/$id'
     | '/listen/$id'
@@ -237,6 +248,7 @@ export interface FileRouteTypes {
     | '/review'
     | '/speak'
     | '/verbs'
+    | '/api/ping'
     | '/grammar/$id'
     | '/lesson/$id'
     | '/listen/$id'
@@ -259,6 +271,7 @@ export interface RootRouteChildren {
   ReviewRoute: typeof ReviewRoute
   SpeakRoute: typeof SpeakRouteWithChildren
   VerbsRoute: typeof VerbsRouteWithChildren
+  ApiPingRoute: typeof ApiPingRoute
   LessonIdRoute: typeof LessonIdRoute
   ListenIdRoute: typeof ListenIdRoute
   ReadIdRoute: typeof ReadIdRoute
@@ -328,6 +341,13 @@ declare module '@tanstack/react-router' {
       path: '/verbs'
       fullPath: '/verbs'
       preLoaderRoute: typeof VerbsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ping': {
+      id: '/api/ping'
+      path: '/api/ping'
+      fullPath: '/api/ping'
+      preLoaderRoute: typeof ApiPingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/grammar/': {
@@ -450,6 +470,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReviewRoute: ReviewRoute,
   SpeakRoute: SpeakRouteWithChildren,
   VerbsRoute: VerbsRouteWithChildren,
+  ApiPingRoute: ApiPingRoute,
   LessonIdRoute: LessonIdRoute,
   ListenIdRoute: ListenIdRoute,
   ReadIdRoute: ReadIdRoute,

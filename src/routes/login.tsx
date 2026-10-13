@@ -3,6 +3,7 @@ import { useState } from "react";
 import { GROK_PROVIDERS, authEnabled, signIn } from "@/lib/auth/client";
 import { AzulejoMark } from "@/components/azulejo-mark";
 import { Button } from "@/components/ui/button";
+import { OnlineOnly } from "@/components/online-only";
 
 export const Route = createFileRoute("/login")({ component: Login });
 
@@ -28,25 +29,26 @@ function Login() {
         <div className="mt-8 space-y-3">
           {authEnabled ? (
             GROK_PROVIDERS.map((p) => (
-              <Button
-                key={p.providerId}
-                type="button"
-                variant="outline"
-                className="h-12 w-full"
-                disabled={busy !== null}
-                onClick={() => {
-                  setError(null);
-                  setBusy(p.providerId);
-                  void signIn(p.providerId, { callbackURL: "/" }).catch((err: unknown) => {
-                    setBusy(null);
-                    setError(
-                      err instanceof Error ? err.message : "Sign-in failed. Try again.",
-                    );
-                  });
-                }}
-              >
-                {busy === p.providerId ? "Opening…" : `Continue with ${p.label}`}
-              </Button>
+              <OnlineOnly key={p.providerId} feature="signIn" label={`Continue with ${p.label}`}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-12 w-full"
+                  disabled={busy !== null}
+                  onClick={() => {
+                    setError(null);
+                    setBusy(p.providerId);
+                    void signIn(p.providerId, { callbackURL: "/" }).catch((err: unknown) => {
+                      setBusy(null);
+                      setError(
+                        err instanceof Error ? err.message : "Sign-in failed. Try again.",
+                      );
+                    });
+                  }}
+                >
+                  {busy === p.providerId ? "Opening…" : `Continue with ${p.label}`}
+                </Button>
+              </OnlineOnly>
             ))
           ) : (
             <p className="text-sm text-muted">Sign-in is disabled.</p>

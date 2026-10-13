@@ -18,10 +18,11 @@ export async function persistCompletion(
     await saveLessonProgress({
       data: { lessonId: id, quizScore, quizTotal, xp },
     });
+    const changes = useProgress.getState().changes;
     await saveProgressSnapshot({ data: useProgress.getState().snapshot() });
-    useProgress.getState().markSynced();
+    useProgress.getState().markSynced(changes);
   } catch {
-    /* guest, or the line dropped — the next ProgressSync will retry */
+    /* guest, or the line dropped — stays pending; ProgressSync flushes on reconnect / sign-in */
   }
   return xp;
 }

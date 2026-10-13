@@ -51,6 +51,12 @@ export async function startBuildServer(port = 8090) {
   const { handler } = await loadBuildHandler();
   const server = createServer(async (req, res) => {
     const path = normalize(decodeURIComponent((req.url ?? "/").split("?")[0]));
+    // Test hook: mimic Workers' auto-trailing-slash redirect for the shell.
+    if (server.redirectShell && path === "/_shell") {
+      // Target answers 200, so only the redirect guard in sw.js can refuse it.
+      res.writeHead(301, { location: "/" }).end();
+      return;
+    }
     const file = join(STATIC, path);
     if (file.startsWith(STATIC) && path !== "/") {
       const info = await stat(file).catch(() => null);

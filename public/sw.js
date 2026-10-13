@@ -33,7 +33,14 @@ self.addEventListener("install", (event) => {
         await cache.addAll(PRECACHE.map((url) => new Request(url, { cache: "reload" })));
         // A redirected or non-200 shell can't answer navigations: refuse the install.
         const shell = await cache.match(SHELL);
-        if (PRECACHE.includes(SHELL) && (!shell || shell.redirected || shell.status !== 200)) {
+        if (
+          PRECACHE.includes(SHELL) &&
+          (!shell ||
+            shell.redirected ||
+            shell.status !== 200 ||
+            // `redirected` may not survive Cache API storage; the final URL does.
+            (shell.url && new URL(shell.url).pathname !== SHELL))
+        ) {
           throw new Error("shell precache is a redirect or missing");
         }
       } catch (err) {

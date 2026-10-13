@@ -93,40 +93,57 @@ try {
   if (scenes !== 20) failures.push("scenes");
   await context.setOffline(false);
 
-  // Upgrade with a broken asset: the new install must fail, old cache stays.
+  // Upgrades that must be refused: the new install fails, the old cache stays active.
   const swPath = join(process.cwd(), buildOutput().publicDir, "sw.js");
   const original = await readFile(swPath, "utf8");
-  await writeFile(
-    swPath,
-    original
-      .replace(/const VERSION = "[^"]*";/, 'const VERSION = "ffffffffffffffff";')
-      .replace(/const PRECACHE = \[/, 'const PRECACHE = ["/assets/missing-0000.js",'),
-  );
-  try {
-    const after = await page.evaluate(async () => {
-      const reg = await navigator.serviceWorker.getRegistration();
-      await reg.update().catch(() => {});
-      const sw = reg.installing;
-      if (sw)
-        await new Promise((r) =>
-          sw.addEventListener("statechange", () => sw.state === "redundant" && r()),
-        );
-      return {
-        active: reg.active?.state,
-        waiting: Boolean(reg.waiting),
-        keys: await caches.keys(),
-      };
-    });
-    const kept =
-      after.active === "activated" &&
-      !after.waiting &&
-      after.keys.includes(version) &&
-      !after.keys.includes("bica-ffffffffffffffff");
-    console.log(kept ? "ok  " : "FAIL", "broken upgrade keeps", version, JSON.stringify(after));
-    if (!kept) failures.push("upgrade");
-  } finally {
-    await writeFile(swPath, original);
+  async function refusedUpgrade(what, nextSw, setup = () => {}, teardown = () => {}) {
+    await writeFile(swPath, nextSw);
+    setup();
+    try {
+      const after = await page.evaluate(async () => {
+        const reg = await navigator.serviceWorker.getRegistration();
+        await reg.update().catch(() => {});
+        const sw = reg.installing;
+        // "installed" = the upgrade wrongly succeeded; resolve on either so a regression fails, not hangs.
+        if (sw)
+          await new Promise((r) =>
+            sw.addEventListener(
+              "statechange",
+              () => ["redundant", "installed", "activated"].includes(sw.state) && r(),
+            ),
+          );
+        return {
+          active: reg.active?.state,
+          waiting: Boolean(reg.waiting),
+          keys: await caches.keys(),
+        };
+      });
+      const kept =
+        after.active === "activated" &&
+        !after.waiting &&
+        after.keys.includes(version) &&
+        !after.keys.includes("bica-ffffffffffffffff");
+      console.log(kept ? "ok  " : "FAIL", what, "keeps", version, JSON.stringify(after));
+      if (!kept) failures.push(what);
+    } finally {
+      teardown();
+      await writeFile(swPath, original);
+    }
   }
+  const nextVersion = original.replace(
+    /const VERSION = "[^"]*";/,
+    'const VERSION = "ffffffffffffffff";',
+  );
+  await refusedUpgrade(
+    "broken asset upgrade",
+    nextVersion.replace(/const PRECACHE = \[/, 'const PRECACHE = ["/assets/missing-0000.js",'),
+  );
+  await refusedUpgrade(
+    "redirected /_shell upgrade (301)",
+    nextVersion,
+    () => (server.redirectShell = true),
+    () => (server.redirectShell = false),
+  );
 } finally {
   await browser.close();
   server.close();

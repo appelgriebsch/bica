@@ -6,6 +6,9 @@
  */
 export const NITRO_PRESET = "vercel";
 
+// ponytail: vercel only. For cloudflare_module, confirm where Nitro 3 beta writes
+// the public dir and worker entry (likely .output/public, .output/server/index.mjs)
+// and how precache.mjs can render the shell under workerd, then add the entry.
 const OUTPUTS = {
   vercel: {
     publicDir: ".vercel/output/static",

@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test scripts/*.test.mjs",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "deps:check": "node scripts/deps-check.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",

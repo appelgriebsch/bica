@@ -1,7 +1,7 @@
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,9 +23,20 @@ test("bumpKind classifies updates", () => {
 });
 
 // A fixture project with no installed deps, so npm outdated / npm ls run offline.
-function fixture({ lockEntry = {}, bomVersion = "1.0.0", workflow } = {}) {
+const dirs = [];
+after(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })));
+
+function fixture({
+  lockEntry = {},
+  bomVersion = "1.0.0",
+  workflow,
+  deps,
+  lockDeps = deps,
+  bom = `| dep | ${bomVersion} |\n`,
+} = {}) {
   const dir = mkdtempSync(join(tmpdir(), "deps-check-"));
-  const pkg = { name: "fx", version: "1.0.0" };
+  dirs.push(dir);
+  const pkg = { name: "fx", version: "1.0.0", ...(deps && { dependencies: deps }) };
   writeFileSync(join(dir, "package.json"), JSON.stringify(pkg));
   const entry = {
     version: "1.0.0",
@@ -37,12 +48,15 @@ function fixture({ lockEntry = {}, bomVersion = "1.0.0", workflow } = {}) {
     join(dir, "package-lock.json"),
     JSON.stringify({
       lockfileVersion: 3,
-      packages: { "": { name: "fx", version: "1.0.0" }, "node_modules/dep": entry },
+      packages: {
+        "": { name: "fx", version: "1.0.0", ...(lockDeps && { dependencies: lockDeps }) },
+        "node_modules/dep": entry,
+      },
     }),
   );
   writeFileSync(
     join(dir, "THIRD-PARTY.md"),
-    `| Name | Version |\n| --- | --- |\n| dep | ${bomVersion} |\n\n## Notes\n| dep | 9.9.9 |\n`,
+    `| Name | Version |\n| --- | --- |\n${bom}\n## Notes\n| dep | 9.9.9 |\n`,
   );
   if (workflow) {
     mkdirSync(join(dir, ".github/workflows"), { recursive: true });
@@ -51,9 +65,23 @@ function fixture({ lockEntry = {}, bomVersion = "1.0.0", workflow } = {}) {
   return dir;
 }
 
-function check(dir) {
+// Fake `npm` first on PATH: `outdated` prints `outdated` and exits 1 (as npm does), `ls` is clean.
+function fakeNpm(dir, outdated) {
+  const bin = join(dir, "bin");
+  mkdirSync(bin);
+  writeFileSync(join(dir, "outdated.txt"), outdated);
+  writeFileSync(
+    join(bin, "npm"),
+    `#!/bin/sh\nif [ "$1" = outdated ]; then cat "${join(dir, "outdated.txt")}"; exit 1; fi\necho '{}'\n`,
+  );
+  chmodSync(join(bin, "npm"), 0o755);
+  return { PATH: `${bin}:${process.env.PATH}` };
+}
+
+function check(dir, args = [], env = {}) {
   try {
-    return { code: 0, out: execFileSync("node", [script], { cwd: dir, encoding: "utf8" }) };
+    const opts = { cwd: dir, encoding: "utf8", env: { ...process.env, ...env } };
+    return { code: 0, out: execFileSync("node", [script, ...args], opts) };
   } catch (err) {
     return { code: err.status, out: String(err.stdout) };
   }
@@ -92,4 +120,56 @@ test("fails actions pinned to a tag or without a version comment", () => {
   assert.equal(r.code, 1);
   assert.match(r.out, /actions\/checkout@v4 is not pinned to a commit SHA/);
   assert.match(r.out, /actions\/setup-node pinned without a "# vX" version comment/);
+});
+
+const direct = { deps: { dep: "^1.0.0" } };
+
+test("passes a direct dependency listed at its locked version", () => {
+  const dir = fixture(direct);
+  const r = check(dir, [], fakeNpm(dir, "{}"));
+  assert.equal(r.code, 0, r.out);
+});
+
+test("fails a direct dependency missing from THIRD-PARTY.md", () => {
+  const dir = fixture({ ...direct, bom: "" });
+  const r = check(dir, [], fakeNpm(dir, "{}"));
+  assert.equal(r.code, 1);
+  assert.match(r.out, /dep missing from THIRD-PARTY.md/);
+});
+
+test("fails a direct dependency whose BOM version differs from the lockfile", () => {
+  const dir = fixture({ ...direct, bomVersion: "0.9.0" });
+  const r = check(dir, [], fakeNpm(dir, "{}"));
+  assert.equal(r.code, 1);
+  assert.match(r.out, /dep: THIRD-PARTY.md says 0\.9\.0, lockfile has 1\.0\.0/);
+});
+
+test("fails when the lock root dependencies differ from package.json", () => {
+  const dir = fixture({ ...direct, lockDeps: { dep: "^0.9.0" } });
+  const r = check(dir, [], fakeNpm(dir, "{}"));
+  assert.equal(r.code, 1);
+  assert.match(r.out, /package-lock root dependencies differ from package.json/);
+});
+
+test("fails when npm outdated returns invalid JSON", () => {
+  const dir = fixture();
+  const r = check(dir, [], fakeNpm(dir, "npm ERR! network"));
+  assert.equal(r.code, 1);
+  assert.match(r.out, /npm outdated returned no JSON/);
+});
+
+const minorUpdate = JSON.stringify({
+  dep: { current: "1.0.0", wanted: "1.1.0", latest: "2.0.0" },
+});
+
+test("in-range updates warn by default and fail with --strict", () => {
+  const dir = fixture();
+  const env = fakeNpm(dir, minorUpdate);
+  const loose = check(dir, [], env);
+  assert.equal(loose.code, 0, loose.out);
+  assert.match(loose.out, /warn {2}1 in-range patch\/minor updates/);
+  assert.match(loose.out, /\| dep \| 1\.0\.0 \| 1\.1\.0 \| 2\.0\.0 \| major \|/);
+  const strict = check(dir, ["--strict"], env);
+  assert.equal(strict.code, 1);
+  assert.match(strict.out, /FAIL {2}1 in-range patch\/minor updates/);
 });

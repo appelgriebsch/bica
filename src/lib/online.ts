@@ -31,11 +31,11 @@ function schedule(ms: number) {
   timer = setTimeout(() => void check(), ms);
 }
 
-/** Any HTTP response counts as reachable; only a network error does not. */
+/** Only our own 204 counts: a captive portal answers too, but not with that. */
 export async function probe(): Promise<boolean> {
   try {
-    await rawFetch(PROBE_URL, { method: "HEAD", cache: "no-store" });
-    return true;
+    const res = await rawFetch(PROBE_URL, { method: "HEAD", cache: "no-store" });
+    return res.status === 204;
   } catch {
     return false;
   }
@@ -91,6 +91,9 @@ export function startOnlineWatch() {
   const base = window.fetch.bind(window);
   rawFetch = base;
   window.fetch = (input, init) => {
+    // Only our own origin says anything about "the app is reachable"; a third-party outage doesn't.
+    const url = input instanceof Request ? input.url : String(input);
+    if (new URL(url, location.href).origin !== location.origin) return base(input, init);
     if (fake) return Promise.reject(new TypeError("Failed to fetch (fake offline)"));
     return base(input, init).catch((err: unknown) => {
       if (!(err instanceof DOMException && err.name === "AbortError")) markOffline();

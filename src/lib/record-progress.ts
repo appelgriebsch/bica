@@ -14,13 +14,13 @@ export async function persistCompletion(
 ) {
   const xp = 8 + quizScore * 2;
   useProgress.getState().completeLesson(id, { quizScore, quizTotal, xp });
-  useProgress.getState().setSyncPending(true);
   try {
     await saveLessonProgress({
       data: { lessonId: id, quizScore, quizTotal, xp },
     });
+    const changes = useProgress.getState().changes;
     await saveProgressSnapshot({ data: useProgress.getState().snapshot() });
-    useProgress.getState().markSynced();
+    useProgress.getState().markSynced(changes);
   } catch {
     /* guest, or the line dropped — stays pending; ProgressSync flushes on reconnect / sign-in */
   }

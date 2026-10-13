@@ -17,9 +17,10 @@ export async function syncProgressWithAccount(): Promise<{ ok: boolean; error?: 
   try {
     const remote = await fetchProgress();
     useProgress.getState().mergeRemote(remote);
+    const changes = useProgress.getState().changes;
     await saveProgressSnapshot({ data: useProgress.getState().snapshot() });
-    useProgress.getState().markSynced();
-    if (queued) announce("Synced");
+    useProgress.getState().markSynced(changes);
+    if (queued && !useProgress.getState().syncPending) announce("Synced");
     return { ok: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not reach the account.";

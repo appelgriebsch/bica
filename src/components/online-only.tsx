@@ -13,11 +13,14 @@ import { cn } from "@/lib/utils";
  * offers the alternative. Wraps exactly one element (button or link):
  *   <OnlineOnly feature="sync" label="Refresh from account"><Button>…</Button></OnlineOnly>
  * `placement="corner"` puts the marker top-right (cards); default is inline before the label.
+ * `gate={false}`: marker only — for entry points whose content is bundled and opens offline
+ * (scene cards); the online-only part inside them is gated on its own.
  */
 export function OnlineOnly({
   feature,
   label,
   placement = "inline",
+  gate = true,
   className,
   children,
 }: {
@@ -25,10 +28,11 @@ export function OnlineOnly({
   /** Visible name of the control; the accessible name adds the online state. */
   label: string;
   placement?: "inline" | "corner";
+  gate?: boolean;
   className?: string;
   children: ReactElement;
 }) {
-  const online = useOnline();
+  const online = useOnline() || !gate;
   const navigate = useNavigate();
   const f = ONLINE_FEATURES[feature];
   const alt = "alternative" in f ? f.alternative : undefined;

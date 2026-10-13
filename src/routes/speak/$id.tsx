@@ -46,7 +46,8 @@ function SpeakScene() {
       </AppShell>
     );
   }
-  if (!user) return <RedirectToSignIn />;
+  // Offline the session can't be checked; the scene (bundled) still opens read-only.
+  if (!user && online) return <RedirectToSignIn />;
   if (!scenario) {
     return (
       <AppShell>
@@ -58,7 +59,7 @@ function SpeakScene() {
 
   async function onSend() {
     const text = draft.trim();
-    if (!text || busy || !scenario || !online) return;
+    if (!text || busy || !scenario || !online || !user) return;
     const nextTurns: Turn[] = [...turns, { role: "user", content: text }];
     setTurns(nextTurns);
     setDraft("");

@@ -91,9 +91,9 @@ function ReviewPage() {
   function finishSession(knewCount: number) {
     touchStudy(4 + knewCount);
     setPhase("done");
-    useProgress.getState().setSyncPending(true);
+    const changes = useProgress.getState().changes;
     void saveProgressSnapshot({ data: useProgress.getState().snapshot() })
-      .then(() => useProgress.getState().markSynced())
+      .then(() => useProgress.getState().markSynced(changes))
       .catch(() => undefined);
   }
 

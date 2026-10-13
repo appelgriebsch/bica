@@ -23,6 +23,7 @@ async function load(file) {
 const events = {};
 const probes = [];
 let reachable = true;
+let status = 204;
 globalThis.navigator = { onLine: true };
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 globalThis.window = {
@@ -30,10 +31,10 @@ globalThis.window = {
   fetch: async (url, init) => {
     probes.push({ url, method: init?.method });
     if (!reachable) throw new TypeError("Failed to fetch");
-    return { ok: true };
+    return { ok: status < 300, status };
   },
 };
-globalThis.location = { search: "" };
+globalThis.location = { search: "", href: "https://bica.test/", origin: "https://bica.test" };
 const online = await load("src/lib/online.ts");
 const features = await load("src/lib/online-features.ts");
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -70,6 +71,17 @@ test("online state: events, HEAD probe, debounce, request-failure flip", async (
     reachable = true;
   });
 
+  await t.test("a non-204 answer (captive portal) keeps it offline", async () => {
+    navigator.onLine = false;
+    events.offline();
+    navigator.onLine = true;
+    status = 200;
+    events.online();
+    await wait(online.DEBOUNCE_MS + 200);
+    assert.equal(online.isOnline(), false);
+    status = 204;
+  });
+
   await t.test("any failed request flips offline", async () => {
     online.setFakeOffline(false);
     await wait(online.DEBOUNCE_MS + 200);
@@ -77,6 +89,16 @@ test("online state: events, HEAD probe, debounce, request-failure flip", async (
     reachable = false;
     await assert.rejects(window.fetch("/_serverFn/x"));
     assert.equal(online.isOnline(), false);
+    reachable = true;
+  });
+
+  await t.test("a failing third-party request does not flip it", async () => {
+    online.setFakeOffline(false);
+    await wait(online.DEBOUNCE_MS + 200);
+    assert.equal(online.isOnline(), true);
+    reachable = false;
+    await assert.rejects(window.fetch("https://cdn.example.com/x.js"));
+    assert.equal(online.isOnline(), true);
     reachable = true;
   });
 

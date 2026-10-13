@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { ProgressSync } from "@/components/progress-sync";
 import { AzulejoMark } from "@/components/azulejo-mark";
 import { OfflineChip } from "@/components/offline-status";
+import { OnlineOnly } from "@/components/online-only";
 
 const nav = [
   { to: "/", label: "Today", icon: House, match: (p: string) => p === "/" },
@@ -90,12 +91,14 @@ export function AppShell({
                 )}
               </Link>
             ) : (
-              <Link
-                to="/login"
-                className="text-sm font-medium text-accent no-underline hover:underline"
-              >
-                Sign in
-              </Link>
+              <OnlineOnly feature="signIn" label="Sign in">
+                <Link
+                  to="/login"
+                  className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent no-underline hover:underline"
+                >
+                  Sign in
+                </Link>
+              </OnlineOnly>
             )}
           </div>
         </div>

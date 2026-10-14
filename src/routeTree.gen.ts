@@ -18,6 +18,7 @@ import { Route as PracticeRouteImport } from './routes/practice'
 import { Route as ReviewRouteImport } from './routes/review'
 import { Route as SpeakRouteImport } from './routes/speak'
 import { Route as VerbsRouteImport } from './routes/verbs'
+import { Route as ApiCspReportRouteImport } from './routes/api/csp-report'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiPingRouteImport } from './routes/api/ping'
 import { Route as GrammarIndexRouteImport } from './routes/grammar/index'
@@ -74,6 +75,11 @@ const SpeakRoute = SpeakRouteImport.update({
 const VerbsRoute = VerbsRouteImport.update({
   id: '/verbs',
   path: '/verbs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCspReportRoute = ApiCspReportRouteImport.update({
+  id: '/api/csp-report',
+  path: '/api/csp-report',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
@@ -147,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/review': typeof ReviewRoute
   '/speak': typeof SpeakRouteWithChildren
   '/verbs': typeof VerbsRouteWithChildren
+  '/api/csp-report': typeof ApiCspReportRoute
   '/api/health': typeof ApiHealthRoute
   '/api/ping': typeof ApiPingRoute
   '/grammar/$id': typeof GrammarIdRoute
@@ -167,6 +174,7 @@ export interface FileRoutesByTo {
   '/path': typeof PathRoute
   '/practice': typeof PracticeRoute
   '/review': typeof ReviewRoute
+  '/api/csp-report': typeof ApiCspReportRoute
   '/api/health': typeof ApiHealthRoute
   '/api/ping': typeof ApiPingRoute
   '/grammar/$id': typeof GrammarIdRoute
@@ -191,6 +199,7 @@ export interface FileRoutesById {
   '/review': typeof ReviewRoute
   '/speak': typeof SpeakRouteWithChildren
   '/verbs': typeof VerbsRouteWithChildren
+  '/api/csp-report': typeof ApiCspReportRoute
   '/api/health': typeof ApiHealthRoute
   '/api/ping': typeof ApiPingRoute
   '/grammar/$id': typeof GrammarIdRoute
@@ -216,6 +225,7 @@ export interface FileRouteTypes {
     | '/review'
     | '/speak'
     | '/verbs'
+    | '/api/csp-report'
     | '/api/health'
     | '/api/ping'
     | '/grammar/$id'
@@ -236,6 +246,7 @@ export interface FileRouteTypes {
     | '/path'
     | '/practice'
     | '/review'
+    | '/api/csp-report'
     | '/api/health'
     | '/api/ping'
     | '/grammar/$id'
@@ -259,6 +270,7 @@ export interface FileRouteTypes {
     | '/review'
     | '/speak'
     | '/verbs'
+    | '/api/csp-report'
     | '/api/health'
     | '/api/ping'
     | '/grammar/$id'
@@ -283,6 +295,7 @@ export interface RootRouteChildren {
   ReviewRoute: typeof ReviewRoute
   SpeakRoute: typeof SpeakRouteWithChildren
   VerbsRoute: typeof VerbsRouteWithChildren
+  ApiCspReportRoute: typeof ApiCspReportRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiPingRoute: typeof ApiPingRoute
   LessonIdRoute: typeof LessonIdRoute
@@ -354,6 +367,13 @@ declare module '@tanstack/react-router' {
       path: '/verbs'
       fullPath: '/verbs'
       preLoaderRoute: typeof VerbsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/csp-report': {
+      id: '/api/csp-report'
+      path: '/api/csp-report'
+      fullPath: '/api/csp-report'
+      preLoaderRoute: typeof ApiCspReportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/health': {
@@ -490,6 +510,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReviewRoute: ReviewRoute,
   SpeakRoute: SpeakRouteWithChildren,
   VerbsRoute: VerbsRouteWithChildren,
+  ApiCspReportRoute: ApiCspReportRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiPingRoute: ApiPingRoute,
   LessonIdRoute: LessonIdRoute,

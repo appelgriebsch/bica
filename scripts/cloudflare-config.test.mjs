@@ -164,6 +164,46 @@ test("assets: explicit html and not-found handling, shell and worker headers", (
   assert.match(headers, /^\/sw\.js\n {2}cache-control: no-cache$/m);
 });
 
+test("#28: _headers /* carries every static security header, same values as the Worker", async () => {
+  const { STATIC_SECURITY_HEADERS } = await import("../src/lib/security-headers.mjs");
+  const headers = readFileSync(join(root, "public/_headers"), "utf8");
+  const block = headers.slice(headers.indexOf("/*\n"), headers.indexOf("\n/sw.js"));
+  const lines = Object.fromEntries(
+    block
+      .split("\n")
+      .slice(1)
+      .map((l) =>
+        l
+          .trim()
+          .split(/:\s(.*)/s)
+          .slice(0, 2),
+      ),
+  );
+  assert.deepEqual(lines, { ...STATIC_SECURITY_HEADERS });
+  for (const h of [
+    "strict-transport-security",
+    "x-frame-options",
+    "referrer-policy",
+    "x-content-type-options",
+  ]) {
+    assert.ok(lines[h], h);
+  }
+});
+
+test("#28: staging smoke checks the security headers and a nonce CSP", () => {
+  const step = workflow.slice(workflow.indexOf("- name: Smoke security headers"));
+  assert.match(step, /for path in \/ \/login/);
+  for (const h of [
+    "strict-transport-security",
+    "x-frame-options",
+    "referrer-policy",
+    "x-content-type-options",
+  ]) {
+    assert.ok(step.includes(h), h);
+  }
+  assert.match(step, /'nonce-/);
+});
+
 test("deploy runs only after green CI for a push to main, on exactly that sha", () => {
   const guard = workflow.slice(
     workflow.indexOf("    if: >-"),

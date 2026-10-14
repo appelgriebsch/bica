@@ -1,4 +1,5 @@
 import { createMiddleware } from "@tanstack/react-start";
+import { serverFnErrors } from "@/lib/server-fn-errors";
 
 /**
  * Auth middleware for server functions — the standard way to get the caller's
@@ -29,6 +30,9 @@ import { createMiddleware } from "@tanstack/react-start";
  * scope every query by `context.userId`.
  */
 export const authMiddleware = createMiddleware({ type: "function" })
+  // Nested so it runs first: maps the throws below to 401/403 and the
+  // function's validator failures to 400 (#28).
+  .middleware([serverFnErrors])
   .client(async ({ next }) => {
     // Live preview (partitioned iframe): the session rides a bearer token, not a
     // cookie, so forward it to the server. Null when deployed (cookie auth), so

@@ -102,6 +102,41 @@ function isNetworkOnly(url) {
   );
 }
 
+function wantsHtml(req) {
+  return req.mode === "navigate" || (req.headers.get("accept") || "").includes("text/html");
+}
+
+/** Navigations, and same-origin HTML GETs of app routes (not files like /og.jpg). */
+function isPageRequest(req, url) {
+  if (req.mode === "navigate") return true;
+  return wantsHtml(req) && !precached.has(url.pathname) && !/\.[a-z0-9]+$/i.test(url.pathname);
+}
+
+/**
+ * What every respondWith path resolves to when neither cache nor network can
+ * answer: never undefined, never a rejection ("Failed to convert value to
+ * 'Response'", #28). HTML gets the shell (or a 503 page); anything else a 503.
+ */
+async function offlineFallback(req) {
+  if (wantsHtml(req)) {
+    // The shell renders only the root and hydrates whatever route the URL names,
+    // with chunks from this same cache.
+    const shell = await caches.match(SHELL, { cacheName: CACHE });
+    if (shell) {
+      // Extensionless file: hosts may label it octet-stream, so force HTML.
+      return new Response(shell.body, {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
+    return new Response("Bica is offline.", {
+      status: 503,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+  return new Response("", { status: 503, statusText: "Offline" });
+}
+
 function isScriptRequest(req) {
   const d = req.destination;
   return d === "script" || d === "worker" || d === "sharedworker" || d === "audioworklet";
@@ -114,7 +149,9 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
   if (isNetworkOnly(url)) return;
 
-  if (req.mode === "navigate") {
+  // A router/preload fetch of an app route (Accept: text/html) is a page load too:
+  // offline it must get the shell, not fall to the runtime cache (#28).
+  if (isPageRequest(req, url)) {
     event.respondWith(networkFirstPage(req));
     return;
   }
@@ -135,26 +172,13 @@ async function networkFirstPage(req) {
       new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), NAV_TIMEOUT_MS)),
     ]);
   } catch {
-    // The shell renders only the root and hydrates whatever route the URL names,
-    // with chunks from this same cache.
-    const shell = await caches.match(SHELL, { cacheName: CACHE });
-    if (shell) {
-      // Extensionless file: hosts may label it octet-stream, so force HTML.
-      return new Response(shell.body, {
-        status: 200,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
-    }
-    return new Response("Bica is offline.", {
-      status: 503,
-      headers: { "content-type": "text/plain; charset=utf-8" },
-    });
+    return offlineFallback(req);
   }
 }
 
 async function cacheFirst(req, path) {
   const hit = await caches.match(path, { cacheName: CACHE });
-  return hit || fetch(req);
+  return hit ?? fetch(req).catch(() => offlineFallback(req));
 }
 
 async function staleWhileRevalidate(req) {
@@ -165,6 +189,6 @@ async function staleWhileRevalidate(req) {
       if (fresh && fresh.ok) void cache.put(req, fresh.clone());
       return fresh;
     })
-    .catch(() => hit);
-  return hit || fetching;
+    .catch(() => hit ?? offlineFallback(req));
+  return hit ?? fetching;
 }

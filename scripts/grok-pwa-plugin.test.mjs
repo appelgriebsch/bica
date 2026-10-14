@@ -14,6 +14,7 @@ import {
   stripInstallParams,
 } from "./grok-pwa-shared.mjs";
 import { renderInstallPage } from "./grok-pwa-plugin.mjs";
+import { APP_NAME } from "../src/lib/app-name.mjs";
 
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -236,13 +237,48 @@ test("renders the manifest with the per-app name", () => {
   assert.equal(manifest.theme_color, "#000000");
 });
 
+test("#28: the configured app name wins on workers.dev and custom hosts", () => {
+  assert.equal(APP_NAME, "Bica");
+  for (const host of ["bica-staging.appelgriebsch.workers.dev", "bica.example.pt", "wild-race.grok.me"]) {
+    const manifest = JSON.parse(renderWebManifest(host, APP_NAME));
+    assert.equal(manifest.name, "Bica", host);
+    assert.equal(manifest.short_name, "Bica", host);
+  }
+  assert.match(renderInstallPage("bica.example.pt", "/?install=1&platform=ios", APP_NAME), /Add Bica to your/);
+});
+
+test("#28: the deployed middleware passes APP_NAME to the manifest, install page and head", () => {
+  const middleware = readFileSync(join(TEMPLATE_ROOT, "server/middleware/grok-pwa.ts"), "utf8");
+  assert.match(middleware, /renderWebManifest\(requestHost\(event\), APP_NAME\)/);
+  assert.equal(middleware.match(/appName: APP_NAME/g)?.length, 2);
+});
+
+test("#28: the injected extensions.js carries the CSP nonce", () => {
+  const html = "<html><head><title>Bica</title></head><body></body></html>";
+  const out = injectGrokPwaHead(html, { ...bareSite, nonce: "abc+/=" });
+  assert.match(out, /<script src="[^"]*extensions\.js" nonce="abc\+\/=" defer><\/script>/);
+  assert.doesNotMatch(injectGrokPwaHead(html, bareSite), /nonce=/);
+  const injector = createHeadInjector({ ...bareSite, nonce: "n1" });
+  const streamed = Buffer.concat([...injector.push(html), ...injector.flush()]).toString();
+  assert.match(streamed, /extensions\.js" nonce="n1"/);
+});
+
+test("#28: a configured name keeps exactly one apple-mobile-web-app-title", () => {
+  const html =
+    '<html><head><title>Bica</title><meta name="apple-mobile-web-app-title" content="Bica"/></head></html>';
+  const out = injectGrokPwaHead(html, { ...bareSite, appName: APP_NAME });
+  assert.equal(out.match(/apple-mobile-web-app-title/g).length, 1);
+  assert.doesNotMatch(out, /Grok App/);
+});
+
 // Tripwires: the deployed-app path only works if Nitro scans server/ — an
 // accidental edit that drops serverDir or the middleware file would otherwise
 // fail silently (published apps would just render the app for ?install=1).
 test("vite config keeps the nitro serverDir wiring", () => {
   const viteConfig = readFileSync(join(TEMPLATE_ROOT, "vite.config.ts"), "utf8");
   assert.match(viteConfig, /serverDir:\s*"\.\/server"/);
-  assert.match(viteConfig, /grokPwaPlugin\(\)/);
+  // #28: the configured name, never the host-derived "Grok App".
+  assert.match(viteConfig, /grokPwaPlugin\(\{ appName: APP_NAME \}\)/);
 });
 
 test("nitro middleware and its bundled assets exist", () => {

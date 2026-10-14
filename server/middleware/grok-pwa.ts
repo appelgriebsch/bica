@@ -24,6 +24,12 @@ import {
   renderInstallPageHtml,
   renderWebManifest,
 } from "../../scripts/grok-pwa-shared.mjs";
+import { APP_NAME } from "../../src/lib/app-name.mjs";
+import {
+  CSP_HEADER,
+  CSP_REPORT_ONLY_HEADER,
+  nonceFromCsp,
+} from "../../src/lib/security-headers.mjs";
 
 interface GrokPwaEvent {
   url: URL;
@@ -40,6 +46,11 @@ function injectHeadStreaming(response: Response, host: string): Response {
   const injector = createHeadInjector({
     host,
     site: grokOgIdentity.site,
+    appName: APP_NAME,
+    // The router set this response's CSP; the injected extensions.js needs its nonce.
+    nonce: nonceFromCsp(
+      response.headers.get(CSP_HEADER) ?? response.headers.get(CSP_REPORT_ONLY_HEADER),
+    ),
   });
   const transformed = response.body!.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>({
@@ -71,7 +82,7 @@ export default async function grokPwaMiddleware(
   const urlWithQuery = path + event.url.search;
 
   if (path === "/__grok/manifest.webmanifest" || path === "/__grok/manifest.json") {
-    return new Response(renderWebManifest(requestHost(event)), {
+    return new Response(renderWebManifest(requestHost(event), APP_NAME), {
       headers: {
         "content-type": "application/manifest+json; charset=utf-8",
         "cache-control": "no-cache",
@@ -87,6 +98,7 @@ export default async function grokPwaMiddleware(
     const html = renderInstallPageHtml(installPageTemplate, {
       host: requestHost(event),
       url: urlWithQuery,
+      appName: APP_NAME,
     });
     return new Response(html, {
       headers: {

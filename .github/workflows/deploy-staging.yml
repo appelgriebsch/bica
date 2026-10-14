@@ -94,18 +94,40 @@ jobs:
             body=$(curl -fsS --max-time 10 "$url/api/health") && break
             sleep 5
           done
+          [ -n "${body:-}" ] || { echo "::error::/api/health never answered at $url"; exit 1; }
           echo "$body"
           test "$(jq -r .stage <<<"$body")" = staging
       # #28: HTML carries the security headers and a (Report-Only) nonce CSP.
+      # workers.dev keeps serving the previous version for a few seconds after
+      # `wrangler deploy` returns (run 38550854181 probed 0.4 s later and got the
+      # pre-#28 Worker, which has none of these headers). /api/health can't tell
+      # versions apart, so retry the whole check for up to ~60 s; a version that
+      # really lacks a header still fails after the last attempt.
       - name: Smoke security headers
+        timeout-minutes: 3
         run: |
           url=$(grep -oE 'https://bica-staging\.[a-z0-9-]+\.workers\.dev' deploy.log | head -n 1 || true)
           [ -n "$url" ] || { echo "::error::No bica-staging workers.dev URL in deploy.log"; exit 1; }
-          for path in / /login; do
-            headers=$(curl -fsSI --max-time 10 "$url$path")
-            for h in strict-transport-security x-frame-options referrer-policy x-content-type-options permissions-policy cross-origin-opener-policy; do
-              grep -qi "^$h:" <<<"$headers" || { echo "$path: missing $h"; exit 1; }
+          check() {
+            for path in / /login; do
+              for method in HEAD GET; do
+                if [ "$method" = HEAD ]; then
+                  headers=$(curl -fsSI --max-time 10 "$url$path") || { echo "$method $path: request failed"; return 1; }
+                else
+                  headers=$(curl -fsS -D- -o /dev/null --max-time 10 "$url$path") || { echo "$method $path: request failed"; return 1; }
+                fi
+                for h in strict-transport-security x-frame-options referrer-policy x-content-type-options permissions-policy cross-origin-opener-policy; do
+                  grep -qi "^$h:" <<<"$headers" || { echo "$method $path: missing $h"; return 1; }
+                done
+                # Report-Only until CSP_ENFORCE is set; either header must carry a nonce.
+                grep -qiE "^content-security-policy(-report-only)?:.*'nonce-" <<<"$headers" || { echo "$method $path: no nonce CSP"; return 1; }
+              done
             done
-            # Report-Only until CSP_ENFORCE is set; either header must carry a nonce.
-            grep -qiE "^content-security-policy(-report-only)?:.*'nonce-" <<<"$headers" || { echo "$path: no nonce CSP"; exit 1; }
+          }
+          for i in $(seq 1 12); do
+            if out=$(check); then echo "security headers ok (attempt $i)"; exit 0; fi
+            echo "attempt $i: $out"
+            [ "$i" -lt 12 ] && sleep 5
           done
+          echo "::error::$out"
+          exit 1

@@ -505,6 +505,27 @@ test("#40: docs: rollback code-only, Vercel fallback, cutover order, env protect
   assert.match(tok, /no DNS Edit and no SSL and Certificates/);
 });
 
+test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails loudly", () => {
+  const step = prodWorkflow.slice(prodWorkflow.indexOf("- name: Smoke /api/health and /"));
+  const loops = step.match(/for i in \$\(seq 1 12\); do/g) ?? [];
+  assert.equal(loops.length, 2);
+  assert.equal((step.match(/\[ "\$i" -lt 12 \] && sleep 5/g) ?? []).length, 2);
+  // health: curl failure (incl. exit 6) only ends the && chain, never the step
+  assert.match(step, /body=\$\(curl -fsS --max-time 10 "\$url\/api\/health"\) \\\n\s+&& \[/);
+  // GET /: tolerated per attempt, 200 ends the step
+  assert.match(step, /code=\$\(curl -sS -o \/dev\/null -w '%\{http_code\}' --max-time 10 "\$url\/" \|\| true\)/);
+  assert.match(step, /\[ "\$code" = 200 \] && \{ echo "GET \/ 200 \(attempt \$i\)"; exit 0; \}/);
+  // diagnostics: headers and a truncated body, then fail
+  assert.match(step, /curl -sS -D \/tmp\/headers -o \/tmp\/body --max-time 10/);
+  assert.match(step, /head -c 2048 \/tmp\/body/);
+  assert.match(step, /::error::GET \/ never returned 200[^\n]*\n\s+exit 1/);
+  for (const c of step.match(/curl [^\n]*/g)) assert.match(c, /--max-time 10\b/, c);
+  // worst case 2 x 12 x (10 + 5) s = 6 min fits the step and job timeouts
+  assert.match(step, /timeout-minutes: 6\b/);
+  assert.match(prodWorkflow, /\n {4}timeout-minutes: 20\n/);
+  assert.doesNotMatch(step, /secrets\.|TOKEN/);
+});
+
 test("#8: CI dry-runs the production env without a token", () => {
   assert.match(ci, /run: npx wrangler deploy --dry-run --env production --config wrangler\.toml/);
 });

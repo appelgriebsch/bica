@@ -18,13 +18,8 @@ html_handling = "none"
 # Unknown paths fall through to the Worker, which renders the app routes.
 not_found_handling = "none"
 
-# D1 (ADR 0002). Top level is for local dev (`npm run dev`, `wrangler dev`):
-# the id only names the local SQLite file under .wrangler/state.
-[[d1_databases]]
-binding = "DB"
-database_name = "bica-local"
-database_id = "local"
-migrations_dir = "migrations"
+# No D1 since #33: progress is device-only (ADR 0002 addendum). #36 brings a
+# database back only if it's built.
 
 [observability]
 enabled = true
@@ -39,22 +34,10 @@ workers_dev = true
 [env.staging.vars]
 BICA_STAGE = "staging"
 
-# database_id is a marker, never a real id: scripts/ci-d1-provision.mjs finds or
-# creates bica-staging and writes the id into the gitignored wrangler.ci.toml,
-# which migrate and deploy use (docs/cloudflare-workers.md).
-[[env.staging.d1_databases]]
-binding = "DB"
-database_name = "bica-staging"
-database_id = "${BICA_STAGING_D1_ID}"
-migrations_dir = "migrations"
-
-# Chat burst limit per user (#13), across isolates. Cloudflare allows only
-# period = 10 or 60; the 10-min and daily caps are D1 counters (chat-limit.ts).
+# Chat burst limit (#13), across isolates. Cloudflare allows only period = 10
+# or 60; the 10-min and daily caps are in memory (chat-limit.ts) until #35.
 # limit must match DEFAULT_LIMITS.perMinute. Production gets its own via #8.
 [[env.staging.ratelimits]]
 name = "CHAT_RATE"
 namespace_id = "1301"
 simple = { limit = 6, period = 60 }
-
-# Production D1 is #8's call; when it lands it gets its own block, e.g.
-# [[env.production.d1_databases]] binding = "DB", database_name = "bica".

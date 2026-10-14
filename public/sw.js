@@ -94,7 +94,6 @@ function isNetworkOnly(url) {
   const p = url.pathname;
   return (
     p.startsWith("/api/") ||
-    p.startsWith("/auth/") ||
     p.startsWith("/_server") ||
     p.includes("/_serverFn") ||
     p.startsWith("/__grok/") ||

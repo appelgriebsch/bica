@@ -1,10 +1,11 @@
 /**
- * The chat turn behind `sendChat` (#13): input caps, per-user limit, and an xAI
+ * The chat turn behind `sendChat` (#13): input caps, limits, and an xAI
  * call with a deadline that never throws to the client.
  */
 import { z } from "zod";
 import { speakScenarios } from "@/data/curriculum";
-import type { Verdict } from "@/lib/chat-limit";
+import { CHAT_ENABLED, CHAT_UNAVAILABLE } from "@/lib/chat-availability";
+import { chatLimiter, checkChatLimit, type Verdict } from "@/lib/chat-limit";
 
 export const MAX_TOTAL_CHARS = 8000;
 export const XAI_TIMEOUT_MS = 20_000;
@@ -35,18 +36,22 @@ export type ChatResult =
   | { ok: false; error: string };
 
 export async function chatTurn({
+  enabled = true,
   data,
   apiKey,
   limit,
   fetch: f = fetch,
   timeoutMs = XAI_TIMEOUT_MS,
 }: {
+  /** False refuses before the key, the limiter or xAI is touched (#33 flag). */
+  enabled?: boolean;
   data: ChatInput;
   apiKey: string | undefined;
   limit: () => Promise<Verdict>;
   fetch?: typeof fetch;
   timeoutMs?: number;
 }): Promise<ChatResult> {
+  if (!enabled) return { ok: false, error: CHAT_UNAVAILABLE };
   if (!apiKey) return { ok: false, error: "Practice chat is unavailable right now." };
   const scenario = speakScenarios.find((s) => s.id === data.scenarioId);
   if (!scenario) return { ok: false, error: "Unknown scene." };
@@ -100,4 +105,18 @@ export async function chatTurn({
   const text = typeof content === "string" ? content.trim() : "";
   if (!text) return { ok: false, error: "Empty reply. Try a shorter line." };
   return { ok: true, text };
+}
+
+/**
+ * What `sendChat` runs. There is no identity since #33, so the 10-min and day
+ * windows are one shared bucket per isolate; #35 rekeys per IP. While
+ * CHAT_ENABLED is false this returns CHAT_UNAVAILABLE and never reaches xAI.
+ */
+export function sendChatHandler(data: ChatInput, now = Date.now()): Promise<ChatResult> {
+  return chatTurn({
+    enabled: CHAT_ENABLED,
+    data,
+    apiKey: process.env.XAI_API_KEY,
+    limit: () => checkChatLimit("anon", now, chatLimiter()),
+  });
 }

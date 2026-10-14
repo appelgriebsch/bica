@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. 2026-10-14. Supersedes the database half of ADR 0001.
+Accepted. 2026-10-14. Supersedes the database half of ADR 0001. Superseded by the addendum below (#33): no accounts, no database.
 
 ## Context
 
@@ -28,3 +28,15 @@ Staging now runs on Cloudflare Workers (ADR 0001). The schema is small: the four
 - `conversations` is dropped.
 - The default Vercel build has no database. Its server functions report "Could not reach the account.", so sign-in and sync need a Worker. Production hosting is #8.
 - CI finds or creates the `bica-staging` database on every staging deploy (`scripts/ci-d1-provision.mjs`, #21) and injects its id into a generated, gitignored `wrangler.ci.toml`, so no id is committed. The deploy workflow applies migrations with the Cloudflare token before `wrangler deploy`.
+
+## Addendum 2026-10-14: no accounts (#33)
+
+Bica has no sign-in. The decision (Andreas, 2026-10-14) removes the Grok broker blocker for staging and production (#8): progress is device-only, and #34 adds a JSON export/import for backups and moving between devices.
+
+- Removed: Better Auth (the `better-auth` dependency, `/api/auth/*`, `/login`, the `/auth/popup` handler), the server sync (`progress-server`, `progress-merge`, `sync-progress`, `ProgressSync`) and the D1 binding `DB` with `db.ts`/`db.local.ts` and the CI provisioning (`scripts/ci-d1-provision.mjs`, `wrangler.ci.toml`). The staging workflow has no D1 steps.
+- Removed config: `BETTER_AUTH_*`, `GROK_AUTH_*`, `VITE_AUTH_ENABLED`; `https://auth.grok.me` in the CSP `form-action`; the COOP popup allowance (now `same-origin`).
+- `progress-store` stays the only source of truth (localStorage), including `mergeRemote` for #34's import.
+- Applied migrations (`0001`–`0004`) stay in history. No drop migration: the staging database is simply unbound and can be deleted by hand. #36 brings a database back only if it's built.
+- Conversas has no identity to limit, so `sendChat` is off behind the `CHAT_ENABLED` code flag (`src/lib/chat-availability.ts`) until #35 (Turnstile, per-IP and global caps) lands. The chat 10-min and day caps count in memory until then; the D1 `chat_usage` counter is gone.
+
+Everything above this addendum describes the D1 period (#19 to #33) and is kept as history.

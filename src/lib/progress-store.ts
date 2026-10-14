@@ -30,20 +30,11 @@ export type ProgressState = {
   floor: CefrLevel;
   floorUpdatedAt: string | null;
   cards: Record<string, SrsCard>;
-  /** True once persist has restored this device's progress; sync never runs before. */
+  /** True once persist has restored this device's progress (false if that failed). */
   hydrated: boolean;
-  lastSyncedAt: string | null;
-  syncing: boolean;
-  syncError: string | null;
-  /** Local changes not yet pushed to the account (the offline sync queue). Persisted. */
-  syncPending: boolean;
-  /** Bumped by every local change (not persisted); markSynced compares it to the snapshot's. */
-  changes: number;
+  /** Set when restoring this device's progress from localStorage failed. */
+  hydrationFailed: boolean;
   markHydrated: () => void;
-  /** Clears syncPending only if nothing changed since `changesAtSnapshot` (the `changes` read before the push). */
-  markSynced: (changesAtSnapshot?: number) => void;
-  setSyncing: (syncing: boolean) => void;
-  setSyncError: (syncError: string | null) => void;
   setFloor: (level: CefrLevel) => void;
   completeLesson: (lessonId: string, result: Omit<LessonResult, "completedAt">) => void;
   gradeVocab: (cardId: string, knew: boolean) => void;
@@ -83,31 +74,13 @@ export const useProgress = create<ProgressState>()(
       floorUpdatedAt: null,
       cards: {},
       hydrated: false,
-      lastSyncedAt: null,
-      syncing: false,
-      syncError: null,
-      syncPending: false,
-      changes: 0,
+      hydrationFailed: false,
       markHydrated: () => set({ hydrated: true }),
-      markSynced: (changesAtSnapshot) =>
-        set((s) => ({
-          lastSyncedAt: new Date().toISOString(),
-          syncError: null,
-          syncing: false,
-          syncPending:
-            changesAtSnapshot !== undefined && s.changes !== changesAtSnapshot
-              ? s.syncPending
-              : false,
-        })),
-      setSyncing: (syncing) => set({ syncing }),
-      setSyncError: (syncError) => set({ syncError, syncing: false }),
       setFloor: (level) =>
-        set((s) => ({
+        set({
           floor: level,
           floorUpdatedAt: new Date().toISOString(),
-          syncPending: true,
-          changes: s.changes + 1,
-        })),
+        }),
       completeLesson: (lessonId, result) => {
         const today = todayKey();
         const prev = get();
@@ -130,8 +103,6 @@ export const useProgress = create<ProgressState>()(
           xp: prev.xp + deltaXp,
           streak,
           lastStudyDate,
-          syncPending: true,
-          changes: prev.changes + 1,
         });
       },
       gradeVocab: (cardId, knew) => {
@@ -142,8 +113,6 @@ export const useProgress = create<ProgressState>()(
             ...prev.cards,
             [cardId]: gradeCard(prev.cards[cardId], knew, today),
           },
-          syncPending: true,
-          changes: prev.changes + 1,
         });
       },
       touchStudy: (xp = 0) => {
@@ -158,8 +127,6 @@ export const useProgress = create<ProgressState>()(
           xp: prev.xp + xp,
           streak,
           lastStudyDate,
-          syncPending: true,
-          changes: prev.changes + 1,
         });
       },
       mergeRemote: (remote) => {
@@ -178,15 +145,13 @@ export const useProgress = create<ProgressState>()(
         }
         const localDay = asDayKey(local.lastStudyDate);
         const remoteDay = asDayKey(remote.lastStudyDate);
-        // Same rule as the server (progress-merge STATS_UPSERT): the streak goes with the later
-        // study day, so a broken streak can drop; max only on a tie.
+        // The streak goes with the later study day, so a broken streak can drop; max only on a tie.
         const l = localDay ?? "";
         const r = remoteDay ?? "";
         const lastStudyDate = l > r ? localDay : remoteDay;
         const streak =
           l > r ? local.streak : l < r ? remote.streak : Math.max(local.streak, remote.streak);
-        // Floor: the newer setting wins (#15), the same rule as the server's STATS_UPSERT. A
-        // timestamp beats none; rank max only when neither side has one; a tie keeps local.
+        // Floor: the newer setting wins (#15). A timestamp beats none; rank max only when neither side has one; a tie keeps local.
         const remoteFloor = remote.floor ?? "A1";
         const lt = local.floorUpdatedAt ?? "";
         const rt = remote.floorUpdatedAt ?? "";
@@ -226,17 +191,15 @@ export const useProgress = create<ProgressState>()(
         floor: s.floor,
         floorUpdatedAt: s.floorUpdatedAt,
         cards: s.cards,
-        syncPending: s.syncPending,
       }),
-      // A failed hydration leaves `hydrated` false, so nothing syncs: pushing an empty
-      // store would overwrite the account (the device is the re-upload source, #19).
+      // A failed hydration leaves `hydrated` false (#34's import must not merge into it).
       // Uses the callback's `state`: with synchronous storage this runs inside create(),
       // before `useProgress` is assigned. On error `state` is undefined and a throwing
-      // synchronous getItem lands here inside create() too, so the error is set later.
+      // synchronous getItem lands here inside create() too, so the flag is set later.
       onRehydrateStorage: () => (state, error) => {
         if (!error) return state?.markHydrated();
-        console.error("[bica] progress hydration failed; sync stays off:", error);
-        queueMicrotask(() => useProgress.getState().setSyncError("hydration-failed"));
+        console.error("[bica] progress hydration failed:", error);
+        queueMicrotask(() => useProgress.setState({ hydrationFailed: true }));
       },
     },
   ),

@@ -17,22 +17,6 @@ export const ONLINE_FEATURES = {
     },
     alternative: { to: "/review", label: { en: "Practise Palavras", pt: "Praticar Palavras" } },
   },
-  signIn: {
-    id: "signIn",
-    name: { en: "Sign in", pt: "Iniciar sessão" },
-    reason: {
-      en: "Signing in needs internet. Your progress is saved on this device.",
-      pt: "Iniciar sessão precisa de internet. O progresso fica guardado neste dispositivo.",
-    },
-  },
-  sync: {
-    id: "sync",
-    name: { en: "Sync", pt: "Sincronizar" },
-    reason: {
-      en: "Syncing needs internet. Changes are saved on this device and sync when you're back.",
-      pt: "Sincronizar precisa de internet. As alterações ficam neste dispositivo e sincronizam quando voltar a ligação.",
-    },
-  },
   // No UI and no /api/rtc route yet (src/lib/multiplayer/p2p.ts): registered so it gets marked once it ships.
   multiplayer: {
     id: "multiplayer",

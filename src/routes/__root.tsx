@@ -5,7 +5,6 @@ import {
   Scripts,
   useRouter,
 } from "@tanstack/react-router";
-import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { PwaRegister } from "@/components/pwa";
 import { PtVoiceNotice } from "@/components/pt-voice-notice";
@@ -106,9 +105,7 @@ function RootDocument() {
         <PwaRegister />
         <PtVoiceNotice />
         <OfflineStatus />
-        <AuthProvider>
-          <Outlet />
-        </AuthProvider>
+        <Outlet />
         <Toaster
           position="top-center"
           toastOptions={{

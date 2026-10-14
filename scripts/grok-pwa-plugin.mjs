@@ -176,7 +176,7 @@ export function grokPwaPlugin({ appName } = {}) {
     },
     configureServer(server) {
       // Registered directly (not in a returned post-hook) so both run BEFORE
-      // TanStack Start's SSR middleware, like the auth-popup plugin.
+      // TanStack Start's SSR middleware, ahead of the SPA routes.
       serveGrokPwa(server.middlewares, appName);
       wrapHtmlResponses(server.middlewares, root, appName);
     },

@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { getLesson, newlyCompletedLevel, nextLesson } from "@/data/curriculum";
 import type { CefrLevel, Lesson, LessonSection } from "@/data/types";
-import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { persistCompletion } from "@/lib/record-progress";
 import { sceneImageFor } from "@/lib/scene-image";
 import { useProgress } from "@/lib/progress-store";
@@ -35,7 +34,6 @@ function Player({ lesson }: { lesson: Lesson }) {
   const [correctCount, setCorrectCount] = useState(0);
   const [done, setDone] = useState(false);
   const [levelUp, setLevelUp] = useState<CefrLevel | null>(null);
-  const user = useCurrentUser();
 
   const totalSteps = steps.length;
   const current = steps[step];
@@ -45,14 +43,13 @@ function Player({ lesson }: { lesson: Lesson }) {
     if (step < totalSteps - 1) setStep((s) => s + 1);
   }
 
-  async function finishQuiz(finalCorrect: number) {
+  function finishQuiz(finalCorrect: number) {
     const unlocked = newlyCompletedLevel(lesson.id, useProgress.getState().completed);
     setCorrectCount(finalCorrect);
-    await persistCompletion(
+    persistCompletion(
       lesson.id,
       finalCorrect,
-      lesson.quiz.length,
-      Boolean(user),
+      lesson.quiz.length
     );
     setLevelUp(unlocked);
     setDone(true);
@@ -106,7 +103,7 @@ function Player({ lesson }: { lesson: Lesson }) {
             )}
           </DoneCard>
         ) : current?.type === "quiz" ? (
-          <QuizBlock questions={lesson.quiz} onFinished={(n) => void finishQuiz(n)} />
+          <QuizBlock questions={lesson.quiz} onFinished={(n) => finishQuiz(n)} />
         ) : (
           <SectionView section={current as LessonSection} />
         )}

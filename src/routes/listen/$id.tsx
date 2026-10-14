@@ -7,7 +7,6 @@ import { QuizBlock } from "@/components/quiz-block";
 import { Button } from "@/components/ui/button";
 import { getBulletin, radioBulletins } from "@/data/curriculum";
 import type { RadioBulletin } from "@/data/types";
-import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { persistCompletion } from "@/lib/record-progress";
 import { speakPt, stopSpeaking, usePtVoiceStatus } from "@/lib/tts";
 
@@ -30,7 +29,6 @@ function ListenPage() {
 }
 
 function ListenPlayer({ bulletin }: { bulletin: RadioBulletin }) {
-  const user = useCurrentUser();
   const [phase, setPhase] = useState<"listen" | "quiz" | "done">("listen");
   const [playing, setPlaying] = useState(false);
   const [slow, setSlow] = useState(bulletin.level !== "C1");
@@ -51,9 +49,9 @@ function ListenPlayer({ bulletin }: { bulletin: RadioBulletin }) {
     setPlaying(false);
   }
 
-  async function finish(n: number) {
+  function finish(n: number) {
     setCorrect(n);
-    await persistCompletion(bulletin.id, n, bulletin.quiz.length, Boolean(user));
+    persistCompletion(bulletin.id, n, bulletin.quiz.length);
     setPhase("done");
   }
 
@@ -93,7 +91,7 @@ function ListenPlayer({ bulletin }: { bulletin: RadioBulletin }) {
         ) : phase === "quiz" ? (
           <QuizBlock
             questions={bulletin.quiz}
-            onFinished={(n) => void finish(n)}
+            onFinished={(n) => finish(n)}
           />
         ) : (
           <article>

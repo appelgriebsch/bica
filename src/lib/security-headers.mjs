@@ -21,8 +21,8 @@ export const STATIC_SECURITY_HEADERS = Object.freeze({
   "x-content-type-options": "nosniff",
   // The mic is unused (speaking practice is text chat + speechSynthesis).
   "permissions-policy": "camera=(), geolocation=(), microphone=()",
-  // Keeps the Grok sign-in popup able to postMessage back to the opener.
-  "cross-origin-opener-policy": "same-origin-allow-popups",
+  // No sign-in popup since #33, so no opener allowance is needed.
+  "cross-origin-opener-policy": "same-origin",
   // Reporting API endpoint for the CSP's `report-to` (report-uri stays for
   // browsers without it).
   "reporting-endpoints": 'csp-endpoint="/api/csp-report"',
@@ -56,13 +56,13 @@ export function buildCsp(nonce) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://og.grok.me",
     "font-src 'self'",
-    // Server fns, /api/*, ping. xAI and the auth broker are called server-side.
+    // Server fns, /api/*, ping. xAI is called server-side.
     "connect-src 'self'",
     "worker-src 'self'",
     "manifest-src 'self'",
     "media-src 'self' blob:",
     "frame-ancestors 'none'",
-    "form-action 'self' https://auth.grok.me",
+    "form-action 'self'",
     "base-uri 'self'",
     "object-src 'none'",
     `report-uri ${CSP_REPORT_PATH}`,

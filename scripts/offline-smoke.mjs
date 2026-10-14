@@ -24,7 +24,6 @@ const ROUTES = [
   "/grammar",
   "/verbs",
   "/speak",
-  "/login",
   "/lesson/a1-ola",
   "/grammar/gram-a1-ser-estar",
   "/verbs/verb-a1-presente",
@@ -41,7 +40,7 @@ try {
   const page = await context.newPage();
   const errors = [];
   // Network-only endpoints (session check) are expected to fail offline.
-  const expectedOffline = (url) => /\/(api|auth)\//.test(new URL(url, BASE).pathname);
+  const expectedOffline = (url) => /\/api\//.test(new URL(url, BASE).pathname);
   page.on("console", (m) => {
     if (m.type() === "error" && !expectedOffline(m.location().url || BASE)) errors.push(m.text());
   });

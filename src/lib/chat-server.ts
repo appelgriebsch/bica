@@ -1,15 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-import { authMiddleware } from "@/lib/auth/middleware";
-import { chatInput, chatTurn } from "@/lib/chat-core";
-import { chatLimiter, checkChatLimit } from "@/lib/chat-limit";
+import { chatInput, sendChatHandler } from "@/lib/chat-core";
+import { serverFnErrors } from "@/lib/server-fn-errors";
 
+// No auth middleware since #33: sendChatHandler is gated by CHAT_ENABLED until #35.
+// serverFnErrors turns a validator failure into 400 invalid_input.
 export const sendChat = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([serverFnErrors])
   .validator((input: unknown) => chatInput.parse(input))
-  .handler(({ data, context }) =>
-    chatTurn({
-      data,
-      apiKey: process.env.XAI_API_KEY,
-      limit: () => checkChatLimit(context.userId, Date.now(), chatLimiter()),
-    }),
-  );
+  .handler(({ data }) => sendChatHandler(data));

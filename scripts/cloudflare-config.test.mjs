@@ -26,7 +26,7 @@ test("default build stays the Vercel Nitro build", () => {
 test("deploy scripts always target the staging environment", () => {
   assert.match(
     pkg.scripts["deploy:staging"],
-    /wrangler deploy --env staging --config wrangler\.ci\.toml/,
+    /wrangler deploy --env staging --config wrangler\.toml$/,
   );
   assert.equal(pkg.scripts.deploy, undefined);
   assert.match(
@@ -39,7 +39,8 @@ test("deploy scripts always target the staging environment", () => {
   assert.match(workflow, /actions\/checkout@[0-9a-f]{40}/);
   assert.match(workflow, /actions\/setup-node@[0-9a-f]{40}/);
   assert.doesNotMatch(workflow, /uses:\s*actions\/(?:checkout|setup-node)@v4\b/);
-  assert.doesNotMatch(workflow, /--config wrangler\.toml/);
+  // #33: no generated wrangler.ci.toml any more; the root config ships as is.
+  assert.doesNotMatch(workflow, /wrangler\.ci\.toml/);
   assert.doesNotMatch(workflow, /cloudflare\/wrangler-action/);
   assert.doesNotMatch(workflow, /pull_request/);
 });
@@ -82,16 +83,14 @@ test("one fixed concurrency group that never cancels a running deploy", () => {
   assert.match(workflow, /shell: bash -euo pipefail \{0\}/);
 });
 
-test("workflow checks, builds, provisions, migrates, deploys, then smokes", () => {
+test("workflow checks, builds, deploys, then smokes", () => {
   const at = (re) => workflow.search(re);
   const order = [
     /name: Require green CI \(manual runs\)/,
     /ref: \$\{\{ github\.event\.workflow_run\.head_sha \|\| github\.sha \}\}/,
     /run: npm ci/,
     /run: npm run build:cf/,
-    /run: node scripts\/ci-d1-provision\.mjs/,
-    /run: npx wrangler d1 migrations apply DB --env staging --remote --config wrangler\.ci\.toml/,
-    /run: npx wrangler deploy --env staging --config wrangler\.ci\.toml/,
+    /run: npx wrangler deploy --env staging --config wrangler\.toml \| tee deploy\.log/,
     /curl -fsS --max-time 10 "\$url\/api\/health"/,
   ].map(at);
   assert.ok(
@@ -99,34 +98,20 @@ test("workflow checks, builds, provisions, migrates, deploys, then smokes", () =
     String(order),
   );
   assert.doesNotMatch(workflow, /DATABASE_URL/);
-  const migrate = pkg.scripts["deploy:staging"].indexOf(
-    "wrangler d1 migrations apply DB --env staging --remote",
+  assert.equal(
+    pkg.scripts["deploy:staging"],
+    "npm run build:cf && wrangler deploy --env staging --config wrangler.toml",
   );
-  const local = pkg.scripts["deploy:staging"];
-  const provision = local.indexOf("node scripts/ci-d1-provision.mjs");
-  assert.ok(provision > 0 && provision < migrate && migrate < local.indexOf("wrangler deploy"));
-  assert.match(local, /migrations apply DB --env staging --remote --config wrangler\.ci\.toml/);
   assert.match(workflow, /test "\$\(jq -r \.stage <<<"\$body"\)" = staging/);
 });
 
-test("D1: local and staging bindings named DB read migrations/", () => {
-  const blocks = wrangler.split(/^(?=\[)/m);
-  const d1 = (header) => blocks.find((b) => b.startsWith(header));
-  for (const header of ["[[d1_databases]]", "[[env.staging.d1_databases]]"]) {
-    const b = d1(header);
-    assert.ok(b, `${header} missing`);
-    assert.match(b, /^binding = "DB"$/m);
-    assert.match(b, /^migrations_dir = "migrations"$/m);
-  }
-  assert.match(d1("[[env.staging.d1_databases]]"), /^database_name = "bica-staging"$/m);
-  assert.doesNotMatch(wrangler, /^\[+env\.production/m);
-});
-
-test("no real D1 id committed; the generated config is gitignored", () => {
-  assert.doesNotMatch(wrangler, /[0-9a-f]{8}-[0-9a-f]{4}-/i);
-  assert.match(wrangler, /^database_id = "\$\{BICA_STAGING_D1_ID\}"$/m);
-  const ignore = readFileSync(join(root, ".gitignore"), "utf8");
-  assert.match(ignore, /^wrangler\.ci\.toml$/m);
+test("#33: no D1 anywhere: no binding, no D1 steps, no provisioning", () => {
+  assert.doesNotMatch(wrangler, /d1_databases/);
+  assert.doesNotMatch(wrangler, /^binding = "DB"$/m);
+  assert.doesNotMatch(wrangler, /BICA_STAGING_D1_ID|migrations_dir/);
+  assert.doesNotMatch(workflow, /\bd1\b|ci-d1-provision|migrations apply|wrangler\.ci\.toml/i);
+  assert.doesNotMatch(pkg.scripts["deploy:staging"], /d1|migrations|ci-d1-provision/);
+  assert.doesNotMatch(ci, /\bd1\b/i);
 });
 
 test("no Postgres, Neon, Hyperdrive or DATABASE_URL left outside the ADRs", () => {
@@ -192,7 +177,7 @@ test("#28: _headers /* carries every static security header, same values as the 
 
 test("#28: staging smoke checks the security headers and a nonce CSP", () => {
   const step = workflow.slice(workflow.indexOf("- name: Smoke security headers"));
-  assert.match(step, /for path in \/ \/login/);
+  assert.match(step, /for path in \/ \/me/);
   for (const h of [
     "strict-transport-security",
     "x-frame-options",
@@ -204,12 +189,13 @@ test("#28: staging smoke checks the security headers and a nonce CSP", () => {
   assert.match(step, /'nonce-/);
 });
 
-test("#31: header smoke retries HEAD+GET on / and /login, then fails loudly", () => {
+test("#31: header smoke retries HEAD+GET on / and /me, then fails loudly", () => {
   const start = workflow.indexOf("- name: Smoke security headers");
   const end = workflow.indexOf("\n      - ", start + 1);
   const step = workflow.slice(start, end === -1 ? undefined : end);
   assert.match(step, /\n {8}timeout-minutes: 3\n/);
-  assert.match(step, /for path in \/ \/login; do/);
+  assert.match(step, /for path in \/ \/me; do/);
+  assert.doesNotMatch(step, /\/login|\/api\/auth/); // #33: both 404 now
   assert.match(step, /for method in HEAD GET; do/);
   assert.match(step, /for h in strict-transport-security x-frame-options referrer-policy x-content-type-options permissions-policy cross-origin-opener-policy; do/);
   assert.match(step, /for i in \$\(seq 1 12\); do/);
@@ -304,7 +290,7 @@ test("tests never assign globalThis.navigator directly (getter-only since Node 2
   assert.equal(r.stdout, "", r.stdout);
 });
 
-test("Cloudflare secrets only in the provision, migrate and deploy steps", () => {
+test("Cloudflare secrets only in the deploy step", () => {
   const job = workflow.slice(workflow.indexOf("\njobs:"));
   assert.doesNotMatch(job.slice(0, job.indexOf("    steps:")), /CLOUDFLARE_/, "job-level env");
   assert.doesNotMatch(workflow.slice(0, workflow.indexOf("\njobs:")), /CLOUDFLARE_/);
@@ -315,11 +301,9 @@ test("Cloudflare secrets only in the provision, migrate and deploy steps", () =>
   const withSecrets = steps
     .filter((st) => /CLOUDFLARE_/.test(st))
     .map((st) => st.match(/name: (.*)/)?.[1]);
-  assert.deepEqual(withSecrets, [
-    "Provision staging D1",
-    "Migrate staging D1",
-    "Deploy bica-staging",
-  ]);
+  assert.deepEqual(withSecrets, ["Deploy bica-staging"]);
+  // #33: no auth secrets anywhere in the deploy ([H] keeps the ticket's grep clean).
+  assert.doesNotMatch(workflow, /BETTER_AUT[H]|GROK_AUT[H]|VITE_AUTH_ENABLED/);
   for (const st of steps.filter((st) => /CLOUDFLARE_/.test(st))) {
     assert.match(st, /CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}/);
     assert.match(st, /CLOUDFLARE_ACCOUNT_ID: \$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/);

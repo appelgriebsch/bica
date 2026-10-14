@@ -27,6 +27,6 @@ Ship a staging-only Worker:
 
 - Vercel remains the production path until a later slice adds a production Worker.
 - `*.workers.dev` is the only staging hostname. Domains and redirects are a separate change.
-- Login and progress sync on `bica-staging` stay unwired until Neon and `GROK_AUTH_*` exist.
+- Login and progress sync on `bica-staging` stay unwired until Neon and the sign-in secrets exist. (Sign-in was later removed altogether: ADR 0002 addendum, #33.)
 - Operators must not rename `[env.staging]` to `[env.preview]` to “match hiato”.
-- Follow-up (review W2): `DATABASE_URL`, `BETTER_AUTH_*`, `GROK_AUTH_*` and `XAI_API_KEY` are documented as Worker secrets in `docs/cloudflare-workers.md`, and the staging workflow migrates `DATABASE_URL` in its own step before deploying. Nothing is set on an account by this change.
+- Follow-up (review W2): `DATABASE_URL`, the sign-in secrets (removed in #33) and `XAI_API_KEY` are documented as Worker secrets in `docs/cloudflare-workers.md`, and the staging workflow migrates `DATABASE_URL` in its own step before deploying. Nothing is set on an account by this change.

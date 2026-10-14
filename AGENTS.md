@@ -31,7 +31,6 @@ loaded on demand) before you build or polish:
 | --- | --- |
 | **`design-ui`** | Any DOM / overlay UI — pages, landing, dashboards, forms, nav, **and** game chrome (start screens, HUD, menus). Tokens, layout, type, color, motion, anti-slop. |
 | **`auth`** | Sign-in, accounts, protected routes, per-user data (Google / X / optional email-password). |
-| **`neon`** | Postgres / Neon / PGLite, migrations, server queries. |
 | **`og`** | Share cards, favicon, PWA icons; custom `og.jpg` + game `og:type=x:game`. |
 | **`xai-api`** | In-app AI via `XAI_API_KEY` (chat, Imagine image/video, voice). |
 | **`building-games`** | Any game / canvas / 3D: loop, camera, perf, assets, genres. Pair with `design-ui` for overlays. |
@@ -404,41 +403,46 @@ The live-preview popup is **already wired** by the template Vite plugin
 
 Server functions: `createServerFn` + `authMiddleware`, input via `.validator()` —
 the current API on the installed version (`.inputValidator()` is deprecated);
-examples in the `neon` and `auth` skills.
+examples in `src/lib/progress-server.ts` and the `auth` skill.
 
 ### Stack (high level)
 
 React 19, TypeScript, Vite 8, TanStack Start / Router / Query / Table, Tailwind
 v4, core Radix set, zustand, zod + react-hook-form, lucide, sonner, cmdk, vaul,
-recharts. Data + auth: Postgres (`pg` + PGLite fallback) + self-hosted Better
+recharts. Data + auth: Cloudflare D1 (binding `DB`) + self-hosted Better
 Auth federated to the shared Grok auth broker (Google, X; plus optional local
 email/password), pre-wired in `src/lib` — see "Data & auth" below.
 
 ### Data & auth
 
-Postgres + authentication are **preinstalled** and pre-wired in `src/lib`
-(don't reinstall). The **DB** is dual-mode: real **Neon** when `DATABASE_URL` is
-set, else a local **PGLite** fallback, so the preview always renders. **Auth is
+The database + authentication are **preinstalled** and pre-wired in `src/lib`
+(don't reinstall). The **DB** is **Cloudflare D1** (ADR 0002): the Worker's `DB`
+binding on deploy, and wrangler's local D1 (`.wrangler/state`) in `npm run dev`,
+so the preview always renders with nothing to configure. **Auth is
 real and ON by default even in the live preview** — it federates via a baked
 shared preview client — so build real sign-in; do **NOT** scaffold demo/mock
-users. Full guides + snippets: the **`neon` skill** (database) and the
-**`auth` skill** (sign-in), under `.grok/skills/`.
+users. Full guide + snippets for sign-in: the **`auth` skill** under
+`.grok/skills/`. The database skill there describes the old Postgres setup and
+does not apply to this app.
 
-- **DB (server-only):** `const sql = await getSql()` from `@/lib/db` — a **regular
-  Postgres driver** (node-postgres, `pg`) when `DATABASE_URL` is set, else a local
-  **PGLite** fallback. Use only in `createServerFn` / server loaders. In preview,
-  PGLite **bootstraps at server start** (`ensureDbReady`) — do not remove that.
+- **DB (server-only):** `const db = await getDb()` from `@/lib/db` — the D1 API
+  (`db.prepare(sql).bind(...).all()`, `db.batch([...])`). Use only in
+  `createServerFn` / server loaders. D1 has **no interactive transactions**: put
+  related writes in one `batch()` (atomic), keep the statement count constant
+  (Workers Free allows 50 queries per invocation), and pass lists as one JSON
+  parameter read with `json_each(?)` (D1 caps bound parameters at 100).
 - **Security (per-user data):** authorize every server function with
   `authMiddleware` (`@/lib/auth/middleware`):
   `createServerFn().middleware([authMiddleware])` hands the handler a
   **verified** `context.userId` (resolved from the same-origin session; throws
   when signed out). Scope **every** query by that `user_id`. Never trust a
   client-sent id.
-- **Migrations:** `migrations/*.sql` are the single schema source — applied to
-  **Neon on deploy** (`npm run build` runs them, so Vercel ships with the schema
-  ready) and to the **PGLite** preview automatically on startup. `0001_auth.sql`
-  is the Better Auth schema (don't edit); add your app's tables as ordered files
-  (`migrations/0002_*.sql`), not inline.
+- **Migrations:** `migrations/*.sql` (SQLite) are the single schema source and the
+  `wrangler d1 migrations` directory. The dev server applies them to local D1 on
+  first use; staging applies them with `wrangler d1 migrations apply DB --env
+  staging --remote` before deploy. Builds never touch a database. `0001_auth.sql`
+  is the Better Auth schema (don't edit); add changes as the next numbered file
+  (`migrations/0003_*.sql`), not inline.
 - **Auth:** this app runs its own Better Auth at `/api/auth/*` and federates to
   the shared Grok auth broker for **Google** and **X**. The only other supported
   method is this app's own **email/password** (local Better Auth, off by default —
@@ -453,8 +457,8 @@ users. Full guides + snippets: the **`neon` skill** (database) and the
   works in preview, so a visitor is signed out until they sign in — don't fake
   a user.
 - **Env:** do **not** create a `.env` file. Live preview needs none — auth uses
-  the baked preview client and the DB falls back to PGLite. On deploy the
-  platform injects `DATABASE_URL` + per-app auth creds. Set
+  the baked preview client and the DB is local D1. On deploy the Worker gets the
+  `DB` binding + per-app auth creds as secrets. Set
   `VITE_AUTH_ENABLED=false` only to turn sign-in OFF. Never expose server-only
   vars to the client (only `VITE_`-prefixed reach the browser).
 - **AI features (chat, images, video, voice):** when `XAI_API_KEY` is in the

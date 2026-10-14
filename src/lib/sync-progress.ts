@@ -42,13 +42,7 @@ export async function syncProgressWithAccount(): Promise<{ ok: boolean; error?: 
       message.includes("network")
     ) {
       friendly = "No connection to the account right now. Check the line and try again.";
-    } else if (message.includes("relation") || message.includes("does not exist")) {
-      friendly = "Account storage is still setting up. Wait a moment and try again.";
-    } else if (
-      message.includes("Expected") ||
-      message.includes("invalid_type") ||
-      message.includes("Zod")
-    ) {
+    } else if (message.includes("Invalid progress snapshot")) {
       friendly = "This device sent a path the account could not read. Try again after a refresh.";
     }
     useProgress.getState().setSyncError(friendly);

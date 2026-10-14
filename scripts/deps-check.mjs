@@ -7,7 +7,8 @@
  * 2. Lockfile integrity + consistency: every entry has an npm-registry `resolved` and an
  *    `integrity` hash; the lock root matches package.json; `npm ls --all` is clean.
  * 3. GitHub Actions: every `uses:` pinned to a 40-char commit SHA with a `# vX` comment.
- * 4. BOM: every direct dependency is in THIRD-PARTY.md at its locked version.
+ * 4. BOM: every direct dependency is in THIRD-PARTY.md at its locked version,
+ *    and every pinned row is still in the lockfile.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -141,7 +142,9 @@ function bom() {
   for (const [name, v] of rows) {
     if (name in direct) continue;
     const locked = lock.packages?.[`node_modules/${name}`]?.version;
-    if (locked && locked !== v)
+    // `unknown` marks the unpinned Python rows; any other row must still be locked.
+    if (!locked && v !== "unknown") fail(`${name}: in THIRD-PARTY.md but not in the lockfile`);
+    else if (locked && locked !== v)
       fail(`${name} (transitive): THIRD-PARTY.md says ${v}, lockfile has ${locked}`);
   }
   console.log(`  ${rows.size} BOM rows checked`);

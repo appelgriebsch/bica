@@ -8,11 +8,9 @@
   },
   "scripts": {
     "dev": "vite dev --host 0.0.0.0 --port 8080",
-    "build": "vite build && node scripts/precache.mjs && npm run db:migrate",
+    "build": "vite build && node scripts/precache.mjs",
     "build:cf": "DEPLOY_TARGET=cloudflare vite build && DEPLOY_TARGET=cloudflare node scripts/precache.mjs && node scripts/write-cf-entry.mjs",
-    "deploy:staging": "npm run build:cf && wrangler deploy --env staging --config wrangler.toml",
-    "db:migrate": "node scripts/migrate.mjs",
-    "db:migrate:staging": "node scripts/migrate.mjs --staging",
+    "deploy:staging": "npm run build:cf && wrangler d1 migrations apply DB --env staging --remote --config wrangler.toml && wrangler deploy --env staging --config wrangler.toml",
     "build:dev": "vite build --mode development",
     "preview": "vite preview --host 0.0.0.0 --port 8080",
     "typecheck": "tsc --noEmit",
@@ -22,7 +20,6 @@
     "deps:check": "node scripts/deps-check.mjs"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.4",
     "@fontsource-variable/figtree": "^5.3.0",
     "@fontsource-variable/fraunces": "^5.3.0",
     "@hookform/resolvers": "^5.7.0",
@@ -58,9 +55,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.0.0",
-    "kysely": "^0.28.5",
     "lucide-react": "^0.510.0",
-    "pg": "^8.16.3",
     "react": "^19.2.0",
     "react-day-picker": "^9.14.0",
     "react-dom": "^19.2.0",
@@ -78,7 +73,6 @@
   "devDependencies": {
     "@eslint/js": "^9.20.0",
     "@types/node": "^22.16.5",
-    "@types/pg": "^8.11.10",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.2.0",

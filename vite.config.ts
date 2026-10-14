@@ -10,31 +10,6 @@ import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
 import { activePreset } from "./scripts/build-output.mjs";
 
 /**
- * Finish PGLite bootstrap during dev-server setup (before traffic). Vite awaits
- * async `configureServer` hooks. Production: `src/lib/db` kicks `ensureDbReady`
- * on import.
- */
-function pgliteBootstrapPlugin(): Plugin {
-  return {
-    name: "app-builder:pglite-bootstrap",
-    apply: "serve",
-    async configureServer(server) {
-      try {
-        const mod = (await server.ssrLoadModule("/src/lib/db.ts")) as {
-          ensureDbReady?: () => Promise<void>;
-        };
-        if (typeof mod.ensureDbReady === "function") {
-          await mod.ensureDbReady();
-        }
-      } catch (err) {
-        console.error("[app-builder] DB bootstrap failed:", err);
-        throw err;
-      }
-    },
-  };
-}
-
-/**
  * Live-preview OAuth popup — handled HERE so the agent never has to create a
  * `/auth/popup` route (and cannot break it by scaffolding a React page that
  * paints the full app shell in the popup).
@@ -140,14 +115,8 @@ export default defineConfig(({ command }) => ({
     port: 8080,
     strictPort: true,
   },
-  define: {
-    "import.meta.env.BICA_CLOUDFLARE_BUILD": JSON.stringify(
-      process.env.DEPLOY_TARGET === "cloudflare" ? "1" : "",
-    ),
-  },
   resolve: { tsconfigPaths: true },
   plugins: [
-    pgliteBootstrapPlugin(),
     // Before tanstackStart so /auth/popup never falls through to the SPA.
     authPopupPlugin(),
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.

@@ -105,6 +105,13 @@ test("fails a BOM row that differs from the lockfile", () => {
   assert.match(r.out, /dep \(transitive\): THIRD-PARTY.md says 0\.9\.0, lockfile has 1\.0\.0/);
 });
 
+test("fails a pinned BOM row that is no longer locked, but not an `unknown` one", () => {
+  const r = check(fixture({ bom: "| dep | 1.0.0 |\n| gone | 2.0.0 |\n| numpy | unknown |\n" }));
+  assert.equal(r.code, 1);
+  assert.match(r.out, /gone: in THIRD-PARTY.md but not in the lockfile/);
+  assert.doesNotMatch(r.out, /numpy/);
+});
+
 test("fails missing integrity and non-registry sources", () => {
   const r = check(
     fixture({ lockEntry: { integrity: undefined, resolved: "https://evil.example/dep.tgz" } }),

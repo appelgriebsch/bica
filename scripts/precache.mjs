@@ -58,20 +58,19 @@ export function injectManifest(sw, { urls, version }) {
 /** Root-only render (no route matched, no loader data) that hydrates any route client-side. */
 async function renderShell() {
   process.env.TSS_SHELL = "true";
-  delete process.env.DATABASE_URL; // the shell never queries; keep the build off the real DB
   const { loadBuildHandler } = await import("./serve-build.mjs");
-  const { handler, cleanup } = await loadBuildHandler();
+  const { handler } = await loadBuildHandler();
   const res = await handler.fetch(
     new Request("http://localhost/", { headers: { accept: "text/html" } }),
     {},
   );
   if (!res.ok) throw new Error(`shell render failed: ${res.status}`);
-  return { html: Buffer.from(await res.arrayBuffer()), cleanup };
+  return Buffer.from(await res.arrayBuffer());
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const dir = join(process.cwd(), buildOutput().publicDir);
-  const { html, cleanup } = await renderShell();
+  const html = await renderShell();
   await writeFile(join(dir, SHELL), html);
   const manifest = await collectPrecache(dir);
   assertManifest(manifest);
@@ -80,6 +79,5 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   console.log(
     `[precache] ${manifest.urls.length} files, ${(manifest.bytes / 1024 / 1024).toFixed(2)} MB, version ${manifest.version}`,
   );
-  await cleanup(); // only now: the server's PGLite boot reads the copied files in the background
-  process.exit(0); // the imported server keeps PGLite handles open
+  process.exit(0); // the imported server bundle may keep handles open
 }

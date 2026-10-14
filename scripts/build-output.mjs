@@ -15,16 +15,11 @@ const OUTPUTS = {
   vercel: {
     publicDir: ".vercel/output/static",
     serverEntry: ".vercel/output/functions/__server.func/index.mjs",
-    serverLibs: ".vercel/output/functions/__server.func/_libs",
-    // serve-build.mjs copies PGLite's runtime files next to the bundle.
-    embeddedDb: true,
   },
-  // precache.mjs renders the shell by importing this bundle under Node, which works
-  // because the Cloudflare build never boots PGLite (embeddedDbDisabled).
+  // precache.mjs renders the shell by importing this bundle under Node.
   "cloudflare-module": {
     publicDir: ".output/public",
     serverEntry: ".output/server/index.mjs",
-    serverLibs: ".output/server/_libs",
     workerEntry: ".output/server/staging-entry.mjs",
   },
 };

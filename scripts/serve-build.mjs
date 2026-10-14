@@ -6,14 +6,13 @@
  * Usage: node scripts/serve-build.mjs [port]
  */
 import { createServer } from "node:http";
-import { copyFile, readFile, rm, stat } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { Readable } from "node:stream";
 import { pathToFileURL } from "node:url";
 import { buildOutput } from "./build-output.mjs";
 
-const { publicDir, serverEntry, serverLibs, embeddedDb } = buildOutput();
+const { publicDir, serverEntry } = buildOutput();
 const STATIC = join(process.cwd(), publicDir);
 const TYPES = {
   ".js": "text/javascript",
@@ -27,26 +26,10 @@ const TYPES = {
   ".webmanifest": "application/manifest+json",
 };
 
-/**
- * Import the built server function. Its bundle expects PGLite's runtime files
- * next to it (Vercel ships them via its file tracer), so copy them in and hand
- * back a cleanup that removes the copies again.
- */
+/** Import the built server function (no database: the shell and static paths never query). */
 export async function loadBuildHandler() {
-  const libs = join(process.cwd(), serverLibs);
-  const copied = [];
-  for (const f of ["pglite.data", "pglite.wasm", "initdb.wasm"]) {
-    // Only the Vercel bundle boots PGLite; the Worker bundle must stay without it.
-    if (embeddedDb && !existsSync(join(libs, f))) {
-      await copyFile(
-        join(process.cwd(), "node_modules/@electric-sql/pglite/dist", f),
-        join(libs, f),
-      );
-      copied.push(join(libs, f));
-    }
-  }
   const { default: handler } = await import(pathToFileURL(join(process.cwd(), serverEntry)).href);
-  return { handler, cleanup: () => Promise.all(copied.map((f) => rm(f, { force: true }))) };
+  return { handler };
 }
 
 export async function startBuildServer(port = 8090) {

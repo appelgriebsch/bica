@@ -12,18 +12,18 @@
  * each provider's `idp` hint.
  *
  * Tri-mode:
- *   - Deployed: the deployer injects a per-app `GROK_AUTH_*` + `BETTER_AUTH_URL`
- *     + `DATABASE_URL`, so real federated auth is persisted in Postgres.
+ *   - Deployed: the deployer injects a per-app `GROK_AUTH_*` + `BETTER_AUTH_URL`;
+ *     identities and sessions persist in the Worker's D1 binding `DB`.
  *   - Sandbox live preview: no injection -> falls back to the shared **preview
  *     client** (`./preview`) and derives the preview's `https://*.grok-sandbox.com`
  *     origin from the request, so real sign-in works (no demo users). Sessions
- *     and identities persist in the embedded PGLite DB (same DB as app data);
- *     the process restart wipes both. Live-preview iframe clients use a bearer
+ *     and identities persist in the local D1 (`npm run dev`, same DB as app
+ *     data). Live-preview iframe clients use a bearer
  *     token (partitioned cookies) — see `client.ts`.
  *   - Explicitly off (`VITE_AUTH_ENABLED=false`): no providers; per-user server
  *     functions fall back to a dev user (see `verify.server.ts`).
  *
- * NEVER import this from client code — it pulls in `pg` + the preview secret +
+ * NEVER import this from client code — it pulls in the preview secret +
  * server-only Better Auth internals. The client uses `@/lib/auth/client`;
  * components read the user via `@/lib/auth/use-current-user`; server functions get
  * a verified id via `@/lib/auth/middleware`.
@@ -33,11 +33,9 @@ import { bearer, genericOAuth } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { randomBytes } from "node:crypto";
-import { Pool } from "pg";
-import { embeddedDbDisabled, ensureDbReady, getPglite } from "../db";
+import { lazyDb } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GROK_PROVIDERS } from "./providers";
-import { pgliteDialect } from "./pglite-dialect";
 import {
   GROK_ISSUER_DEFAULT,
   PREVIEW_ALLOWED_HOSTS,
@@ -45,18 +43,10 @@ import {
   PREVIEW_CLIENT_SECRET,
 } from "./preview";
 
-// Kick (and share) PGLite bootstrap as soon as the auth server module loads.
-// Staging Workers set BICA_STAGE and have no DATABASE_URL — skip PGLite there
-// so importing auth cannot hang the isolate before /api/health answers.
-if (!embeddedDbDisabled()) {
-  void ensureDbReady();
-}
-
 /**
- * Preview secret must outlive module reloads: PGLite (and its session rows) is
- * stored on `globalThis`, so an HMR re-eval of this file must NOT mint a new
- * signing secret or every existing session becomes invalid mid-dev. Process
- * restart clears both the secret and PGLite together.
+ * Preview secret must outlive module reloads: an HMR re-eval of this file must
+ * NOT mint a new signing secret or every existing session becomes invalid
+ * mid-dev. A process restart mints a new one (sign in again).
  */
 const globalAuthRef = globalThis as typeof globalThis & {
   __grokAuthPreviewSecret__?: string;
@@ -235,8 +225,6 @@ const trustedOrigins = (request?: Request): string[] => {
   return origins;
 };
 
-const databaseUrl = env("DATABASE_URL");
-
 // Static broker OAuth endpoints (skip OIDC discovery on every sign-in / callback).
 // Discovery would cost an extra network hop to the broker before the popup can
 // even redirect to Google/X — the live-preview popup felt stuck on the app for
@@ -246,13 +234,10 @@ const grokAuthorizationUrl = `${issuerBase}/api/auth/oauth2/authorize`;
 const grokTokenUrl = `${issuerBase}/api/auth/oauth2/token`;
 const grokUserInfoUrl = `${issuerBase}/api/auth/oauth2/userinfo`;
 
-// Real Postgres when `DATABASE_URL` is set (deployed apps), else the app's
-// embedded PGLite (preview) via a Kysely dialect — so Better Auth persists to the
-// SAME DB as app data, including email/password users. Both use the Better Auth
-// schema from `migrations/0001_auth.sql`.
-const database = databaseUrl
-  ? new Pool({ connectionString: databaseUrl })
-  : { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
+// D1 through Better Auth's native D1 dialect (ADR 0002), on the SAME database as
+// app data; schema in `migrations/0001_auth.sql`. `lazyDb` resolves the request's
+// binding on every query, because this instance outlives a single request.
+const database = lazyDb;
 
 /** Session token cookie name — also read by the live-preview popup completion page. */
 export const SESSION_TOKEN_COOKIE = "__Host-grok-auth.session_token";
@@ -285,7 +270,7 @@ function createAuth() {
   return betterAuth({
   baseURL,
   // Deployed apps inject BETTER_AUTH_SECRET. Preview: process-stable secret on
-  // globalThis so HMR doesn't invalidate PGLite-backed sessions (see above).
+  // globalThis so HMR doesn't invalidate local sessions (see above).
   secret: env("BETTER_AUTH_SECRET") ?? previewAuthSecret(),
   database,
 
@@ -365,18 +350,13 @@ function createAuth() {
 
 type Auth = ReturnType<typeof createAuth>;
 
-// Preview / Vercel construct auth at import (unchanged). On the staging Worker,
-// `randomBytes` during that call is illegal in global scope and would stop
-// every route, including /api/health. Build it on first use instead.
+// Built on first use: on the Worker, `randomBytes` during construction is illegal
+// in global scope and would stop every route, including /api/health.
 const authState = globalAuthRef as typeof globalAuthRef & { __grokAuth__?: Auth };
 
 function loadAuth(): Auth {
   authState.__grokAuth__ ??= createAuth();
   return authState.__grokAuth__;
-}
-
-if (!embeddedDbDisabled()) {
-  loadAuth();
 }
 
 export const auth: Auth = new Proxy({} as Auth, {

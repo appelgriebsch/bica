@@ -2,9 +2,10 @@
 
 Review of `main` at `188691f` after the in-range `npm update` in this PR.
 Direct dependencies are the lockfile resolution of `package.json`.
-`better-call`, `h3`, `jose`, `nf3`, and `pg-connection-string` are transitives on the auth, Nitro, and `pg` paths.
+`better-call`, `h3`, `jose`, `kysely`, `nf3`, `pg`, and `pg-connection-string` are transitives of `better-auth` and Nitro; `@electric-sql/pglite` is a transitive of Nitro's `db0`.
+The app no longer imports `pg`, `kysely`, or PGLite since the D1 move (#19), and `@types/pg` is gone from the lockfile.
 `numpy` and `pillow` are imported by `.grok/skills/**/*.py` and are not pinned.
-CVE cells marked `none found` are OSV lookups for that exact version on 2026-10-13 (all 76 pinned npm rows).
+CVE cells marked `none found` are OSV lookups for that exact version on 2026-10-13 (all 75 pinned npm rows).
 Cells marked `not checked` were not queried.
 
 | Name                          | Version         | License           | Critical update | CVEs                                                                                                                                                                                                                                                                                      |
@@ -42,7 +43,6 @@ Cells marked `not checked` were not queried.
 | @tanstack/react-table         | 8.21.3          | MIT               | not checked     | none found                                                                                                                                                                                                                                                                                |
 | @tanstack/router-plugin       | 1.168.45        | MIT               | not checked     | none found                                                                                                                                                                                                                                                                                |
 | @types/node                   | 22.20.5         | MIT               | not checked     | none found                                                                                                                                                                                                                                                                                |
-| @types/pg                     | 8.23.1          | MIT               |                 | none found                                                                                                                                                                                                                                                                                |
 | @types/react                  | 19.3.0          | MIT               | not checked     | none found                                                                                                                                                                                                                                                                                |
 | @types/react-dom              | 19.3.0          | MIT               | not checked     | none found                                                                                                                                                                                                                                                                                |
 | @vitejs/plugin-react          | 5.2.0           | MIT               | not checked     | none found                                                                                                                                                                                                                                                                                |
@@ -114,7 +114,6 @@ The outdated step needs network access.
 | @vitejs/plugin-react        | 5.2.0           | 6.1.2           | major                                                                         |
 | @tanstack/react-table       | 8.21.3          | 9.3.1           | major                                                                         |
 | @types/node                 | 22.20.5         | 26.6.5          | should follow the runtime's Node major                                        |
-| kysely                      | 0.28.17         | 0.29.6          | 0.x minor counts as major; better-auth also depends on it                     |
 | lucide-react                | 0.510.0         | 1.56.0          | major                                                                         |
 | react-day-picker            | 9.14.0          | 10.0.2          | major                                                                         |
 | recharts                    | 2.15.4          | 3.10.1          | major; 2.x is deprecated upstream, so this needs its own migration            |

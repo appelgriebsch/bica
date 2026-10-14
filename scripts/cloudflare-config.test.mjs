@@ -208,7 +208,7 @@ test("#31: header smoke retries HEAD+GET on / and /login, then fails loudly", ()
   const start = workflow.indexOf("- name: Smoke security headers");
   const end = workflow.indexOf("\n      - ", start + 1);
   const step = workflow.slice(start, end === -1 ? undefined : end);
-  assert.match(step, /\n        timeout-minutes: 3\n/);
+  assert.match(step, /\n {8}timeout-minutes: 3\n/);
   assert.match(step, /for path in \/ \/login; do/);
   assert.match(step, /for method in HEAD GET; do/);
   assert.match(step, /for h in strict-transport-security x-frame-options referrer-policy x-content-type-options permissions-policy cross-origin-opener-policy; do/);

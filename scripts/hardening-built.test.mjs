@@ -122,6 +122,22 @@ for (const path of ["/", "/login", "/practice"]) {
   });
 }
 
+// Staging smoke probes with `curl -I`; HEAD must carry the same headers as GET.
+for (const path of ["/", "/login"]) {
+  test(`HEAD ${path}: same security headers and nonce CSP as GET`, { skip }, async () => {
+    const res = await fetch(base + path, {
+      method: "HEAD",
+      headers: { host: HOST, accept: "text/html" },
+      redirect: "manual",
+    });
+    assert.equal(res.status, 200);
+    for (const [k, v] of Object.entries(STATIC_SECURITY_HEADERS)) {
+      assert.equal(res.headers.get(k), v, k);
+    }
+    assert.match(res.headers.get("content-security-policy-report-only") ?? "", /'nonce-[^']+'/);
+  });
+}
+
 test(
   "/ renders the home page, not the Not Found fallback; unknown paths 404",
   { skip },

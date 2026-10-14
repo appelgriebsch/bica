@@ -73,6 +73,7 @@ before(async () => {
     "0001_auth.sql",
     "0002_progress.sql",
     "0003_floor_updated_at.sql",
+    "0004_chat_usage.sql",
   ]);
 });
 after(async () => {

@@ -73,7 +73,11 @@ function SpeakScene() {
         },
       });
       if (!res.ok) {
-        setError(res.error);
+        setError(
+          "retryAfter" in res
+            ? `Slow down, try again in ${Math.ceil(res.retryAfter / 60)} min.`
+            : res.error,
+        );
         return;
       }
       setTurns((t) => [...t, { role: "assistant", content: res.text }]);

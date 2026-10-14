@@ -48,5 +48,13 @@ database_name = "bica-staging"
 database_id = "${BICA_STAGING_D1_ID}"
 migrations_dir = "migrations"
 
+# Chat burst limit per user (#13), across isolates. Cloudflare allows only
+# period = 10 or 60; the 10-min and daily caps are D1 counters (chat-limit.ts).
+# limit must match DEFAULT_LIMITS.perMinute. Production gets its own via #8.
+[[env.staging.ratelimits]]
+name = "CHAT_RATE"
+namespace_id = "1301"
+simple = { limit = 6, period = 60 }
+
 # Production D1 is #8's call; when it lands it gets its own block, e.g.
 # [[env.production.d1_databases]] binding = "DB", database_name = "bica".

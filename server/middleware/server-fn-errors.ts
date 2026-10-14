@@ -24,6 +24,8 @@ export default async function serverFnErrorsMiddleware(
 ): Promise<unknown> {
   if (!event.url.pathname.includes("/_serverFn/")) return next();
   // Not JSON at all: answer before TanStack parses it (its error text varies by runtime).
+  // ponytail: this parses the body a second time (TanStack parses it again);
+  // fine for small server-fn payloads, and the only stable way to get a 400.
   if (event.req.method === "POST" && event.req.headers.get("content-type")?.includes("json")) {
     try {
       JSON.parse(await event.req.clone().text());

@@ -23,6 +23,9 @@ export const STATIC_SECURITY_HEADERS = Object.freeze({
   "permissions-policy": "camera=(), geolocation=(), microphone=()",
   // Keeps the Grok sign-in popup able to postMessage back to the opener.
   "cross-origin-opener-policy": "same-origin-allow-popups",
+  // Reporting API endpoint for the CSP's `report-to` (report-uri stays for
+  // browsers without it).
+  "reporting-endpoints": 'csp-endpoint="/api/csp-report"',
 });
 
 export const CSP_REPORT_PATH = "/api/csp-report";
@@ -63,6 +66,7 @@ export function buildCsp(nonce) {
     "base-uri 'self'",
     "object-src 'none'",
     `report-uri ${CSP_REPORT_PATH}`,
+    "report-to csp-endpoint",
   ].join("; ");
 }
 

@@ -36,6 +36,11 @@ test("CSP: nonce scripts with strict-dynamic, no unsafe-inline scripts, locked f
   assert.equal(directives["connect-src"], "'self'");
   assert.equal(directives["object-src"], "'none'");
   assert.equal(directives["report-uri"], "/api/csp-report");
+  assert.equal(directives["report-to"], "csp-endpoint");
+  assert.equal(
+    STATIC_SECURITY_HEADERS["reporting-endpoints"],
+    'csp-endpoint="/api/csp-report"',
+  );
   assert.equal(nonceFromCsp(csp), "N0nce");
 });
 

@@ -183,3 +183,12 @@ test("CSP reports are accepted with 204", { skip }, async () => {
   });
   assert.equal(res.status, 204);
 });
+
+test("CSP reports over 8 KB get 413", { skip }, async () => {
+  const res = await fetch(`${base}/api/csp-report`, {
+    method: "POST",
+    headers: { "content-type": "application/csp-report" },
+    body: "x".repeat(8 * 1024 + 1),
+  });
+  assert.equal(res.status, 413);
+});

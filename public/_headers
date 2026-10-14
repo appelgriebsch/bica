@@ -9,6 +9,7 @@
   x-content-type-options: nosniff
   permissions-policy: camera=(), geolocation=(), microphone=()
   cross-origin-opener-policy: same-origin-allow-popups
+  reporting-endpoints: csp-endpoint="/api/csp-report"
 /sw.js
   cache-control: no-cache
 /_shell

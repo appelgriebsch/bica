@@ -99,10 +99,11 @@ jobs:
       # #28: HTML carries the security headers and a (Report-Only) nonce CSP.
       - name: Smoke security headers
         run: |
-          url=$(grep -oE 'https://bica-staging\.[a-z0-9-]+\.workers\.dev' deploy.log | head -n 1)
+          url=$(grep -oE 'https://bica-staging\.[a-z0-9-]+\.workers\.dev' deploy.log | head -n 1 || true)
+          [ -n "$url" ] || { echo "::error::No bica-staging workers.dev URL in deploy.log"; exit 1; }
           for path in / /login; do
             headers=$(curl -fsSI --max-time 10 "$url$path")
-            for h in strict-transport-security x-frame-options referrer-policy x-content-type-options; do
+            for h in strict-transport-security x-frame-options referrer-policy x-content-type-options permissions-policy cross-origin-opener-policy; do
               grep -qi "^$h:" <<<"$headers" || { echo "$path: missing $h"; exit 1; }
             done
             # Report-Only until CSP_ENFORCE is set; either header must carry a nonce.

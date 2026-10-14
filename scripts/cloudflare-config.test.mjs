@@ -283,6 +283,7 @@ test("manual-run guard takes the newest CI check run, and a pending one blocks",
     }).stdout.trim();
   const at = (h) => `2026-10-14T0${h}:00:00Z`;
   const done = (conclusion, h, slug = "github-actions") => ({
+    id: h,
     status: "completed",
     conclusion,
     started_at: at(h),
@@ -290,6 +291,7 @@ test("manual-run guard takes the newest CI check run, and a pending one blocks",
     app: { slug },
   });
   const pending = (h) => ({
+    id: h,
     status: "in_progress",
     conclusion: null,
     started_at: at(h),
@@ -304,6 +306,15 @@ test("manual-run guard takes the newest CI check run, and a pending one blocks",
   // #24 S5: a newer pending re-run (completed_at null) is not passed over for an older green run
   assert.equal(jq([done("success", 1), pending(3)]), "pending");
   assert.equal(jq([pending(3), done("success", 1)]), "pending");
+  // #25 S4: a queued re-run has no started_at yet; the newest id still decides
+  assert.equal(
+    jq([done("success", 1), { ...pending(3), status: "queued", started_at: null }]),
+    "pending",
+  );
+  assert.equal(
+    jq([{ ...pending(3), status: "queued", started_at: null }, done("success", 1)]),
+    "pending",
+  );
   // another app's check named CI doesn't count; no run at all is "missing"
   assert.equal(jq([done("failure", 1), done("success", 3, "someone-else")]), "failure");
   assert.equal(jq([]), "missing");

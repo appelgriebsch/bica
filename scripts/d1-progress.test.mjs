@@ -229,6 +229,25 @@ test("floor (server): a timestamp beats none; rank max only without timestamps; 
   );
 });
 
+test("floor (server): a future floorUpdatedAt is clamped to the server's now", async () => {
+  await save(snap({ floor: "B2", floorUpdatedAt: "2099-01-01T00:00:00.000Z" }));
+  const stored = await load();
+  assert.equal(stored.floor, "B2");
+  assert.ok(stored.floorUpdatedAt <= new Date().toISOString(), stored.floorUpdatedAt);
+  await new Promise((r) => setTimeout(r, 5));
+  await save(snap({ floor: "A2", floorUpdatedAt: new Date().toISOString() })); // a real later change wins
+  assert.equal((await load()).floor, "A2");
+  await save(snap({ floor: "C1", floorUpdatedAt: T1 })); // a past time stays as is (older: loses)
+  assert.equal((await load()).floor, "A2");
+});
+
+test("floor (client): a tie keeps the local setting", () => {
+  const st = () => m.useProgress.getState();
+  m.useProgress.setState({ floor: "B1", floorUpdatedAt: T1 });
+  st().mergeRemote(snap({ floor: "C1", floorUpdatedAt: T1 }));
+  assert.deepEqual([st().floor, st().floorUpdatedAt], ["B1", T1]);
+});
+
 test("floor (client): mergeRemote takes the newer setting, both ways, with the rank fallback", () => {
   const st = () => m.useProgress.getState();
   const floorOf = () => [st().floor, st().floorUpdatedAt];

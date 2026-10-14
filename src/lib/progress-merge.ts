@@ -160,17 +160,16 @@ export function snapshotStatements(
   at = now(),
 ): D1PreparedStatement[] {
   return [
-    db
-      .prepare(STATS_UPSERT)
-      .bind(
-        userId,
-        s.streak,
-        s.lastStudyDate ?? null,
-        s.xp,
-        s.floor ?? null,
-        at,
-        s.floor ? (s.floorUpdatedAt ?? null) : null,
-      ),
+    db.prepare(STATS_UPSERT).bind(
+      userId,
+      s.streak,
+      s.lastStudyDate ?? null,
+      s.xp,
+      s.floor ?? null,
+      at,
+      // A device clock in the future would lock the floor; clamp to the server's now.
+      s.floor && s.floorUpdatedAt ? (s.floorUpdatedAt > at ? at : s.floorUpdatedAt) : null,
+    ),
     db.prepare(CARDS_MERGE).bind(userId, JSON.stringify(s.cards ?? {})),
     db.prepare(LESSONS_UPSERT).bind(userId, JSON.stringify(s.completed), at),
   ];

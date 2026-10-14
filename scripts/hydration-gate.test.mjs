@@ -135,10 +135,37 @@ test("a failed hydration never syncs and is logged", async () => {
     assert.equal(m.useProgress.getState().hydrated, false);
     assert.deepEqual(await m.syncProgressWithAccount(), { ok: false, error: "not-hydrated" });
     assert.deepEqual(calls, []);
+    assert.equal(m.useProgress.getState().syncError, "hydration-failed");
     assert.ok(
       errors.some((e) => /hydration failed/.test(e)),
       errors.join("\n"),
     );
+  } finally {
+    console.error = orig;
+  }
+});
+
+test("getItem throws on load: hydrated stays false, sync refuses, error shown", async () => {
+  calls.length = 0;
+  const orig = console.error;
+  console.error = () => {};
+  try {
+    globalThis.localStorage = {
+      getItem: () => {
+        throw new Error("SecurityError: storage blocked");
+      },
+      setItem() {},
+      removeItem() {},
+    };
+    const m = await load();
+    let synced = 0;
+    m.whenHydrated(m.useProgress.persist, () => synced++);
+    await sleep(50);
+    assert.equal(synced, 0);
+    assert.equal(m.useProgress.getState().hydrated, false);
+    assert.equal(m.useProgress.getState().syncError, "hydration-failed");
+    assert.deepEqual(await m.syncProgressWithAccount(), { ok: false, error: "not-hydrated" });
+    assert.deepEqual(calls, []);
   } finally {
     console.error = orig;
   }

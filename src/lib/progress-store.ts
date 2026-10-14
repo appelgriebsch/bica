@@ -231,10 +231,12 @@ export const useProgress = create<ProgressState>()(
       // A failed hydration leaves `hydrated` false, so nothing syncs: pushing an empty
       // store would overwrite the account (the device is the re-upload source, #19).
       // Uses the callback's `state`: with synchronous storage this runs inside create(),
-      // before `useProgress` is assigned.
+      // before `useProgress` is assigned. On error `state` is undefined and a throwing
+      // synchronous getItem lands here inside create() too, so the error is set later.
       onRehydrateStorage: () => (state, error) => {
-        if (error) console.error("[bica] progress hydration failed; sync stays off:", error);
-        else state?.markHydrated();
+        if (!error) return state?.markHydrated();
+        console.error("[bica] progress hydration failed; sync stays off:", error);
+        queueMicrotask(() => useProgress.getState().setSyncError("hydration-failed"));
       },
     },
   ),

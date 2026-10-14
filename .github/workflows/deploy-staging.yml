@@ -41,7 +41,8 @@ jobs:
        github.event.workflow_run.head_repository.full_name == github.repository)
     environment: staging
     steps:
-      # A manual run deploys only a sha whose newest CI check run (by start time) has
+      # A manual run deploys only a sha whose newest CI check run (highest id: a
+      # queued one has no start time yet) has
       # completed with success; a pending re-run blocks it.
       # ponytail: matches the check (job) name "CI", not the workflow path; a
       # renamed job or a second check named CI would need this updated.
@@ -52,7 +53,7 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           conclusion=$(gh api "repos/${{ github.repository }}/commits/$SHA/check-runs?check_name=CI" \
-            --jq '[.check_runs[] | select(.app.slug == "github-actions")] | sort_by(.started_at) | last | if . == null then "missing" elif .status != "completed" then "pending" else .conclusion end')
+            --jq '[.check_runs[] | select(.app.slug == "github-actions")] | sort_by(.id) | last | if . == null then "missing" elif .status != "completed" then "pending" else .conclusion end')
           echo "CI for $SHA: $conclusion"
           test "$conclusion" = success
       # Exactly the commit CI tested (workflow_run defaults to the branch head).

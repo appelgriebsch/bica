@@ -11,9 +11,8 @@ concurrency:
   group: deploy-production
   cancel-in-progress: false
 
-permissions:
-  contents: read
-  checks: read # the gate reads the CI check run
+# Nothing at workflow level; each job gets exactly what it needs.
+permissions: {}
 
 defaults:
   run:
@@ -25,6 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      checks: read # reads the CI check run
     outputs:
       sha: ${{ steps.ci.outputs.sha }}
     steps:
@@ -34,6 +36,7 @@ jobs:
         id: ci
         env:
           GH_TOKEN: ${{ github.token }}
+          # Pinned: the dispatched commit, nothing caller-supplied.
           SHA: ${{ github.sha }}
         run: |
           conclusion=$(gh api "repos/${{ github.repository }}/commits/$SHA/check-runs?check_name=CI" \
@@ -44,6 +47,8 @@ jobs:
 
   deploy:
     needs: gate
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # Required reviewers on this environment: approval before any Cloudflare call.

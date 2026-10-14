@@ -449,6 +449,15 @@ test("#8: prod deploy is manual from main, CI-gated, approval-gated, never cance
   const deploy = prodWorkflow.slice(prodWorkflow.indexOf("  deploy:"));
   assert.doesNotMatch(gate, /environment|secrets\./);
   assert.match(deploy, /needs: gate/);
+  // #40 S2: no workflow-level grants; gate reads checks, deploy only contents
+  assert.match(prodWorkflow, /^permissions: \{\}$/m);
+  assert.equal(prodWorkflow.match(/^\s*permissions:/gm).length, 3);
+  assert.match(gate, /\n {4}permissions:\n {6}contents: read\n {6}checks: read\b/);
+  assert.match(deploy, /\n {4}permissions:\n {6}contents: read\n {4}runs-on/);
+  assert.doesNotMatch(prodWorkflow, /: write\b|id-token/);
+  assert.match(gate, /\n {10}SHA: \$\{\{ github\.sha \}\}\n/);
+  assert.equal(prodWorkflow.match(/^ +SHA:/gm).length, 1);
+  assert.doesNotMatch(prodWorkflow, /inputs:/);
   assert.match(deploy, /environment:\n {6}name: production\n/);
   assert.match(prodWorkflow, /actions\/checkout@[0-9a-f]{40}/);
   assert.match(prodWorkflow, /actions\/setup-node@[0-9a-f]{40}/);
@@ -475,6 +484,25 @@ test("#8: prod deploy is manual from main, CI-gated, approval-gated, never cance
   assert.doesNotMatch(prodWorkflow, /TURNSTILE_SECRET|XAI_API_KEY|CHAT_SESSION_SECRET|d1 |BETTER_AUT[H]/);
   // staging never deploys production
   assert.doesNotMatch(workflow, /--env production/);
+});
+
+test("#40: docs: rollback code-only, Vercel fallback, cutover order, env protection, token", () => {
+  const docs = readFileSync(join(root, "docs/cloudflare-workers.md"), "utf8");
+  const sec = (h) => docs.slice(docs.indexOf(h), docs.indexOf("\n### ", docs.indexOf(h) + 1) >>> 0);
+  const rb = sec("### Rollback");
+  assert.match(rb, /wrangler rollback --env production/);
+  assert.match(rb, /code only/);
+  assert.ok(rb.indexOf("wrangler rollback") < rb.indexOf("Detach the Workers custom domain"));
+  assert.ok(rb.indexOf("Detach") < rb.indexOf("Recreate Vercel's CNAME") && rb.indexOf("Recreate") < rb.indexOf("Verify"));
+  const co = sec("### Cutover");
+  assert.ok(co.indexOf("set the three Worker secrets") > -1 && co.indexOf("set the three Worker secrets") < co.indexOf("Remove Vercel's CNAME"));
+  assert.match(co, /Brief outage/);
+  assert.match(docs, /must have \*\*both\*\*/);
+  assert.match(docs, /\*\*`main` only\*\*/);
+  assert.match(docs, /Required reviewers: Andreas/);
+  const tok = sec("### Prod API token");
+  assert.match(tok, /developers\.cloudflare\.com\/api\/resources\/workers\/subresources\/domains/);
+  assert.match(tok, /no DNS Edit and no SSL and Certificates/);
 });
 
 test("#8: CI dry-runs the production env without a token", () => {

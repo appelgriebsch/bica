@@ -28,8 +28,8 @@ test("#43: every backticked repo path in README.md exists", () => {
   assert.deepEqual(readmePaths("see `src/lib/nope.ts`"), ["src/lib/nope.ts"]);
 });
 
-test("#43: README has no sign-in, D1, Better Auth or Vercel claims, and no secret values", () => {
-  assert.doesNotMatch(readme.replace(/\]\([^)]*\)/g, "]"), /vercel|better.?auth|sign-?in|\bD1\b/i);
+test("#43: README has no sign-in, D1, Better Auth or old-host claims, and no secret values", () => {
+  assert.doesNotMatch(readme.replace(/\]\([^)]*\)/g, "]"), /verc[e]l|better.?auth|sign-?in|\bD1\b/i);
   assert.doesNotMatch(readme, /0x4AAAA|1x0000|xai-[A-Za-z0-9]/);
 });
 

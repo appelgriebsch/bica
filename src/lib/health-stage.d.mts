@@ -8,5 +8,5 @@ export function resolveBicaStage(sources?: {
 export function healthForStage(
   stage: string | undefined,
 ):
-  | { status: 200; body: { ok: true; stage: "staging" } }
+  | { status: 200; body: { ok: true; stage: "staging" | "production" } }
   | { status: 503; body: { ok: false } };

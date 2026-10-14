@@ -1,6 +1,7 @@
 /**
- * Pure health decision for the staging Worker.
- * Accepts only the stage string "staging". No I/O, no auth, no database.
+ * Pure health decision for the staging and production Workers.
+ * Accepts only the exact stage strings "staging" and "production". No I/O,
+ * no auth, no database.
  */
 
 /** @param {unknown} value */
@@ -24,11 +25,11 @@ export function resolveBicaStage(sources = {}) {
 
 /**
  * @param {string | undefined} stage
- * @returns {{ status: 200, body: { ok: true, stage: "staging" } } | { status: 503, body: { ok: false } }}
+ * @returns {{ status: 200, body: { ok: true, stage: "staging" | "production" } } | { status: 503, body: { ok: false } }}
  */
 export function healthForStage(stage) {
-  if (stage === "staging") {
-    return { status: 200, body: { ok: true, stage: "staging" } };
+  if (stage === "staging" || stage === "production") {
+    return { status: 200, body: { ok: true, stage } };
   }
   return { status: 503, body: { ok: false } };
 }

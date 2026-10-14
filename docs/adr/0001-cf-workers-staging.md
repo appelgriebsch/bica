@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Staging only. Production is deferred.
+Accepted. Staging only. Production followed in [ADR 0003](0003-production-workers.md) (#8).
 
 ## Context
 

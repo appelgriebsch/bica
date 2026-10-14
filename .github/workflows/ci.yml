@@ -42,3 +42,4 @@ jobs:
       - run: BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test
       # Bundling, bindings and assets; needs no Cloudflare token.
       - run: npx wrangler deploy --dry-run --env staging --config wrangler.toml
+      - run: npx wrangler deploy --dry-run --env production --config wrangler.toml

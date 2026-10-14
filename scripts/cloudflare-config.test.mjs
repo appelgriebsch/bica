@@ -92,7 +92,7 @@ test("workflow checks, builds, provisions, migrates, deploys, then smokes", () =
     /run: node scripts\/ci-d1-provision\.mjs/,
     /run: npx wrangler d1 migrations apply DB --env staging --remote --config wrangler\.ci\.toml/,
     /run: npx wrangler deploy --env staging --config wrangler\.ci\.toml/,
-    /curl -fsS "\$url\/api\/health"/,
+    /curl -fsS --max-time 10 "\$url\/api\/health"/,
   ].map(at);
   assert.ok(
     order.every((i, n) => i > -1 && (n === 0 || i > order[n - 1])),
@@ -165,15 +165,25 @@ test("assets: explicit html and not-found handling, shell and worker headers", (
 });
 
 test("deploy runs only after green CI for a push to main, on exactly that sha", () => {
-  assert.match(
-    workflow,
-    /if: >-\n {6}github\.event_name == 'workflow_dispatch' \|\|\n {6}\(github\.event\.workflow_run\.conclusion == 'success' &&\n {7}github\.event\.workflow_run\.event == 'push'\)\n {4}environment: staging/,
+  const guard = workflow.slice(
+    workflow.indexOf("    if: >-"),
+    workflow.indexOf("    environment: staging"),
   );
+  for (const cond of [
+    "github.event_name == 'workflow_dispatch' &&\n       github.ref == 'refs/heads/main'",
+    "github.event_name == 'workflow_run' &&",
+    "github.event.workflow_run.conclusion == 'success' &&",
+    "github.event.workflow_run.event == 'push' &&",
+    "github.event.workflow_run.head_branch == 'main' &&",
+    "github.event.workflow_run.head_repository.full_name == github.repository)",
+  ]) {
+    assert.ok(guard.includes(cond), `job guard lacks: ${cond}`);
+  }
   // A manual run checks the CI check run of its sha before anything else.
-  const guard = workflow.slice(workflow.indexOf("name: Require green CI"));
-  assert.match(guard, /^ {8}if: github\.event_name == 'workflow_dispatch'$/m);
-  assert.match(guard, /check-runs\?check_name=CI/);
-  assert.match(guard, /test "\$conclusion" = success/);
+  const manual = workflow.slice(workflow.indexOf("name: Require green CI"));
+  assert.match(manual, /^ {8}if: github\.event_name == 'workflow_dispatch'$/m);
+  assert.match(manual, /check-runs\?check_name=CI/);
+  assert.match(manual, /test "\$conclusion" = success/);
   assert.ok(workflow.indexOf("name: Require green CI") < workflow.indexOf("actions/checkout@"));
   assert.match(workflow, /^ {2}checks: read/m);
   assert.doesNotMatch(
@@ -233,4 +243,57 @@ test("tests never assign globalThis.navigator directly (getter-only since Node 2
     encoding: "utf8",
   });
   assert.equal(r.stdout, "", r.stdout);
+});
+
+test("Cloudflare secrets only in the provision, migrate and deploy steps", () => {
+  const job = workflow.slice(workflow.indexOf("\njobs:"));
+  assert.doesNotMatch(job.slice(0, job.indexOf("    steps:")), /CLOUDFLARE_/, "job-level env");
+  assert.doesNotMatch(workflow.slice(0, workflow.indexOf("\njobs:")), /CLOUDFLARE_/);
+  const steps = job
+    .slice(job.indexOf("    steps:"))
+    .split(/\n {6}- /)
+    .slice(1);
+  const withSecrets = steps
+    .filter((st) => /CLOUDFLARE_/.test(st))
+    .map((st) => st.match(/name: (.*)/)?.[1]);
+  assert.deepEqual(withSecrets, [
+    "Provision staging D1",
+    "Migrate staging D1",
+    "Deploy bica-staging",
+  ]);
+  for (const st of steps.filter((st) => /CLOUDFLARE_/.test(st))) {
+    assert.match(st, /CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}/);
+    assert.match(st, /CLOUDFLARE_ACCOUNT_ID: \$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/);
+  }
+});
+
+test("health check curl has a per-request timeout", () => {
+  const curls = workflow.match(/curl [^\n]*/g) ?? [];
+  assert.ok(curls.length > 0);
+  for (const c of curls) assert.match(c, /--max-time 10\b/, c);
+});
+
+test("manual-run guard takes the newest CI check run", () => {
+  const filter = workflow.match(/--jq '([^']+)'/)?.[1];
+  assert.ok(filter, "no --jq filter in the manual-run guard");
+  const jq = (runs) =>
+    spawnSync("jq", ["-r", filter], {
+      input: JSON.stringify({ check_runs: runs }),
+      encoding: "utf8",
+    }).stdout.trim();
+  const run = (conclusion, completed_at, slug = "github-actions") => ({
+    conclusion,
+    completed_at,
+    app: { slug },
+  });
+  const older = "2026-10-14T07:00:00Z";
+  const newer = "2026-10-14T08:00:00Z";
+  // listed in either order: only the newest run counts
+  assert.equal(jq([run("failure", older), run("success", newer)]), "success");
+  assert.equal(jq([run("success", newer), run("failure", older)]), "success");
+  assert.equal(jq([run("success", older), run("failure", newer)]), "failure");
+  assert.equal(jq([run("failure", newer), run("success", older)]), "failure");
+  // another app's check named CI doesn't count; no run at all is "missing"
+  assert.equal(jq([run("failure", older), run("success", newer, "someone-else")]), "failure");
+  assert.equal(jq([]), "missing");
 });

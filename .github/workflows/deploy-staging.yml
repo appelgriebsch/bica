@@ -94,6 +94,7 @@ jobs:
             body=$(curl -fsS --max-time 10 "$url/api/health") && break
             sleep 5
           done
+          [ -n "${body:-}" ] || { echo "::error::/api/health never answered at $url"; exit 1; }
           echo "$body"
           test "$(jq -r .stage <<<"$body")" = staging
       # #28: HTML carries the security headers and a (Report-Only) nonce CSP.
@@ -103,6 +104,7 @@ jobs:
       # versions apart, so retry the whole check for up to ~60 s; a version that
       # really lacks a header still fails after the last attempt.
       - name: Smoke security headers
+        timeout-minutes: 3
         run: |
           url=$(grep -oE 'https://bica-staging\.[a-z0-9-]+\.workers\.dev' deploy.log | head -n 1 || true)
           [ -n "$url" ] || { echo "::error::No bica-staging workers.dev URL in deploy.log"; exit 1; }
@@ -125,7 +127,7 @@ jobs:
           for i in $(seq 1 12); do
             if out=$(check); then echo "security headers ok (attempt $i)"; exit 0; fi
             echo "attempt $i: $out"
-            sleep 5
+            [ "$i" -lt 12 ] && sleep 5
           done
           echo "::error::$out"
           exit 1

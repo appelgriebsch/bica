@@ -204,6 +204,25 @@ test("#28: staging smoke checks the security headers and a nonce CSP", () => {
   assert.match(step, /'nonce-/);
 });
 
+test("#31: header smoke retries HEAD+GET on / and /login, then fails loudly", () => {
+  const start = workflow.indexOf("- name: Smoke security headers");
+  const end = workflow.indexOf("\n      - ", start + 1);
+  const step = workflow.slice(start, end === -1 ? undefined : end);
+  assert.match(step, /\n        timeout-minutes: 3\n/);
+  assert.match(step, /for path in \/ \/login; do/);
+  assert.match(step, /for method in HEAD GET; do/);
+  assert.match(step, /for h in strict-transport-security x-frame-options referrer-policy x-content-type-options permissions-policy cross-origin-opener-policy; do/);
+  assert.match(step, /for i in \$\(seq 1 12\); do/);
+  assert.match(step, /\[ "\$i" -lt 12 \] && sleep 5\n/);
+  assert.match(step, /\n {10}echo "::error::\$out"\n {10}exit 1\s*$/);
+});
+
+test("#31: /api/health smoke fails with ::error:: when health never answers", () => {
+  const start = workflow.indexOf("- name: Smoke /api/health");
+  const step = workflow.slice(start, workflow.indexOf("- name: Smoke security headers"));
+  assert.match(step, /\[ -n "\$\{body:-\}" \] \|\| \{ echo "::error::[^"]*"; exit 1; \}\n {10}echo "\$body"/);
+});
+
 test("deploy runs only after green CI for a push to main, on exactly that sha", () => {
   const guard = workflow.slice(
     workflow.indexOf("    if: >-"),

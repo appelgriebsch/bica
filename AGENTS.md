@@ -343,8 +343,9 @@ Keep `og:image` and `x:game:image` in `head` when you rename the app: update `AP
 PWA head middleware (`scripts/grok-pwa-*`, `server/middleware/grok-pwa.ts`).
 Do not put this script in `__root.tsx`. The script overlays a fixed
 "Created with Grok / Remix" pill and does **not** reserve layout space.
-Visibility is live `GetRemixEligibility` using `VITE_PROJECT_ID` (injected
-on publish). Local preview with no project id shows nothing.
+Visibility is live `GetRemixEligibility` using `VITE_PROJECT_ID` (a build-time
+var; the Workers deploy workflows don't set it). Without a project id
+nothing shows.
 
 **Preview host bridge (required — do not remove).** The template ships
 `src/components/preview-host-bridge.tsx` (+ `src/lib/preview-host-bridge.ts`).
@@ -587,7 +588,7 @@ preview — not a design doc, and not a hand-off that needs them to run anything
   `public/x-banner.jpg`**, then point `x:game:image` at it — non-games keep
   the banner placeholder and must not call Imagine for it. See the og skill;
   `twitter:card=summary_large_image` is layout, not the game signal.
-  Applies at build time, publish or not — by default run the whole pass as a
+  Applies at build time, whether or not a Workers deploy follows — by default run the whole pass as a
   background task via the `task` tool (see § Parallel work).
 - **Never** use a generated mock of the UI as a substitute for implementing and
   running the app for the live preview.

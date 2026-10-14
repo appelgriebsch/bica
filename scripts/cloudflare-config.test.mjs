@@ -513,7 +513,10 @@ function vercelLeftovers(out) {
     .filter(
       (l) =>
         l &&
-        !(l.startsWith("docs/cloudflare-workers.md:") && /no Vercel|There is no Vercel|Vercel fallback|#17/i.test(l)),
+        !(
+          l.startsWith("docs/cloudflare-workers.md:") &&
+          (l.includes("There is no Vercel build (#17).") || l.includes("There is no Vercel fallback (#17):"))
+        ),
     );
 }
 
@@ -545,8 +548,11 @@ test("#17: no Vercel leftovers in src, scripts, package.json, workflows or confi
   // mutants: the allowlist applies only to the Workers docs
   assert.deepEqual(vercelLeftovers("src/lib/x.ts:1:// Vercel fallback path (#17)"), ["src/lib/x.ts:1:// Vercel fallback path (#17)"]);
   assert.deepEqual(vercelLeftovers("scripts/a.mjs:2:// There is no Vercel build"), ["scripts/a.mjs:2:// There is no Vercel build"]);
-  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:There is no Vercel fallback (#17)"), []);
+  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:There is no Vercel fallback (#17): x"), []);
   assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:Deploy to Vercel"), ["docs/cloudflare-workers.md:9:Deploy to Vercel"]);
+  // only the two exact phrases: a looser docs mention still fails
+  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:Vercel fallback is fine (#17)"), ["docs/cloudflare-workers.md:9:Vercel fallback is fine (#17)"]);
+  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:There is no Vercel build (#17)."), []);
   assert.doesNotMatch(pkg.scripts.build, /vercel/i);
   assert.ok(!Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).some((n) => /vercel/i.test(n)));
 });
@@ -570,6 +576,18 @@ test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails l
   assert.match(step, /timeout-minutes: 6\b/);
   assert.match(prodWorkflow, /\n {4}timeout-minutes: 20\n/);
   assert.doesNotMatch(step, /secrets\.|TOKEN/);
+});
+
+test("#42 W1: build hostname pinned per env and equal to its TURNSTILE_HOSTNAMES", () => {
+  const host = (w) => w.match(/- run: npm run build:cf\n {8}env:\n {10}VITE_PUBLIC_HOSTNAME: (\S+)\n/)?.[1];
+  const tsHost = (env) => wrangler.slice(wrangler.indexOf(`[env.${env}.vars]`)).match(/TURNSTILE_HOSTNAMES = "([^"]+)"/)[1];
+  assert.equal(host(workflow), "bica-staging.appelgriebsch.workers.dev");
+  assert.equal(host(prodWorkflow), "bica.appelgriebsch.org");
+  assert.equal(host(workflow), tsHost("staging"));
+  assert.equal(host(prodWorkflow), tsHost("production"));
+  // the staging smoke URL pattern covers that host
+  assert.match(`https://${host(workflow)}`, /^https:\/\/bica-staging\.[a-z0-9-]+\.workers\.dev$/);
+  assert.match(prodWorkflow, new RegExp(`url=https://${host(prodWorkflow).replace(/\./g, "\\.")}\n`));
 });
 
 test("#8: CI dry-runs the production env without a token", () => {

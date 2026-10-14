@@ -28,6 +28,9 @@ export const STATIC_SECURITY_HEADERS = Object.freeze({
   "reporting-endpoints": 'csp-endpoint="/api/csp-report"',
 });
 
+/** The only third-party origin the CSP allows (Cloudflare Turnstile, #35). */
+export const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
+
 export const CSP_REPORT_PATH = "/api/csp-report";
 export const CSP_HEADER = "content-security-policy";
 export const CSP_REPORT_ONLY_HEADER = "content-security-policy-report-only";
@@ -51,13 +54,18 @@ export function buildCsp(nonce) {
     "default-src 'self'",
     // 'strict-dynamic': chunks loaded by a nonced script are trusted; host
     // allowlists are ignored, so extensions.js gets the nonce too.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    // challenges.cloudflare.com: Turnstile (#35). Under 'strict-dynamic' the
+    // nonced bundle's inserted script is what's trusted; the host is the
+    // fallback for browsers without it.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${TURNSTILE_ORIGIN}`,
     // ponytail: Tailwind/sonner inline styles; tighten if styles get a nonce.
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://og.grok.me",
     "font-src 'self'",
-    // Server fns, /api/*, ping. xAI is called server-side.
-    "connect-src 'self'",
+    // Server fns, /api/*, ping, Turnstile. xAI is called server-side.
+    `connect-src 'self' ${TURNSTILE_ORIGIN}`,
+    // The Turnstile widget iframe (#35); nothing else is framed.
+    `frame-src ${TURNSTILE_ORIGIN}`,
     "worker-src 'self'",
     "manifest-src 'self'",
     "media-src 'self' blob:",

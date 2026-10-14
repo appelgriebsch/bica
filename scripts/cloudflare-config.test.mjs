@@ -362,3 +362,62 @@ test("manual-run guard takes the newest CI check run, and a pending one blocks",
   assert.equal(jq([done("failure", 1), done("success", 3, "someone-else")]), "failure");
   assert.equal(jq([]), "missing");
 });
+
+test("#35: CHAT_RATE and the ChatBudget DO binding for staging, one sqlite migration", () => {
+  const staging = wrangler.slice(wrangler.indexOf("[env.staging]"));
+  assert.match(staging, /\[\[env\.staging\.ratelimits\]\]\nname = "CHAT_RATE"\nnamespace_id = "\d+"\nsimple = \{ limit = 6, period = 60 \}/);
+  assert.match(staging, /\[\[env\.staging\.durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/);
+  const top = wrangler.slice(0, wrangler.indexOf("[env.staging]"));
+  assert.match(top, /\[\[durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/);
+  assert.match(top, /\[\[migrations\]\]\ntag = "v1-chat-budget"\nnew_sqlite_classes = \["ChatBudget"\]/);
+  assert.equal(wrangler.match(/\[\[migrations\]\]/g).length, 1);
+  assert.doesNotMatch(wrangler, /new_classes|script_name/);
+  // Production is #8: no [env.production] here, but the docs carry its blocks.
+  assert.doesNotMatch(wrangler, /\[env\.production/);
+  const docs = readFileSync(join(root, "docs/cloudflare-workers.md"), "utf8");
+  assert.match(docs, /\[\[env\.production\.ratelimits\]\]\nname = "CHAT_RATE"/);
+  assert.match(docs, /\[\[env\.production\.durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/);
+  for (const name of ["TURNSTILE_SECRET_KEY", "CHAT_SESSION_SECRET", "TURNSTILE_SITE_KEY", "XAI_API_KEY", "CHAT_DAILY_GLOBAL", "CHAT_DAILY_PER_IP"]) {
+    assert.ok(docs.includes(name), name);
+  }
+});
+
+test("#35: the Worker entry exports ChatBudget from a copy of chat-budget.mjs", async () => {
+  const { entrySource, BUDGET_MODULE } = await import("./write-cf-entry.mjs");
+  const src = entrySource(".output/server/index.mjs");
+  assert.match(src, /^import \{ DurableObject \} from "cloudflare:workers";$/m);
+  assert.match(src, new RegExp(`^import \\{ makeChatBudget \\} from "\\./${BUDGET_MODULE}";$`, "m"));
+  assert.match(src, /^export \{ default \} from "\.\/index\.mjs";$/m);
+  assert.match(src, /^export const ChatBudget = makeChatBudget\(DurableObject\);$/m);
+  // only the handler and the DO class are exported
+  assert.deepEqual(src.match(/^export .*$/gm).length, 2);
+  const script = readFileSync(join(root, "scripts/write-cf-entry.mjs"), "utf8");
+  assert.match(
+    script.replace(/\s+/g, " "),
+    /copyFileSync\( ?join\(process\.cwd\(\), "src\/lib\/chat-budget\.mjs"\), join\(dirname\(entry\), BUDGET_MODULE\),? ?\)/,
+  );
+});
+
+test("#35: the site key is committed (staging for build:cf, test key otherwise); no GitHub var", async () => {
+  const k = await import("../src/lib/turnstile-keys.mjs");
+  assert.equal(k.STAGING_TURNSTILE_SITE_KEY, "0x4AAAAAAFWlhnYXXvgEtMvS");
+  assert.equal(k.siteKeyForBuild({ DEPLOY_TARGET: "cloudflare" }), "0x4AAAAAAFWlhnYXXvgEtMvS");
+  assert.equal(k.siteKeyForBuild({}), "1x00000000000000000000AA");
+  assert.equal(k.siteKeyForBuild(), "1x00000000000000000000AA");
+  assert.equal(k.TURNSTILE_ACTION, "chat");
+  assert.match(viteConfig, /"import\.meta\.env\.TURNSTILE_SITE_KEY": JSON\.stringify\(siteKeyForBuild\(process\.env\)\)/);
+  assert.doesNotMatch(workflow, /TURNSTILE/);
+  assert.doesNotMatch(workflow, /vars\./);
+  const step = workflow.slice(workflow.indexOf("- name: Smoke security headers"));
+  assert.match(step, /frame-src https:\/\/challenges\\\.cloudflare\\\.com/);
+});
+
+test("#35: TURNSTILE_HOSTNAMES for staging is the workers.dev host only, never localhost", () => {
+  const vars = wrangler.slice(wrangler.indexOf("[env.staging.vars]"), wrangler.indexOf("[[env.staging.ratelimits]]"));
+  assert.match(vars, /^TURNSTILE_HOSTNAMES = "bica-staging\.appelgriebsch\.workers\.dev"$/m);
+  assert.doesNotMatch(wrangler, /TURNSTILE_HOSTNAMES = "[^"]*(localhost|127\.0\.0\.1|,)/);
+  assert.equal(wrangler.match(/TURNSTILE_HOSTNAMES/g).length, 1); // not at top level
+  // never a secret in the repo
+  const r = spawnSync("git", ["grep", "-nE", "TURNSTILE_SECRET_KEY *[=:] *\"?[0-9A-Za-z]", "--", ".", ":!scripts/*.test.mjs"], { cwd: root, encoding: "utf8" });
+  assert.equal(r.stdout.split("\n").filter((l) => l && !/1x0000|2x0000/.test(l)).join("\n"), "");
+});

@@ -1,4 +1,5 @@
 export declare const STATIC_SECURITY_HEADERS: Readonly<Record<string, string>>;
+export declare const TURNSTILE_ORIGIN: string;
 export declare const CSP_REPORT_PATH: string;
 export declare const CSP_HEADER: string;
 export declare const CSP_REPORT_ONLY_HEADER: string;

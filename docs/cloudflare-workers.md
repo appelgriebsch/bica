@@ -29,12 +29,51 @@ Set Worker secrets with `wrangler secret put <NAME> --env staging` (never in `wr
 
 | Name                                            | Where                                | Needed for                                                                                                               |
 | ----------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `XAI_API_KEY`                                   | Worker secret                        | Speak practice chat, once #35 re-enables it. Until then `sendChat` answers "Conversas is temporarily unavailable." first. |
+| `XAI_API_KEY`                                   | Worker secret                        | Conversas (speak practice chat). Without it `sendChat` answers "Practice chat is unavailable right now." |
+| `TURNSTILE_SECRET_KEY`                          | Worker secret                        | Conversas (#35): `siteverify` for the Turnstile token. Without it chat fails closed ("unavailable"). |
+| `CHAT_SESSION_SECRET`                           | Worker secret                        | Conversas (#35): HMAC key of the `bica_chat` session cookie. Must be at least 32 bytes; generate it with `openssl rand -base64 32`. Missing or shorter → chat is unavailable (fails closed). |
+| `TURNSTILE_SITE_KEY`                            | Committed, public (`src/lib/turnstile-keys.mjs`) | Conversas (#35): the staging widget key `0x4AAAAAAFWlhnYXXvgEtMvS`, baked into the client by `build:cf`. Dev and other builds use Cloudflare's test site key. Nothing to set. |
+| `TURNSTILE_HOSTNAMES`                           | Plain var, `[env.staging.vars]` (committed) | Conversas (#35): comma-separated hostnames siteverify may report. Staging: `bica-staging.appelgriebsch.workers.dev` only, never localhost. Empty → every token fails. |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | GitHub `staging` environment secrets | Required. `wrangler deploy` in CI. Token scopes: below.                                                                  |
 
 `BICA_STAGE=staging` is a plain var in `[env.staging.vars]`. `VITE_*` values (`VITE_PUBLIC_HOSTNAME`, `VITE_STUN_URLS`) are build-time: set them in the build environment, not as Worker secrets.
 
-Chat (#13) is off until #35 (`CHAT_ENABLED` in `src/lib/chat-availability.ts`, a code constant, so no var can open it). The limits stay wired for when it returns: 6 turns per minute (Rate Limiting binding `CHAT_RATE`, `[[env.staging.ratelimits]]`), 20 per 10 min and 200 per day per isolate in memory (override with `CHAT_LIMIT_PER_10_MIN` / `CHAT_LIMIT_PER_DAY`). Windows are UTC-aligned. #35 replaces the in-memory caps with a Durable Object.
+## Conversas protection (#35)
+
+Chat has no identity, so `sendChat` is protected anonymously. Order per turn: key/secret present → Turnstile gate → per-IP burst → daily caps → xAI. Nothing before xAI is skipped, and a refused turn never reaches xAI.
+
+- **Turnstile.** The first line of a conversation carries a token from the explicitly rendered widget (action `chat`, reset after every request so tokens are single-use). `sendChat` follows Cloudflare's canonical siteverify: an empty or >2048-char token never reaches siteverify; it POSTs form-encoded `secret`, `response` and `remoteip` (CF-Connecting-IP) with a 10 s timeout; a fetch error or non-OK response fails; it requires `success === true`, `action === "chat"` and a `hostname` in `TURNSTILE_HOSTNAMES`. A replayed token (`timeout-or-duplicate`) is refused. A pass sets `bica_chat`, an HttpOnly, Secure, SameSite=Strict cookie signed with `CHAT_SESSION_SECRET`, valid 30 min and for 10 turns, and bound to the client's IP (a hash of its IPv4 address or IPv6 /64 is inside the signed payload; from another IP it's refused and a new solve is needed). A turn refused by the burst or daily limit neither renews the cookie nor spends one of its turns. Remaining replay bound: from the same IP an older cookie can be replayed until it expires (≤ 30 min), still subject to the limits. Then the server asks for a new token. No token and no valid cookie → **403** `challenge_required`.
+- **Per-IP burst.** The Rate Limiting binding `CHAT_RATE` (6 turns per 60 s), keyed by `CF-Connecting-IP` (IPv6 truncated to /64; `x-real-ip` only when CF's header is missing, `X-Forwarded-For` is never read, missing → `unknown`) → **429** `retry-after: 60`. Without the binding (dev, Vercel) the same limit runs per isolate in memory.
+- **Daily caps.** The Durable Object `ChatBudget` (binding `CHAT_BUDGET`, one global instance, SQLite-backed, migration tag `v1-chat-budget`) holds a global counter (`CHAT_DAILY_GLOBAL`, default 2000, the hard cost ceiling) and per-IP counters (`CHAT_DAILY_PER_IP`, default 60). Both reset at 00:00 UTC → **429** with `retry-after` to midnight. The DO serializes every take, so the global cap holds under concurrent requests. Without the binding the same logic runs per isolate in memory. Override the defaults with plain vars in `[env.<name>.vars]` (positive integers).
+- The CSP allows exactly one third-party origin for this, `https://challenges.cloudflare.com`, in `script-src`, `frame-src` and `connect-src`.
+- Keeps #13's 20 s xAI timeout and input caps (16 messages, 2000 chars each, 8000 total).
+
+Local dev and tests use Cloudflare's [test keys](https://developers.cloudflare.com/turnstile/troubleshooting/testing/) (site key `1x00000000000000000000AA`; put `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`, any `CHAT_SESSION_SECRET` and your own `TURNSTILE_HOSTNAMES` in your shell or the git-ignored `.dev.vars`; never commit real ones). Note: test-key siteverify answers report `hostname: "example.com"` and no `action`, so the strict action check refuses them; unit tests mock siteverify instead.
+
+### Ops checklist per environment
+
+Staging: the widget exists and its site key is committed. Andreas sets exactly these Worker secrets (never in the repo, never logged):
+
+1. `wrangler secret put TURNSTILE_SECRET_KEY --env staging` (the widget's secret)
+2. `wrangler secret put CHAT_SESSION_SECRET --env staging` (32+ random bytes, e.g. `openssl rand -base64 32`)
+3. `wrangler secret put XAI_API_KEY --env staging`, only if it isn't set yet
+
+Nothing to do for the Durable Object: the first `wrangler deploy --env staging` applies migration `v1-chat-budget`. The widget's domain list must include `bica-staging.appelgriebsch.workers.dev`.
+
+Production is #8's PR (this file's rule: no `[env.production]` until then). It must add, alongside its own secrets, a production site key in `siteKeyForBuild` and its own `TURNSTILE_HOSTNAMES` (no localhost):
+
+```toml
+[[env.production.ratelimits]]
+name = "CHAT_RATE"
+namespace_id = "<unique id, not 1301>"
+simple = { limit = 6, period = 60 }
+
+[[env.production.durable_objects.bindings]]
+name = "CHAT_BUDGET"
+class_name = "ChatBudget"
+```
+
+The top-level `[[migrations]]` apply to production too. Without those blocks production still works, but the burst and daily caps only hold per isolate.
 
 Without any secrets, staging serves `/api/health`, every app page, the precached offline shell, and text-to-speech (Web Speech runs in the browser). Lessons, review, streak and the level floor are stored in `localStorage` only.
 
@@ -64,7 +103,7 @@ Only these two paths publish, and both pass `--env staging`:
 
 `.github/workflows/ci.yml` (job **`CI`**, the required check) runs on every pull request to `main` and every push to `main`, on the Node version in `.nvmrc` (22) with the npm cache. It runs `npm ci`, typecheck, lint, `npm test`, `npm run deps:check`, `npm run build`, `npm run build:cf`, the built-output tests on the Worker bundle (`BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test`), then `wrangler deploy --dry-run --env staging --config wrangler.toml` (bundling, bindings and assets; no token). It has no secrets and `contents: read`, and a newer push cancels the older run of the same ref.
 
-The staging deploy (GitHub environment `staging`, 15 minute timeout) starts from `workflow_run` when `CI` completes on `main`, and runs only if that run concluded `success`, was a `push` (not a PR), and came from `main` of this repository (not a fork). A manual run is accepted only from `main`. It checks out exactly the CI-tested `head_sha`. A manual `workflow_dispatch` run first checks that the `CI` check run of its sha succeeded and stops otherwise. Then: `npm ci`, `npm run build:cf` (the release build; no test, lint or deps steps, since CI ran them for this sha), `wrangler deploy`, `GET /api/health` on the deployed URL (200, `stage: "staging"`), then the security-header smoke (HEAD and GET on `/` and `/me`). Every step runs under `bash -euo pipefail`, so any failure stops the job before deploy. `workflow_run` always uses the workflow file from the default branch, which keeps the deploy secrets out of anything a pull request can change. A failed deploy doesn't turn the required `CI` check red. Deploys share the fixed concurrency group `deploy-staging` with `cancel-in-progress: false`: two quick merges deploy one after the other, and neither is cancelled mid-deploy.
+The staging deploy (GitHub environment `staging`, 15 minute timeout) starts from `workflow_run` when `CI` completes on `main`, and runs only if that run concluded `success`, was a `push` (not a PR), and came from `main` of this repository (not a fork). A manual run is accepted only from `main`. It checks out exactly the CI-tested `head_sha`. A manual `workflow_dispatch` run first checks that the `CI` check run of its sha succeeded and stops otherwise. Then: `npm ci`, `npm run build:cf` (the release build, with the committed staging Turnstile site key; no test, lint or deps steps, since CI ran them for this sha), `wrangler deploy`, `GET /api/health` on the deployed URL (200, `stage: "staging"`), then the security-header smoke (HEAD and GET on `/` and `/me`, including the CSP's Turnstile `frame-src`). Every step runs under `bash -euo pipefail`, so any failure stops the job before deploy. `workflow_run` always uses the workflow file from the default branch, which keeps the deploy secrets out of anything a pull request can change. A failed deploy doesn't turn the required `CI` check red. Deploys share the fixed concurrency group `deploy-staging` with `cancel-in-progress: false`: two quick merges deploy one after the other, and neither is cancelled mid-deploy.
 
 ### Branch ruleset on `main` (repo admin, not in the repo)
 
@@ -76,7 +115,7 @@ There is no `deploy` script. Top-level `wrangler deploy` (no `--env`) is not wir
 
 Nitro may write `.output/server/wrangler.json` and warn that `main` / `assets` in that generated file are overridden. Deploy with `--config wrangler.toml` so `[env.staging]` from the root file is the config that ships. Do not let a generated file replace the root config.
 
-`build:cf` runs `scripts/precache.mjs` on `.output/public` (so `sw.js` gets the build's `VERSION`, the full `PRECACHE` list and `/_shell`), then writes `.output/server/staging-entry.mjs`, which re-exports only the default fetch handler from `.output/server/index.mjs`. The Nitro bundle also has named exports; Workers would treat those as handlers and refuse to start. Wrangler `main` points at that generated entry. All of these paths come from the `cloudflare-module` entry in `scripts/build-output.mjs`.
+`build:cf` runs `scripts/precache.mjs` on `.output/public` (so `sw.js` gets the build's `VERSION`, the full `PRECACHE` list and `/_shell`), then writes `.output/server/staging-entry.mjs`, which re-exports only the default fetch handler from `.output/server/index.mjs` plus the `ChatBudget` Durable Object class (#35, from a copy of `src/lib/chat-budget.mjs` as `chat-budget-do.mjs`). The Nitro bundle also has named exports; Workers would treat those as handlers and refuse to start. Wrangler `main` points at that generated entry. All of these paths come from the `cloudflare-module` entry in `scripts/build-output.mjs`.
 
 `public/_headers` serves `/_shell` as `text/html` and both `/_shell` and `/sw.js` with `cache-control: no-cache`; Nitro appends the immutable `/assets/*` rule. `wrangler.toml` sets `html_handling = "none"` and `not_found_handling = "none"`, so files are served at their exact paths and unknown paths reach the Worker.
 

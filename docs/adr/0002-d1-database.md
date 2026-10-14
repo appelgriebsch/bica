@@ -37,6 +37,6 @@ Bica has no sign-in. The decision (Andreas, 2026-10-14) removes the Grok broker 
 - Removed config: `BETTER_AUTH_*`, `GROK_AUTH_*`, `VITE_AUTH_ENABLED`; `https://auth.grok.me` in the CSP `form-action`; the COOP popup allowance (now `same-origin`).
 - `progress-store` stays the only source of truth (localStorage), including `mergeRemote` for #34's import.
 - Applied migrations (`0001`–`0004`) stay in history. No drop migration: the staging database is simply unbound and can be deleted by hand. #36 brings a database back only if it's built.
-- Conversas has no identity to limit, so `sendChat` is off behind the `CHAT_ENABLED` code flag (`src/lib/chat-availability.ts`) until #35 (Turnstile, per-IP and global caps) lands. The chat 10-min and day caps count in memory until then; the D1 `chat_usage` counter is gone.
+- Conversas has no identity to limit. #33 switched it off; #35 re-enabled it behind Turnstile, a per-IP burst limit, and global and per-IP daily caps in a Durable Object (`ChatBudget`), which replaces the D1 `chat_usage` counter.
 
 Everything above this addendum describes the D1 period (#19 to #33) and is kept as history.

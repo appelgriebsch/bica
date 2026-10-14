@@ -66,6 +66,7 @@ jobs:
           cache: npm
       - run: npm ci
       # The release build. Tests, lint and deps:check ran in CI for this sha.
+      # The public Turnstile site key (#35) is committed (src/lib/turnstile-keys.mjs).
       - run: npm run build:cf
       - name: Deploy bica-staging
         run: npx wrangler deploy --env staging --config wrangler.toml | tee deploy.log
@@ -107,6 +108,8 @@ jobs:
                 done
                 # Report-Only until CSP_ENFORCE is set; either header must carry a nonce.
                 grep -qiE "^content-security-policy(-report-only)?:.*'nonce-" <<<"$headers" || { echo "$method $path: no nonce CSP"; return 1; }
+                # #35: Turnstile's frame is allowed.
+                grep -qiE "^content-security-policy(-report-only)?:.*frame-src https://challenges\.cloudflare\.com" <<<"$headers" || { echo "$method $path: CSP lacks Turnstile frame-src"; return 1; }
               done
             done
           }

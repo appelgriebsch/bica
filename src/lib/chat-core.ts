@@ -1,16 +1,26 @@
 /**
- * The chat turn behind `sendChat` (#13): input caps, limits, and an xAI
- * call with a deadline that never throws to the client.
+ * The chat turn behind `sendChat` (#13, #35): input caps, the Turnstile gate,
+ * per-IP and daily limits, and an xAI call with a deadline that never throws
+ * to the client.
  */
 import { z } from "zod";
 import { speakScenarios } from "@/data/curriculum";
-import { CHAT_ENABLED, CHAT_UNAVAILABLE } from "@/lib/chat-availability";
-import { chatLimiter, checkChatLimit, type Verdict } from "@/lib/chat-limit";
+import { checkGate, parseHostnames, sessionSecretOk } from "@/lib/chat-gate";
+import {
+  chatLimiter,
+  checkChatLimit,
+  ipKey,
+  type LimitScope,
+  type Verdict,
+} from "@/lib/chat-limit";
 
 export const MAX_TOTAL_CHARS = 8000;
 export const XAI_TIMEOUT_MS = 20_000;
 export const BUSY = "The conversation partner is busy. Try again.";
 export const BAD_REPLY = "Unexpected reply. Try again.";
+export const UNAVAILABLE = "Practice chat is unavailable right now.";
+/** The client answers this by running the Turnstile challenge (403). */
+export const CHALLENGE_REQUIRED = "challenge_required";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant"]),
@@ -23,6 +33,8 @@ export const chatInput = z
       .string()
       .refine((id) => speakScenarios.some((s) => s.id === id), "Unknown scene."),
     messages: z.array(messageSchema).max(16),
+    /** Turnstile token: the first turn, and when the server asks again. */
+    turnstileToken: z.string().min(1).max(2048).optional(),
   })
   .refine(
     (d) => d.messages.reduce((n, m) => n + m.content.length, 0) <= MAX_TOTAL_CHARS,
@@ -32,33 +44,42 @@ export type ChatInput = z.infer<typeof chatInput>;
 
 export type ChatResult =
   | { ok: true; text: string }
-  | { ok: false; error: "rate_limited"; retryAfter: number }
+  | { ok: false; error: "rate_limited"; retryAfter: number; scope: LimitScope }
   | { ok: false; error: string };
 
 export async function chatTurn({
-  enabled = true,
   data,
   apiKey,
+  gate,
   limit,
   fetch: f = fetch,
   timeoutMs = XAI_TIMEOUT_MS,
 }: {
-  /** False refuses before the key, the limiter or xAI is touched (#33 flag). */
-  enabled?: boolean;
   data: ChatInput;
+  /** Undefined (no key, or no Turnstile secret) refuses before anything else. */
   apiKey: string | undefined;
+  /** Turnstile token or session cookie; false → challenge_required, no limiter, no xAI. */
+  gate: () => Promise<boolean>;
   limit: () => Promise<Verdict>;
   fetch?: typeof fetch;
   timeoutMs?: number;
 }): Promise<ChatResult> {
-  if (!enabled) return { ok: false, error: CHAT_UNAVAILABLE };
-  if (!apiKey) return { ok: false, error: "Practice chat is unavailable right now." };
+  if (!apiKey) return { ok: false, error: UNAVAILABLE };
   const scenario = speakScenarios.find((s) => s.id === data.scenarioId);
   if (!scenario) return { ok: false, error: "Unknown scene." };
+  // Before the limiter: an unverified caller can't use up an IP's turns.
+  if (!(await gate())) return { ok: false, error: CHALLENGE_REQUIRED };
   // Taken before the xAI call on purpose: a turn that then fails upstream still
   // counts, so retrying a timeout can't bypass the cap (each attempt may bill).
   const verdict = await limit();
-  if (!verdict.ok) return { ok: false, error: "rate_limited", retryAfter: verdict.retryAfter };
+  if (!verdict.ok) {
+    return {
+      ok: false,
+      error: "rate_limited",
+      retryAfter: verdict.retryAfter,
+      scope: verdict.scope,
+    };
+  }
 
   const system = [
     `You are ${scenario.partner}, a native speaker from Portugal (European Portuguese, never Brazilian).`,
@@ -107,16 +128,61 @@ export async function chatTurn({
   return { ok: true, text };
 }
 
+/** The request side of a sendChat call (chat-request.server.ts on the server). */
+export type ChatRequest = {
+  /** cf-connecting-ip (x-real-ip off Workers). */
+  ip: string | undefined;
+  /** The CHAT_COOKIE value, if any. */
+  cookie: string | undefined;
+  setCookie(value: string): void;
+  setStatus(status: number, headers?: Record<string, string>): void;
+};
+
 /**
- * What `sendChat` runs. There is no identity since #33, so the 10-min and day
- * windows are one shared bucket per isolate; #35 rekeys per IP. While
- * CHAT_ENABLED is false this returns CHAT_UNAVAILABLE and never reaches xAI.
+ * What `sendChat` runs. Fails closed without XAI_API_KEY or
+ * TURNSTILE_SECRET_KEY, or with a CHAT_SESSION_SECRET under 32 bytes. TURNSTILE_HOSTNAMES lists the hostnames siteverify may
+ * report (empty → every token fails). 403 without a valid token or session cookie, 429 (with
+ * retry-after) from the per-IP burst or a daily cap; neither reaches xAI.
  */
-export function sendChatHandler(data: ChatInput, now = Date.now()): Promise<ChatResult> {
-  return chatTurn({
-    enabled: CHAT_ENABLED,
-    data,
-    apiKey: process.env.XAI_API_KEY,
-    limit: () => checkChatLimit("anon", now, chatLimiter()),
+export async function sendChatHandler(
+  data: ChatInput,
+  req: ChatRequest,
+  now = Date.now(),
+  env: Record<string, string | undefined> = process.env,
+): Promise<ChatResult> {
+  const secret = env.TURNSTILE_SECRET_KEY;
+  const sessionSecret = env.CHAT_SESSION_SECRET;
+  const key = ipKey(req.ip);
+  const { turnstileToken, ...input } = data;
+  // Set only once the turn gets past the limiter (S4): a refused turn neither
+  // renews the cookie nor spends one of its turns.
+  let pendingCookie: string | undefined;
+  const result = await chatTurn({
+    data: input,
+    // Fails closed without the Turnstile secret or a 32-byte session secret.
+    apiKey: secret && sessionSecretOk(sessionSecret) ? env.XAI_API_KEY : undefined,
+    gate: async () => {
+      const g = await checkGate({
+        token: turnstileToken,
+        cookie: req.cookie,
+        firstTurn: input.messages.filter((m) => m.role === "user").length <= 1,
+        secret: secret!,
+        sessionSecret,
+        ip: req.ip && req.ip !== "unknown" ? req.ip : undefined,
+        bind: key,
+        hostnames: parseHostnames(env.TURNSTILE_HOSTNAMES),
+        now,
+      });
+      pendingCookie = g.cookie;
+      return g.ok;
+    },
+    limit: () => checkChatLimit(key, now, chatLimiter(env)),
   });
+  const refusedByLimit = !result.ok && "retryAfter" in result;
+  if (pendingCookie && !refusedByLimit) req.setCookie(pendingCookie);
+  if (!result.ok && result.error === CHALLENGE_REQUIRED) req.setStatus(403);
+  if (!result.ok && "retryAfter" in result) {
+    req.setStatus(429, { "retry-after": String(result.retryAfter) });
+  }
+  return result;
 }

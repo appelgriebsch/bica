@@ -6,6 +6,7 @@ import { nitro } from "nitro/vite";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
 import { APP_NAME } from "./src/lib/app-name.mjs";
+import { siteKeyForBuild } from "./src/lib/turnstile-keys.mjs";
 // @ts-expect-error JS module alongside the TS vite config
 import { activePreset } from "./scripts/build-output.mjs";
 
@@ -25,6 +26,11 @@ export default defineConfig(({ command }) => ({
     strictPort: true,
   },
   resolve: { tsconfigPaths: true },
+  // #35: the public Turnstile site key is baked in at build time: the
+  // committed staging key for build:cf, Cloudflare's test key otherwise.
+  define: {
+    "import.meta.env.TURNSTILE_SITE_KEY": JSON.stringify(siteKeyForBuild(process.env)),
+  },
   plugins: [
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.
     grokPwaPlugin({ appName: APP_NAME }),

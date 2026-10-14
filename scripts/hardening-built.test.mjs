@@ -54,6 +54,16 @@ before(async () => {
       "--persist-to",
       state,
       "--show-interactive-dev-session=false",
+      // #35: fake key + Cloudflare's always-fails Turnstile test secret, so
+      // sendChat reaches the gate (and can never reach xAI).
+      "--var",
+      "XAI_API_KEY:sk-test-not-a-real-key",
+      "--var",
+      "TURNSTILE_SECRET_KEY:2x0000000000000000000000000000000AA",
+      "--var",
+      "CHAT_SESSION_SECRET:built-test-session-secret-0123456789",
+      "--var",
+      "TURNSTILE_HOSTNAMES:bica-staging.appelgriebsch.workers.dev",
     ],
     { cwd: root, stdio: ["ignore", "pipe", "pipe"], detached: true },
   );
@@ -192,12 +202,27 @@ test("#33: the CSP names no auth broker; COOP is plain same-origin", { skip }, a
   assert.equal(res.headers.get("cross-origin-opener-policy"), "same-origin");
 });
 
-test("#33: sendChat without sign-in answers 'temporarily unavailable'; bad bodies 400", { skip }, async () => {
-  // No session or cookie: the flag refuses before xAI.
+test("#35: sendChat without a Turnstile token or cookie → 403; bad tokens 403; bad bodies 400", { skip }, async () => {
+  // No token, no cookie: the gate refuses before the limiter and xAI.
   const res = await callFn(SEND_CHAT, CHAT_TURN);
   const text = await res.text();
-  assert.equal(res.status, 200, text);
-  assert.match(text, /Conversas is temporarily unavailable\./);
+  assert.equal(res.status, 403, text);
+  assert.match(text, /challenge_required/);
+  assert.equal(res.headers.get("set-cookie"), null);
+  // A forged cookie doesn't help.
+  const forged = await callFn(SEND_CHAT, CHAT_TURN, { cookie: "bica_chat=v1.99999999999999.1.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" });
+  assert.equal(forged.status, 403);
+  // A token the (always-fails test) secret rejects: 403 and no session cookie.
+  // Offline, siteverify fails closed with the same answer.
+  const withToken = CHAT_TURN.replace(
+    '"k":["scenarioId","messages"],"v":[{"t":1,"s":"pastelaria"},',
+    '"k":["scenarioId","turnstileToken","messages"],"v":[{"t":1,"s":"pastelaria"},{"t":1,"s":"XXXX.DUMMY.TOKEN.XXXX"},',
+  );
+  assert.notEqual(withToken, CHAT_TURN);
+  const bad = await callFn(SEND_CHAT, withToken);
+  assert.equal(bad.status, 403, await bad.clone().text());
+  assert.match(await bad.text(), /challenge_required/);
+  assert.equal(bad.headers.get("set-cookie"), null);
   // TanStack still refuses a cross-site server-function call on its own.
   const cross = await callFn(SEND_CHAT, CHAT_TURN, {
     "sec-fetch-site": "cross-site",
@@ -205,7 +230,7 @@ test("#33: sendChat without sign-in answers 'temporarily unavailable'; bad bodie
     origin: "https://evil.example",
   });
   assert.equal(cross.status, 403);
-  assert.doesNotMatch(await cross.text(), /temporarily unavailable|"ok":true/);
+  assert.doesNotMatch(await cross.text(), /challenge_required|"ok":true/);
   // The validator (no data) → 400 via serverFnErrors; the message is invalid_input.
   const noData = await callFn(SEND_CHAT, NO_DATA);
   assert.equal(noData.status, 400);
@@ -215,6 +240,15 @@ test("#33: sendChat without sign-in answers 'temporarily unavailable'; bad bodie
     assert.equal(res.status, 400, bad);
     assert.deepEqual(await res.json(), { error: "invalid_input" });
   }
+});
+
+test("#35: the CSP allows Turnstile (script, frame, connect) and no other third party", { skip }, async () => {
+  const csp = (await get("/speak/pastelaria")).headers.get("content-security-policy-report-only") ?? "";
+  assert.match(csp, /script-src 'self' 'nonce-[^']+' 'strict-dynamic' https:\/\/challenges\.cloudflare\.com;/);
+  assert.match(csp, /frame-src https:\/\/challenges\.cloudflare\.com;/);
+  assert.match(csp, /connect-src 'self' https:\/\/challenges\.cloudflare\.com;/);
+  const hosts = new Set(csp.match(/https:\/\/[^\s;]+/g));
+  assert.deepEqual([...hosts].sort(), ["https://challenges.cloudflare.com", "https://og.grok.me"]);
 });
 
 test("CSP reports are accepted with 204", { skip }, async () => {

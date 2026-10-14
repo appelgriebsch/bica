@@ -506,6 +506,17 @@ test("#17: docs: wrangler-only rollback, no Vercel fallback; env protection and 
   assert.match(tok, /no DNS Edit and no SSL and Certificates/);
 });
 
+// Allowed only in docs/cloudflare-workers.md: the explicit "no Vercel" notes.
+function vercelLeftovers(out) {
+  return out
+    .split("\n")
+    .filter(
+      (l) =>
+        l &&
+        !(l.startsWith("docs/cloudflare-workers.md:") && /no Vercel|There is no Vercel|Vercel fallback|#17/i.test(l)),
+    );
+}
+
 test("#17: no Vercel leftovers in src, scripts, package.json, workflows or config", () => {
   const r = spawnSync(
     "git",
@@ -529,11 +540,13 @@ test("#17: no Vercel leftovers in src, scripts, package.json, workflows or confi
     ],
     { cwd: root, encoding: "utf8" },
   );
-  // Allowed: the explicit "no Vercel" notes in the Workers docs.
-  const leftovers = (r.stdout || "")
-    .split("\n")
-    .filter((l) => l && !/no Vercel|There is no Vercel|Vercel fallback|#17/i.test(l));
+  const leftovers = vercelLeftovers(r.stdout || "");
   assert.equal(leftovers.join("\n"), "", leftovers.join("\n"));
+  // mutants: the allowlist applies only to the Workers docs
+  assert.deepEqual(vercelLeftovers("src/lib/x.ts:1:// Vercel fallback path (#17)"), ["src/lib/x.ts:1:// Vercel fallback path (#17)"]);
+  assert.deepEqual(vercelLeftovers("scripts/a.mjs:2:// There is no Vercel build"), ["scripts/a.mjs:2:// There is no Vercel build"]);
+  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:There is no Vercel fallback (#17)"), []);
+  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:Deploy to Vercel"), ["docs/cloudflare-workers.md:9:Deploy to Vercel"]);
   assert.doesNotMatch(pkg.scripts.build, /vercel/i);
   assert.ok(!Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).some((n) => /vercel/i.test(n)));
 });

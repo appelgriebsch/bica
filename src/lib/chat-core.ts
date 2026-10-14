@@ -130,7 +130,7 @@ export async function chatTurn({
 
 /** The request side of a sendChat call (chat-request.server.ts on the server). */
 export type ChatRequest = {
-  /** cf-connecting-ip (x-real-ip off Workers). */
+  /** cf-connecting-ip only (#17). */
   ip: string | undefined;
   /** The CHAT_COOKIE value, if any. */
   cookie: string | undefined;

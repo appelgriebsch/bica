@@ -13,10 +13,9 @@ import { activePreset } from "./scripts/build-output.mjs";
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // Keep `nitro` gated to `build`: enabled in dev it opens a second dev-server
 // port, which breaks the single-port preview.
-// Default preset stays `vercel`. `DEPLOY_TARGET=cloudflare` (`npm run build:cf`)
-// selects Nitro's module Worker preset without replacing the Vercel build.
-// The dev server starts once `src/router.tsx` and `src/routes/` exist — see
-// AGENTS.md § "First scaffold".
+// Nitro preset is Cloudflare Workers (`cloudflare-module`, #17). The only
+// deploy path. The dev server starts once `src/router.tsx` and `src/routes/`
+// exist — see AGENTS.md § "First scaffold".
 const nitroPreset = activePreset();
 
 export default defineConfig(({ command }) => ({

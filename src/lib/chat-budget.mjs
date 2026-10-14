@@ -41,7 +41,7 @@ export async function takeBudget(storage, ip, now, limits) {
   return { ok: true };
 }
 
-/** In-memory storage with the same async API (dev, Vercel, tests). */
+/** In-memory storage with the same async API (local / tests). */
 export function memoryStorage() {
   const map = new Map();
   return {

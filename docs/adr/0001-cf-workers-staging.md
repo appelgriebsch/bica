@@ -6,7 +6,7 @@ Accepted. Staging only. Production followed in [ADR 0003](0003-production-worker
 
 ## Context
 
-Bica is a TanStack Start app built with Nitro. The default build targets Vercel (`preset: "vercel"`). Live preview stays on `0.0.0.0:8080` with Nitro disabled in dev.
+Bica is a TanStack Start app built with Nitro. At the time of this ADR the default build targeted Vercel; #17 made `cloudflare-module` the only preset. Live preview stays on `0.0.0.0:8080` with Nitro disabled in dev.
 
 Hiato’s hosting ceremony (ADR 0011, ADR 0021) uses one Cloudflare Pages project. Pages has no separate non-production environment, so hiato’s non-prod surface is Pages Preview and the Wrangler key is `[env.preview]`, while the binding value is `HIATO_STAGE=staging`. A Pages project cannot host this server.
 
@@ -15,7 +15,7 @@ Hiato’s hosting ceremony (ADR 0011, ADR 0021) uses one Cloudflare Pages projec
 Ship a staging-only Worker:
 
 - Base name `bica`, Wrangler environment `staging`, script `bica-staging`.
-- Nitro preset `cloudflare-module` when `DEPLOY_TARGET=cloudflare` (`npm run build:cf`). The default `npm run build` stays `vercel`.
+- Nitro preset `cloudflare-module` (`npm run build` / `build:cf`). Superseded the Vercel default in #17.
 - `[env.staging]` sets `workers_dev = true` and `BICA_STAGE=staging`. There is no `[env.production]`, no route, and no custom domain.
 - Top-level `workers_dev = false` and no `BICA_STAGE`, so a publish without `--env staging` is not a public production deploy and `GET /api/health` returns 503.
 - Deploy only via `npm run deploy:staging`, or the staging workflow after the `CI` workflow succeeds for a push to `main` (or a manual `workflow_dispatch` run of a sha with green `CI`). Updated by #21 and #23; it first deployed from a separate branch.
@@ -25,7 +25,7 @@ Ship a staging-only Worker:
 
 ## Consequences
 
-- Vercel remains the production path until a later slice adds a production Worker.
+- Production followed in [ADR 0003](0003-production-workers.md); Vercel was removed in #17.
 - `*.workers.dev` is the only staging hostname. Domains and redirects are a separate change.
 - Login and progress sync on `bica-staging` stay unwired until Neon and the sign-in secrets exist. (Sign-in was later removed altogether: ADR 0002 addendum, #33.)
 - Operators must not rename `[env.staging]` to `[env.preview]` to “match hiato”.

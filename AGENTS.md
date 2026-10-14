@@ -196,7 +196,7 @@ revive and live work stay identical.
   running app (see §3).
 - **`screenshots/`** — write agent QA screenshots here (never under `/tmp`).
 - **`vite.config.ts` + `tsconfig.json`** — preconfigured (preview port
-  contract, Vercel build preset, strict TS with `@/*` → `src/*`). Edit if you
+  contract, Cloudflare Workers build preset, strict TS with `@/*` → `src/*`). Edit if you
   must, but keep the port, the build-gated nitro plugin (see §"Build &
   deploy target"), and the Grok PWA plugin (`grokPwaPlugin`). Do **not**
   recreate them from scratch or import a vendored `vite-tanstack-config`
@@ -472,13 +472,12 @@ does not apply to this app.
 ### Build & deploy target
 
 You never trigger the deploy yourself, **but the app you build is eventually
-deployed to Vercel** by the platform — so your output must **build cleanly under
-Vercel's process**. `npm run build` must succeed and emit valid output, and code
-that works under `npm run dev` but breaks a production / SSR build is a bug:
-watch for dev-only deps, server-only Node APIs run at import time, runtime
-filesystem writes, and hard-coded ports / hosts / secrets. Before treating the
-app as done, confirm `npm run build` and `npm run typecheck` pass — that's what
-Vercel runs.
+deployed to Cloudflare Workers** — so your output must **build cleanly under
+`npm run build` / `build:cf`**. `npm run build` must succeed and emit valid
+Worker output, and code that works under `npm run dev` but breaks a production /
+SSR build is a bug: watch for dev-only deps, server-only Node APIs run at import
+time, runtime filesystem writes, and hard-coded ports / hosts / secrets. Before
+treating the app as done, confirm `npm run build` and `npm run typecheck` pass.
 
 **A passing `npm run build` does not mean the deployed app renders.** After
 building, serve the built output and load it in a browser (§3). The most common
@@ -491,9 +490,9 @@ renders.
 
 The workspace **ships a ready `vite.config.ts` and `tsconfig.json`** — don't
 recreate them. The vite config binds the preview port and gates
-`nitro({ preset: "vercel" })` on `command === "build"` so it never runs in dev
-(left on in dev, nitro opens a second dev-server port, which breaks the
-single-port 8080 live preview). If you edit it, preserve the port contract,
+`nitro({ preset: "cloudflare-module" })` on `command === "build"` so it never
+runs in dev (left on in dev, nitro opens a second dev-server port, which breaks
+the single-port 8080 live preview). If you edit it, preserve the port contract,
 the build-gated nitro plugin (including its `serverDir: "./server"` option —
 without it the deployed app loses the Home Screen install page), and
 `grokPwaPlugin()`.
@@ -667,7 +666,7 @@ If the shared contract isn’t ready, stay sequential.
    D = right** while moving forward (see `controls` skill self-test). Flip one
    steer/roll sign if inverted; retest.
 6. **Verify the PRODUCTION build, not just dev.** Dev (Vite) can render while
-   the deployed Vercel build is blank. Before declaring done: run
+   the deployed Worker build is blank. Before declaring done: run
    `npm run build`, serve the built output, and load it in the browser the same
    way as step 5. Watch specifically for
    `Failed to load module script … MIME type "text/html"`. Fix the config and

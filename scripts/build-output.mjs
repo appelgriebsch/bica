@@ -3,19 +3,18 @@
  * vite.config.ts takes the preset from here; scripts/precache.mjs and
  * scripts/serve-build.mjs take the paths, so a preset switch can't leave the
  * worker pointing at a folder that no longer exists.
+ *
+ * #17: Cloudflare Workers (`cloudflare-module`) is the only preset.
  */
-export const NITRO_PRESET = "vercel";
+export const NITRO_PRESET = "cloudflare-module";
 
-/** `DEPLOY_TARGET=cloudflare` (`npm run build:cf`) selects the module Worker preset. */
-export function activePreset(env = process.env) {
-  return env.DEPLOY_TARGET === "cloudflare" ? "cloudflare-module" : NITRO_PRESET;
+/** Always the Workers module preset. `DEPLOY_TARGET=cloudflare` is kept by
+ *  `build` / `build:cf` for the Turnstile site-key bake and older scripts. */
+export function activePreset(_env = process.env) {
+  return NITRO_PRESET;
 }
 
 const OUTPUTS = {
-  vercel: {
-    publicDir: ".vercel/output/static",
-    serverEntry: ".vercel/output/functions/__server.func/index.mjs",
-  },
   // precache.mjs renders the shell by importing this bundle under Node.
   "cloudflare-module": {
     publicDir: ".output/public",

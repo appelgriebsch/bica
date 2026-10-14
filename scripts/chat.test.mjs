@@ -834,16 +834,17 @@ test("client: explicit render (widget id, action chat), execute, reset after eve
   assert.match(speak, /\} finally \{\n(?:\s*\/\/.*\n)*\s*turnstile\.current\?\.reset\(\);/);
 });
 
-test("W1: clientIp uses CF-Connecting-IP, never X-Forwarded-For; x-real-ip only without CF", () => {
+test("#17: clientIp uses CF-Connecting-IP only; never X-Forwarded-For or x-real-ip", () => {
   const h = (o) => (name) => o[name];
   assert.equal(
     m.clientIp(h({ "x-forwarded-for": "6.6.6.6", "cf-connecting-ip": "203.0.113.7" })),
     "203.0.113.7",
   );
-  assert.equal(m.clientIp(h({ "x-forwarded-for": "6.6.6.6" })), "unknown"); // XFF alone: never
-  assert.equal(m.clientIp(h({ "x-forwarded-for": "6.6.6.6, 7.7.7.7", "x-real-ip": "198.51.100.1" })), "198.51.100.1");
+  assert.equal(m.clientIp(h({ "x-forwarded-for": "6.6.6.6" })), "unknown");
+  assert.equal(m.clientIp(h({ "x-real-ip": "198.51.100.1" })), "unknown");
+  assert.equal(m.clientIp(h({ "x-forwarded-for": "6.6.6.6", "x-real-ip": "198.51.100.1" })), "unknown");
   assert.equal(m.clientIp(h({ "cf-connecting-ip": "203.0.113.7", "x-real-ip": "198.51.100.1" })), "203.0.113.7");
-  assert.equal(m.clientIp(h({ "cf-connecting-ip": " ", "x-real-ip": "198.51.100.1" })), "198.51.100.1");
+  assert.equal(m.clientIp(h({ "cf-connecting-ip": " " })), "unknown");
   assert.equal(m.clientIp(h({})), "unknown");
   assert.equal(m.clientIp(() => null), "unknown");
 });

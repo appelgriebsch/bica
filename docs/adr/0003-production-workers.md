@@ -6,7 +6,7 @@ Accepted (#8). Supersedes ADR 0001's "production is deferred".
 
 ## Context
 
-Prod runs on Vercel. Since #33 there are no accounts and no database: progress lives in the browser (export/import, #34). Conversas is protected anonymously (#35: Turnstile, `CHAT_RATE`, `ChatBudget`). Staging already runs the same build on a Worker.
+Prod runs on Cloudflare Workers (#8, #40). Since #33 there are no accounts and no database: progress lives in the browser (export/import, #34). Conversas is protected anonymously (#35: Turnstile, `CHAT_RATE`, `ChatBudget`). Staging already runs the same build on a Worker.
 
 ## Decision
 
@@ -18,5 +18,5 @@ Prod runs on Vercel. Since #33 there are no accounts and no database: progress l
 
 ## Consequences
 
-- Rollback: first `wrangler rollback --env production` (code only; vars and secrets are not rolled back). Fallback: detach the Workers custom domain, recreate Vercel's CNAME, verify. Both are lossless for progress.
+- Rollback: `wrangler rollback --env production` only (code only; vars and secrets are not rolled back). There is no Vercel fallback (#17). Lossless for progress.
 - Changing the prod hostname moves users to a new origin: they must export and import (#34).

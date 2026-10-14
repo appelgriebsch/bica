@@ -13,14 +13,18 @@ const wrangler = readFileSync(join(root, "wrangler.toml"), "utf8");
 const workflow = readFileSync(join(root, ".github/workflows/deploy-staging.yml"), "utf8");
 const ci = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
 
-test("default build stays the Vercel Nitro build", () => {
-  assert.equal(pkg.scripts.build, "vite build && node scripts/precache.mjs");
-  assert.equal(activePreset({}), "vercel");
+test("#17: default build is the Cloudflare Nitro build", () => {
+  const cf =
+    "DEPLOY_TARGET=cloudflare vite build && DEPLOY_TARGET=cloudflare node scripts/precache.mjs && node scripts/write-cf-entry.mjs";
+  assert.equal(pkg.scripts.build, cf);
+  assert.equal(pkg.scripts["build:cf"], cf);
+  assert.equal(activePreset({}), "cloudflare-module");
   assert.equal(activePreset({ DEPLOY_TARGET: "cloudflare" }), "cloudflare-module");
   assert.match(viteConfig, /const nitroPreset = activePreset\(\);/);
   assert.match(viteConfig, /serverDir:\s*"\.\/server"/);
   assert.match(viteConfig, /command === "build"/);
-  assert.match(pkg.scripts["build:cf"], /^DEPLOY_TARGET=cloudflare vite build\b/);
+  assert.doesNotMatch(viteConfig, /vercel/i);
+  assert.doesNotMatch(readFileSync(join(root, "scripts/build-output.mjs"), "utf8"), /vercel/i);
 });
 
 test("deploy scripts always target the staging environment", () => {
@@ -486,23 +490,52 @@ test("#8: prod deploy is manual from main, CI-gated, approval-gated, never cance
   assert.doesNotMatch(workflow, /--env production/);
 });
 
-test("#40: docs: rollback code-only, Vercel fallback, cutover order, env protection, token", () => {
+test("#17: docs: wrangler-only rollback, no Vercel fallback; env protection and token", () => {
   const docs = readFileSync(join(root, "docs/cloudflare-workers.md"), "utf8");
   const sec = (h) => docs.slice(docs.indexOf(h), docs.indexOf("\n### ", docs.indexOf(h) + 1) >>> 0);
   const rb = sec("### Rollback");
   assert.match(rb, /wrangler rollback --env production/);
   assert.match(rb, /code only/);
-  assert.ok(rb.indexOf("wrangler rollback") < rb.indexOf("Detach the Workers custom domain"));
-  assert.ok(rb.indexOf("Detach") < rb.indexOf("Recreate Vercel's CNAME") && rb.indexOf("Recreate") < rb.indexOf("Verify"));
-  const co = sec("### Cutover");
-  assert.ok(co.indexOf("set the three Worker secrets") > -1 && co.indexOf("set the three Worker secrets") < co.indexOf("Remove Vercel's CNAME"));
-  assert.match(co, /Brief outage/);
+  assert.match(rb, /no Vercel fallback/i);
+  assert.doesNotMatch(rb, /CNAME|Detach|Recreate/);
   assert.match(docs, /must have \*\*both\*\*/);
   assert.match(docs, /\*\*`main` only\*\*/);
   assert.match(docs, /Required reviewers: Andreas/);
   const tok = sec("### Prod API token");
   assert.match(tok, /developers\.cloudflare\.com\/api\/resources\/workers\/subresources\/domains/);
   assert.match(tok, /no DNS Edit and no SSL and Certificates/);
+});
+
+test("#17: no Vercel leftovers in src, scripts, package.json, workflows or config", () => {
+  const r = spawnSync(
+    "git",
+    [
+      "grep",
+      "-nIi",
+      "vercel",
+      "--",
+      "src",
+      "scripts",
+      "server",
+      ".github",
+      "package.json",
+      "vite.config.ts",
+      "eslint.config.mjs",
+      "wrangler.toml",
+      ".gitignore",
+      "docs/cloudflare-workers.md",
+      ":!scripts/cloudflare-config.test.mjs",
+      ":!scripts/chat.test.mjs",
+    ],
+    { cwd: root, encoding: "utf8" },
+  );
+  // Allowed: the explicit "no Vercel" notes in the Workers docs.
+  const leftovers = (r.stdout || "")
+    .split("\n")
+    .filter((l) => l && !/no Vercel|There is no Vercel|Vercel fallback|#17/i.test(l));
+  assert.equal(leftovers.join("\n"), "", leftovers.join("\n"));
+  assert.doesNotMatch(pkg.scripts.build, /vercel/i);
+  assert.ok(!Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).some((n) => /vercel/i.test(n)));
 });
 
 test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails loudly", () => {

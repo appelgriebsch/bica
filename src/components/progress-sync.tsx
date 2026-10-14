@@ -41,7 +41,7 @@ export function ProgressSync() {
       if (cancelled) return;
       const first = await syncProgressWithAccount();
       if (cancelled || first.ok) return;
-      // Cookie / Neon can lag one beat after the X callback lands.
+      // The session cookie / D1 write can lag one beat after the X callback lands.
       await new Promise((r) => window.setTimeout(r, 1200));
       if (!cancelled) await syncProgressWithAccount();
     }

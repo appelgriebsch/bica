@@ -18,6 +18,14 @@ html_handling = "none"
 # Unknown paths fall through to the Worker, which renders the app routes.
 not_found_handling = "none"
 
+# D1 (ADR 0002). Top level is for local dev (`npm run dev`, `wrangler dev`):
+# the id only names the local SQLite file under .wrangler/state.
+[[d1_databases]]
+binding = "DB"
+database_name = "bica-local"
+database_id = "local"
+migrations_dir = "migrations"
+
 [observability]
 enabled = true
 
@@ -30,3 +38,14 @@ workers_dev = true
 
 [env.staging.vars]
 BICA_STAGE = "staging"
+
+# Replace database_id with the id printed by `wrangler d1 create bica-staging`
+# (docs/cloudflare-workers.md). The all-zero placeholder is not a real database.
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "bica-staging"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# Production D1 is #8's call; when it lands it gets its own block, e.g.
+# [[env.production.d1_databases]] binding = "DB", database_name = "bica".

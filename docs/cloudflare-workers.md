@@ -25,39 +25,54 @@ The handler does not open auth or the database.
 
 ## Secrets and what works without them
 
-Set Worker secrets with `wrangler secret put <NAME> --env staging` (never in `wrangler.toml`). The server reads them from `process.env`: `nodejs_compat` with this compatibility date populates it from vars and secrets, which is the same path the Vercel build uses. No Hyperdrive binding.
+Set Worker secrets with `wrangler secret put <NAME> --env staging` (never in `wrangler.toml`). The server reads them from `process.env`: `nodejs_compat` with this compatibility date populates it from vars and secrets, which is the same path the Vercel build uses. The database is the D1 binding `DB` (below), not a secret.
 
-| Name                                             | Where                                                     | Needed for                                                                                                                                                                                                                            |
-| ------------------------------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                   | Worker secret **and** GitHub `staging` environment secret | Postgres (Neon) over `pg`. Without it the Worker skips PGLite and every database call throws, so sign-in, sessions and progress sync fail. The workflow migrates with it before deploying.                                            |
-| `BETTER_AUTH_SECRET`                             | Worker secret                                             | Signing sessions. Without it Better Auth falls back to a per-isolate preview secret, so sessions don't survive isolate restarts.                                                                                                      |
-| `BETTER_AUTH_URL`                                | Worker secret or var                                      | The public staging URL (`https://bica-staging.<account-subdomain>.workers.dev`). Without it the OAuth callback and the CSRF allowlist only know the preview and local hosts, so sign-in from workers.dev fails with "Invalid origin". |
-| `BETTER_AUTH_TRUSTED_ORIGINS`                    | Worker var (optional)                                     | Extra hosts for the same allowlist, comma or space separated.                                                                                                                                                                         |
-| `GROK_AUTH_CLIENT_ID`, `GROK_AUTH_CLIENT_SECRET` | Worker secrets                                            | Federated sign-in. Without them the app uses the shared live-preview client, and the broker only accepts `*.grok-sandbox.com` callbacks, so sign-in from workers.dev fails.                                                           |
-| `GROK_AUTH_ISSUER`                               | Worker var (optional)                                     | Broker URL; defaults to the production broker.                                                                                                                                                                                        |
-| `XAI_API_KEY`                                    | Worker secret                                             | Speak practice chat. Without it chat answers "Practice chat is unavailable right now."                                                                                                                                                |
-| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`  | GitHub `staging` environment secrets                      | `wrangler deploy` in CI.                                                                                                                                                                                                              |
+| Name                                             | Where                                | Needed for                                                                                                                                                                                                                            |
+| ------------------------------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET`                             | Worker secret                        | Signing sessions. Without it Better Auth falls back to a per-isolate preview secret, so sessions don't survive isolate restarts.                                                                                                      |
+| `BETTER_AUTH_URL`                                | Worker secret or var                 | The public staging URL (`https://bica-staging.<account-subdomain>.workers.dev`). Without it the OAuth callback and the CSRF allowlist only know the preview and local hosts, so sign-in from workers.dev fails with "Invalid origin". |
+| `BETTER_AUTH_TRUSTED_ORIGINS`                    | Worker var (optional)                | Extra hosts for the same allowlist, comma or space separated.                                                                                                                                                                         |
+| `GROK_AUTH_CLIENT_ID`, `GROK_AUTH_CLIENT_SECRET` | Worker secrets                       | Federated sign-in. Without them the app uses the shared live-preview client, and the broker only accepts `*.grok-sandbox.com` callbacks, so sign-in from workers.dev fails.                                                           |
+| `GROK_AUTH_ISSUER`                               | Worker var (optional)                | Broker URL; defaults to the production broker.                                                                                                                                                                                        |
+| `XAI_API_KEY`                                    | Worker secret                        | Speak practice chat. Without it chat answers "Practice chat is unavailable right now."                                                                                                                                                |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`  | GitHub `staging` environment secrets | `wrangler d1 migrations apply` and `wrangler deploy` in CI. The token needs D1 edit and Workers scripts edit.                                                                                                                         |
 
 `BICA_STAGE=staging` is a plain var in `[env.staging.vars]`. `VITE_*` values (`VITE_AUTH_ENABLED`, `VITE_PUBLIC_HOSTNAME`, `VITE_STUN_URLS`) are build-time: set them in the build environment, not as Worker secrets.
 
-Without any secrets, staging serves `/api/health`, the app pages (checked locally with `wrangler dev`: `/`, `/practice`), the precached offline shell, and text-to-speech (Web Speech runs in the browser). Sign-in, progress sync, practice chat, and anything else that needs the database don't work.
+Without any secrets, staging serves `/api/health`, the app pages (checked locally with `wrangler dev`: `/`, `/practice`), the precached offline shell, and text-to-speech (Web Speech runs in the browser). With the D1 database created and migrated, plus `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` and `GROK_AUTH_CLIENT_*`, sign-in and progress sync should work; with `XAI_API_KEY`, chat too. Locally that path is checked with `wrangler dev --env staging` on a local D1; it has not run against a real staging D1 yet.
 
-With `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` and `GROK_AUTH_CLIENT_*` set (and the migration step run), sign-in and progress sync should work; with `XAI_API_KEY`, chat too. None of this has run on a real Worker yet: `pg` over the Workers socket API and connection reuse across requests are untested.
+## D1 database (one-time setup)
+
+The Worker's database is D1, bound as `DB` ([ADR 0002](adr/0002-d1-database.md)). `wrangler.toml` ships an all-zero placeholder `database_id` for staging. Until it is replaced, migrations and deploy fail with an unknown database.
+
+1. `npx wrangler login` (or export `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`).
+2. `npx wrangler d1 create bica-staging`. Wrangler prints a `database_id` (a UUID). `npx wrangler d1 list` shows it again later.
+3. Put that id into `wrangler.toml` under `[[env.staging.d1_databases]]` as `database_id = "<uuid>"`, and commit it. The id is not a secret; access needs the account token.
+4. Apply the schema: `npx wrangler d1 migrations apply DB --env staging --remote --config wrangler.toml`. CI does this before every deploy; running it twice applies nothing new.
+5. Check it: `npx wrangler d1 execute DB --env staging --remote --command "select name from sqlite_master where type = 'table'"` lists `user`, `session`, `account`, `verification`, `lesson_progress`, `user_stats` and `d1_migrations`.
+
+The database starts empty. There is no user import: everyone signs in again, and each device re-uploads its offline progress through the sync queue.
+
+The wrangler CLI needs Node 22+. With an older Node, run it as `npx -y node@22 node_modules/wrangler/bin/wrangler.js …`.
 
 ## Migrations
 
-`build:cf` never touches a database. The staging workflow runs `npm run db:migrate:staging` as its own step after the build and before `wrangler deploy`, with `DATABASE_URL` from the GitHub `staging` environment. Without that secret the step prints a skip message and the Worker deploys without a database. Locally: `DATABASE_URL=... npm run db:migrate:staging`.
+`migrations/*.sql` is the `wrangler d1 migrations` directory (`migrations_dir` in `wrangler.toml`). Applied files are recorded in the database's `d1_migrations` table. Add a schema change as the next numbered file; never edit an applied one. `0001_auth.sql` is Better Auth's SQLite schema, generated by its migration compiler for the installed version.
+
+`build` and `build:cf` never touch a database. The staging workflow runs `wrangler d1 migrations apply DB --env staging --remote` as its own step after the build and before `wrangler deploy`, with the same Cloudflare token. `npm run deploy:staging` does the same locally.
+
+Local: `npm run dev` opens wrangler's local D1 under `.wrangler/state` and applies pending migrations on first use. `npx wrangler d1 migrations apply DB --local --env staging` prepares the same state for `wrangler dev --env staging`.
 
 ## Deploy
 
 Only these two paths publish, and both pass `--env staging`:
 
-- locally: `npm run deploy:staging` (`build:cf`, then `wrangler deploy --env staging --config wrangler.toml`)
+- locally: `npm run deploy:staging` (`build:cf`, the remote D1 migrations, then `wrangler deploy --env staging --config wrangler.toml`)
 - CI: push to the git branch `staging` (`.github/workflows/deploy-staging.yml`)
 
-CI (GitHub environment `staging`, 15 minute timeout) runs `npm ci`, `npm test`, `npm run deps:check`, `npm run build:cf`, the migration step, then deploys. It does not run on `main` or on pull requests.
+CI (GitHub environment `staging`, 15 minute timeout) runs `npm ci`, `npm test`, `npm run deps:check`, `npm run build:cf`, the D1 migration step, then deploys. It does not run on `main` or on pull requests.
 
-`npm run build` is unchanged: Nitro preset `vercel`, precache, then `db:migrate`. `DEPLOY_TARGET=cloudflare` selects Nitro’s `cloudflare-module` preset (module syntax, `nodejs_compat`). Dev stays on `0.0.0.0:8080` with Nitro off.
+`npm run build` is Nitro preset `vercel` plus precache. It has no database: no D1 binding exists outside a Worker, so sign-in and sync need the Worker build. `DEPLOY_TARGET=cloudflare` selects Nitro’s `cloudflare-module` preset (module syntax, `nodejs_compat`). Dev stays on `0.0.0.0:8080` with Nitro off.
 
 There is no `deploy` script. Top-level `wrangler deploy` (no `--env`) is not wired. The top-level Wrangler config sets `workers_dev = false`, has no routes, and does not set `BICA_STAGE`, so an accidental publish has no public hostname and health fails closed.
 
@@ -71,4 +86,4 @@ Nitro may write `.output/server/wrangler.json` and warn that `main` / `assets` i
 
 ## Deferred
 
-Production Worker, `[env.production]`, deploy-on-main, custom domains, DNS, and redirects onto or off `*.workers.dev` are out of scope. No `_redirects`. No D1.
+Production Worker, `[env.production]`, deploy-on-main, custom domains, DNS, and redirects onto or off `*.workers.dev` are out of scope (#8), including a production D1. No `_redirects`.

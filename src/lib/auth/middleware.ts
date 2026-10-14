@@ -8,14 +8,18 @@ import { createMiddleware } from "@tanstack/react-start";
  * thread it themselves.
  *
  *   import { createServerFn } from "@tanstack/react-start";
- *   import { getSql } from "@/lib/db";
+ *   import { getDb } from "@/lib/db";
  *   import { authMiddleware } from "@/lib/auth/middleware";
  *
  *   export const listTodos = createServerFn({ method: "GET" })
  *     .middleware([authMiddleware])
  *     .handler(async ({ context }) => {
- *       const sql = await getSql();
- *       return sql`select * from todos where user_id = ${context.userId}`;
+ *       const db = await getDb();
+ *       const { results } = await db
+ *         .prepare("select * from todos where user_id = ?1")
+ *         .bind(context.userId)
+ *         .all();
+ *       return results;
  *     });
  *
  * Signed out (auth on — the default, including live preview) -> throws

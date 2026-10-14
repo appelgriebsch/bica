@@ -19,6 +19,34 @@ export function readmePaths(md) {
     .filter((p) => !p.includes("*") && !/^https?:/.test(p));
 }
 
+/** Relative markdown link targets (anchors stripped; http(s) and mailto skipped). */
+export function readmeLinks(md) {
+  return [...md.matchAll(/\]\(([^)\s]+)\)/g)]
+    .map((m) => m[1])
+    .filter((t) => !/^(?:https?:|mailto:|#)/i.test(t))
+    .map((t) => t.split("#")[0]);
+}
+
+/** The README text with only the one allowed link target removed. */
+export function scrubAllowedLinks(md) {
+  return md.replaceAll("](docs/adr/0002-d1-database.md)", "]");
+}
+
+const FORBIDDEN = /verc[e]l|better.?auth|sign-?in|\bD1\b/i;
+
+test("#43: every relative markdown link in README.md resolves", () => {
+  const links = readmeLinks(readme);
+  assert.ok(links.length >= 4, String(links.length));
+  assert.deepEqual(
+    links.filter((t) => !existsSync(join(root, t))),
+    [],
+  );
+  // mutants: a dead link is caught; anchors are stripped; external links skipped
+  const dead = readmeLinks("[x](docs/nope.md#a) [y](https://example.com) [z](mailto:a@b.c)");
+  assert.deepEqual(dead, ["docs/nope.md"]);
+  assert.equal(existsSync(join(root, dead[0])), false);
+});
+
 test("#43: every backticked repo path in README.md exists", () => {
   const paths = readmePaths(readme);
   assert.ok(paths.length >= 15, String(paths.length));
@@ -29,7 +57,12 @@ test("#43: every backticked repo path in README.md exists", () => {
 });
 
 test("#43: README has no sign-in, D1, Better Auth or old-host claims, and no secret values", () => {
-  assert.doesNotMatch(readme.replace(/\]\([^)]*\)/g, "]"), /verc[e]l|better.?auth|sign-?in|\bD1\b/i);
+  assert.doesNotMatch(scrubAllowedLinks(readme), FORBIDDEN);
+  // mutants: only the exact ADR 0002 link target is exempt
+  assert.doesNotMatch(scrubAllowedLinks("[a](docs/adr/0002-d1-database.md)"), FORBIDDEN);
+  assert.match(scrubAllowedLinks("[a](https://verc" + "el.com)"), FORBIDDEN);
+  assert.match(scrubAllowedLinks("[a](docs/sign-in.md)"), FORBIDDEN);
+  assert.match(scrubAllowedLinks("[a](docs/adr/0002-d1-database.md#x)"), FORBIDDEN);
   assert.doesNotMatch(readme, /0x4AAAA|1x0000|xai-[A-Za-z0-9]/);
 });
 

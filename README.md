@@ -25,7 +25,7 @@ npm ci
 npm run dev   # http://localhost:8080
 ```
 
-Conversas needs local secrets: `XAI_API_KEY`, `TURNSTILE_SECRET_KEY`, `CHAT_SESSION_SECRET` and `TURNSTILE_HOSTNAMES`, in your shell or a git-ignored `.dev.vars`. Use Cloudflare's Turnstile test keys locally; see [docs/cloudflare-workers.md](docs/cloudflare-workers.md). Never commit real values.
+Conversas needs the local secrets `XAI_API_KEY`, `TURNSTILE_SECRET_KEY` and `CHAT_SESSION_SECRET`, plus a `TURNSTILE_HOSTNAMES` var for your local host (committed per env in `wrangler.toml`), in your shell or a git-ignored `.dev.vars`. Use Cloudflare's Turnstile test keys locally; see [docs/cloudflare-workers.md](docs/cloudflare-workers.md). Never commit real values.
 
 ## Tests and CI
 

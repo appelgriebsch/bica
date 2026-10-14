@@ -20,13 +20,22 @@
     format("woff2-variations");
 }
 
+/*
+ * WCAG AA contrast (#16). Pairs actually used, checked by
+ * scripts/contrast.test.mjs (normal text >= 4.5:1, UI >= 3:1):
+ *   light: muted  on bg 6.35, surface 7.12, surface-2 5.81, soft 5.61
+ *          subtle on bg 4.97, surface 5.57, surface-2 4.54
+ *   dark:  muted  on bg 8.05, surface 7.14, surface-2 6.00, soft 5.72
+ *          subtle on bg 6.10, surface 5.41, surface-2 4.55
+ * Change a token only if the test still passes.
+ */
 @theme {
   --color-bg: #f3eee6;
   --color-surface: #fffbf5;
   --color-surface-2: #ebe4d8;
   --color-fg: #1a1714;
-  --color-muted: #6f675e;
-  --color-subtle: #948c82;
+  --color-muted: #5c554d;
+  --color-subtle: #6c655d;
   --color-accent: #1e4d73;
   --color-accent-fg: #f6f1e8;
   --color-tile: #163a58;
@@ -77,7 +86,7 @@
     --color-surface-2: #273140;
     --color-fg: #f3eee6;
     --color-muted: #b7aea3;
-    --color-subtle: #8e867c;
+    --color-subtle: #9e978e;
     --color-accent: #8fb6d4;
     --color-accent-fg: #12202c;
     --color-tile: #a8c8e0;
@@ -88,10 +97,8 @@
     --color-danger: #d4897e;
     --color-danger-fg: #2a1210;
     --color-warn: #d4a86a;
-    --shadow-border:
-      0 0 0 1px rgb(243 238 230 / 0.08), 0 1px 2px rgb(0 0 0 / 0.35);
-    --shadow-border-hover:
-      0 0 0 1px rgb(243 238 230 / 0.14), 0 8px 24px -12px rgb(0 0 0 / 0.55);
+    --shadow-border: 0 0 0 1px rgb(243 238 230 / 0.08), 0 1px 2px rgb(0 0 0 / 0.35);
+    --shadow-border-hover: 0 0 0 1px rgb(243 238 230 / 0.14), 0 8px 24px -12px rgb(0 0 0 / 0.55);
   }
 }
 
@@ -151,10 +158,26 @@
 .azulejo-band {
   background-color: var(--color-accent);
   background-image:
-    linear-gradient(45deg, color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 25%, transparent 25%),
-    linear-gradient(-45deg, color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 75%),
-    linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 75%);
+    linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 25%,
+      transparent 25%
+    ),
+    linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 25%,
+      transparent 25%
+    ),
+    linear-gradient(
+      45deg,
+      transparent 75%,
+      color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 75%
+    ),
+    linear-gradient(
+      -45deg,
+      transparent 75%,
+      color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 75%
+    );
   background-size: 18px 18px;
   background-position:
     0 0,
@@ -216,4 +239,3 @@ img.scene {
     stroke-dashoffset: 0;
   }
 }
-

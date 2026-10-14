@@ -55,9 +55,10 @@ function placeholderCardColor(site = {}) {
 }
 
 /**
- * "wild-race.grok.me" → "Wild Race". Only published app hosts encode the
+ * "wild-race.grok.me" → "Wild Race". Legacy helper for hosts that encode the
  * display name in the first label. Preview / guest hosts are image origins
  * only — slugifying them produced internal names like "Hds Abc 3000 Xy".
+ * Bica itself is not published on *.grok.me (Workers only, #17).
  */
 export function appNameFromHost(hostHeader) {
   const host = String(hostHeader ?? "")
@@ -94,9 +95,9 @@ export function publicAppHost(hostHeader) {
 }
 
 /**
- * Published apps always use `VITE_PUBLIC_HOSTNAME` (injected at build /
- * deploy). Live preview has no such env, so fall back to the request host /
- * X-Forwarded-Host.
+ * Deployed Workers builds set `VITE_PUBLIC_HOSTNAME` in the staging /
+ * production workflows. Local preview has no such env, so fall back to the
+ * request host / X-Forwarded-Host.
  */
 export function resolvePublicHost(hostHeader) {
   return (

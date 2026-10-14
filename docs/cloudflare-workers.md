@@ -37,7 +37,7 @@ Set Worker secrets with `wrangler secret put <NAME> --env staging` (never in `wr
 | `TURNSTILE_HOSTNAMES`                           | Plain var, `[env.staging.vars]` (committed) | Conversas (#35): comma-separated hostnames siteverify may report. Staging: `bica-staging.appelgriebsch.workers.dev` only, never localhost. Empty → every token fails. |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | GitHub `staging` environment secrets | Required. `wrangler deploy` in CI. Token scopes: below.                                                                  |
 
-`BICA_STAGE=staging` is a plain var in `[env.staging.vars]`. `VITE_*` values (`VITE_PUBLIC_HOSTNAME`, `VITE_STUN_URLS`) are build-time: set them in the build environment, not as Worker secrets.
+`BICA_STAGE=staging` is a plain var in `[env.staging.vars]`. `VITE_*` values (`VITE_PUBLIC_HOSTNAME`, `VITE_STUN_URLS`) are build-time: set them in the deploy workflow's build step, not as Worker secrets. Prod sets `VITE_PUBLIC_HOSTNAME=bica.appelgriebsch.org` in `deploy-production.yml`. There is no grok.me publish path (#17).
 
 ## Conversas protection (#35)
 

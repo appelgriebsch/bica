@@ -334,9 +334,9 @@ export const Route = createRootRoute({
 });
 ```
 
-**`twitter:card` is platform chrome, not the og skill.** Every app keeps `{ name: "twitter:card", content: "summary_large_image" }` in the first-scaffold `meta` above. The PWA head middleware stamps the same tag if a published app's root predates it. Do not remove it — X returns `NoCard` without a layout type. Title / `og:title` stay agent-authored.
+**`twitter:card` is platform chrome, not the og skill.** Every app keeps `{ name: "twitter:card", content: "summary_large_image" }` in the first-scaffold `meta` above. The PWA head middleware stamps the same tag if an app's root predates it. Do not remove it — X returns `NoCard` without a layout type. Title / `og:title` stay agent-authored.
 
-Keep `og:image` and `x:game:image` in `head` when you rename the app: update `APP_NAME` (tab title and both share cards). `VITE_PUBLIC_HOSTNAME` is injected on publish — do not invent a `.env` for it. Live preview has no host, so no image tags (text-only unfurl is fine). Hand-author a simple `public/favicon.svg` as part of the first scaffold, and generate a custom `public/og.jpg` card from the app's own art instead of the default `og.grok.me` card for **any app with a face**: games of every kind (DOM board/word games included), whimsical apps, creative tools, and brand-forward pages — only plain utilities (converters, CRUD trackers, admin dashboards) keep the link-card placeholder. **Every app** keeps `{ property: "x:game:image", content: xBanner }` plus `x:game:image:width` / `x:game:image:height` (`1200` / `264`) for the 50:11 X feed card — default `https://og.grok.me/v1/banner.png?host=…&title=…` from the first scaffold. **Games only** also set `{ property: "og:type", content: "x:game" }` in root `meta` (always — not gated on host) and, during the brand pass, use Imagine to write `public/x-banner.jpg` (50:11, 1200×264, left-aligned lockup) then point `xBanner` at `/x-banner.jpg` — never before the file exists, or the URL 404s. Non-games keep the banner placeholder; do not call Imagine for their feed card. Do not invent `x:type` or overload `twitter:card` as the game signal. Cards per the **`og` skill** (`.grok/skills/og/SKILL.md`).
+Keep `og:image` and `x:game:image` in `head` when you rename the app: update `APP_NAME` (tab title and both share cards). `VITE_PUBLIC_HOSTNAME` comes from the Workers deploy workflows (staging / production) — do not invent a `.env` for it. Local preview has no host, so no image tags (text-only unfurl is fine). Hand-author a simple `public/favicon.svg` as part of the first scaffold, and generate a custom `public/og.jpg` card from the app's own art instead of the default `og.grok.me` card for **any app with a face**: games of every kind (DOM board/word games included), whimsical apps, creative tools, and brand-forward pages — only plain utilities (converters, CRUD trackers, admin dashboards) keep the link-card placeholder. **Every app** keeps `{ property: "x:game:image", content: xBanner }` plus `x:game:image:width` / `x:game:image:height` (`1200` / `264`) for the 50:11 X feed card — default `https://og.grok.me/v1/banner.png?host=…&title=…` from the first scaffold. **Games only** also set `{ property: "og:type", content: "x:game" }` in root `meta` (always — not gated on host) and, during the brand pass, use Imagine to write `public/x-banner.jpg` (50:11, 1200×264, left-aligned lockup) then point `xBanner` at `/x-banner.jpg` — never before the file exists, or the URL 404s. Non-games keep the banner placeholder; do not call Imagine for their feed card. Do not invent `x:type` or overload `twitter:card` as the game signal. Cards per the **`og` skill** (`.grok/skills/og/SKILL.md`).
 
 **Platform branding (required — do not remove).** The template injects
 `https://grok.com/grok-app-builder/extensions.js` into every HTML document via the
@@ -471,9 +471,10 @@ does not apply to this app.
 
 ### Build & deploy target
 
-You never trigger the deploy yourself, **but the app you build is eventually
-deployed to Cloudflare Workers** — so your output must **build cleanly under
-`npm run build` / `build:cf`**. `npm run build` must succeed and emit valid
+You never trigger the deploy yourself, **but this app deploys only to
+Cloudflare Workers** via `.github/workflows/deploy-staging.yml` and
+`deploy-production.yml`. There is **no grok.me publish path**. Build cleanly
+under `npm run build` / `build:cf`: `npm run build` must succeed and emit valid
 Worker output, and code that works under `npm run dev` but breaks a production /
 SSR build is a bug: watch for dev-only deps, server-only Node APIs run at import
 time, runtime filesystem writes, and hard-coded ports / hosts / secrets. Before

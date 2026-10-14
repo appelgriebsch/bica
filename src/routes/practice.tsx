@@ -147,7 +147,7 @@ function PracticePage() {
             >
               <MessageCircle className="mt-0.5 size-5 shrink-0" />
               <span>
-                <span className="block text-xs font-medium uppercase tracking-wider text-accent-fg/70">
+                <span className="block text-xs font-medium uppercase tracking-wider text-accent-fg/80">
                   Speak · {speakScenarios.length} scenes
                 </span>
                 <span className="mt-1 block font-display text-xl font-medium">

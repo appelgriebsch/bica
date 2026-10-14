@@ -97,8 +97,10 @@
     --color-danger: #d4897e;
     --color-danger-fg: #2a1210;
     --color-warn: #d4a86a;
-    --shadow-border: 0 0 0 1px rgb(243 238 230 / 0.08), 0 1px 2px rgb(0 0 0 / 0.35);
-    --shadow-border-hover: 0 0 0 1px rgb(243 238 230 / 0.14), 0 8px 24px -12px rgb(0 0 0 / 0.55);
+    --shadow-border:
+      0 0 0 1px rgb(243 238 230 / 0.08), 0 1px 2px rgb(0 0 0 / 0.35);
+    --shadow-border-hover:
+      0 0 0 1px rgb(243 238 230 / 0.14), 0 8px 24px -12px rgb(0 0 0 / 0.55);
   }
 }
 
@@ -158,26 +160,10 @@
 .azulejo-band {
   background-color: var(--color-accent);
   background-image:
-    linear-gradient(
-      45deg,
-      color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 25%,
-      transparent 25%
-    ),
-    linear-gradient(
-      -45deg,
-      color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 25%,
-      transparent 25%
-    ),
-    linear-gradient(
-      45deg,
-      transparent 75%,
-      color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 75%
-    ),
-    linear-gradient(
-      -45deg,
-      transparent 75%,
-      color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 75%
-    );
+    linear-gradient(45deg, color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 25%, transparent 25%),
+    linear-gradient(-45deg, color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 75%),
+    linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--color-accent-fg) 12%, transparent) 75%);
   background-size: 18px 18px;
   background-position:
     0 0,
@@ -239,3 +225,4 @@ img.scene {
     stroke-dashoffset: 0;
   }
 }
+

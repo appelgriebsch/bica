@@ -1,4 +1,15 @@
 # Nitro appends the immutable /assets/* rule at build time.
+# Static security headers for files served without the Worker (#28). Keep in
+# sync with STATIC_SECURITY_HEADERS (src/lib/security-headers.mjs); a test checks.
+# The CSP needs a per-request nonce, so only the Worker sends it.
+/*
+  strict-transport-security: max-age=31536000; includeSubDomains
+  x-frame-options: DENY
+  referrer-policy: strict-origin-when-cross-origin
+  x-content-type-options: nosniff
+  permissions-policy: camera=(), geolocation=(), microphone=()
+  cross-origin-opener-policy: same-origin-allow-popups
+  reporting-endpoints: csp-endpoint="/api/csp-report"
 /sw.js
   cache-control: no-cache
 /_shell

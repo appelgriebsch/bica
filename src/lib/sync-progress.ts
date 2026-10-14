@@ -1,6 +1,7 @@
 import { fetchProgress, saveProgressSnapshot } from "@/lib/progress-server";
 import { announce, isOnline } from "@/lib/online";
 import { useProgress } from "@/lib/progress-store";
+import { isInvalidInputError } from "@/lib/server-fn-status.mjs";
 
 /**
  * Pull the account, union it with this device, push the union.
@@ -45,7 +46,9 @@ export async function syncProgressWithAccount(): Promise<{ ok: boolean; error?: 
       message.includes("network")
     ) {
       friendly = "No connection to the account right now. Check the line and try again.";
-    } else if (message.includes("Invalid progress snapshot")) {
+    } else if (isInvalidInputError(err)) {
+      // 400: this client sent something the server can't read. A bug, not the line.
+      console.error("[bica] progress sync rejected as invalid input");
       friendly = "This device sent a path the account could not read. Try again after a refresh.";
     }
     useProgress.getState().setSyncError(friendly);

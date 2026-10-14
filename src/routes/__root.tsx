@@ -3,6 +3,7 @@ import {
   HeadContent,
   Outlet,
   Scripts,
+  useRouter,
 } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
@@ -10,9 +11,9 @@ import { PwaRegister } from "@/components/pwa";
 import { PtVoiceNotice } from "@/components/pt-voice-notice";
 import { OfflineStatus } from "@/components/offline-status";
 import { Toaster } from "sonner";
+import { APP_NAME } from "@/lib/app-name.mjs";
 import appCss from "../styles.css?url";
 
-const APP_NAME = "Bica";
 const host = import.meta.env.VITE_PUBLIC_HOSTNAME;
 const ogImage = host ? `https://${host}/og.jpg` : undefined;
 const xBanner = host
@@ -73,14 +74,30 @@ export const Route = createRootRoute({
       { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
       { rel: "apple-touch-icon", href: "/icon-180.png", sizes: "180x180" },
     ],
+    scripts: [
+      {
+        // Zod probes `new Function("")` to decide whether to JIT its parsers;
+        // under the nonce CSP (#28) that is an eval report on every page. Its
+        // config lives on globalThis, so this must run before any schema module
+        // (z.config() in app code runs too late). The schemas are tiny.
+        children: "globalThis.__zod_globalConfig={jitless:true};",
+      },
+    ],
   }),
-  component: () => (
+  component: RootDocument,
+});
+
+function RootDocument() {
+  // The CSP nonce (#28) for the one inline script we render ourselves.
+  const nonce = useRouter().options.ssr?.nonce;
+  return (
     <html lang="en" className="antialiased" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body>
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `(function(){var k="bica-module-reload";function stuck(m){return /importing a module script failed|failed to fetch dynamically imported module|failed to load module script/i.test(String(m||""))}function go(){try{if(sessionStorage.getItem(k)==="1")return;sessionStorage.setItem(k,"1")}catch(e){return}var done=function(){location.reload()};var t=[];if(navigator.serviceWorker){t.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}))}if(window.caches){t.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(x){return caches.delete(x)}))}))}Promise.all(t).then(done,done)}window.addEventListener("error",function(e){if(stuck(e&&e.message))go()});window.addEventListener("unhandledrejection",function(e){var r=e&&e.reason;if(stuck(r&&(r.message||r)))go()})})();`,
           }}
@@ -101,5 +118,5 @@ export const Route = createRootRoute({
         <Scripts />
       </body>
     </html>
-  ),
-});
+  );
+}

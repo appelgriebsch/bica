@@ -151,14 +151,16 @@ export function stripInstallParams(url) {
   return rest ? `${path}?${rest}` : path;
 }
 
-export function renderInstallPageHtml(template, { host, url } = {}) {
+/** `appName` (the app's configured name) wins over the host-derived one. */
+export function renderInstallPageHtml(template, { host, url, appName } = {}) {
   return String(template)
-    .replaceAll("{{APP_NAME}}", escapeHtml(appNameFromHost(host)))
+    .replaceAll("{{APP_NAME}}", escapeHtml(appName || appNameFromHost(host)))
     .replaceAll("{{APP_URL}}", escapeHtml(stripInstallParams(url)));
 }
 
-export function renderWebManifest(hostHeader) {
-  const name = appNameFromHost(hostHeader);
+/** `appName` (the app's configured name) wins over the host-derived one. */
+export function renderWebManifest(hostHeader, appName) {
+  const name = appName || appNameFromHost(hostHeader);
   return JSON.stringify(
     {
       name,
@@ -228,7 +230,7 @@ export function grokXCreatorHeadTags(creator = readXCreator(), creatorId = readX
 }
 
 /** Platform "Created with Grok" banner — injected into every HTML document. */
-export function grokExtensionsHeadTags(projectId = readGrokProjectId()) {
+export function grokExtensionsHeadTags(projectId = readGrokProjectId(), nonce) {
   const id = escapeHtml(projectId);
   const tags = [];
   if (projectId) {
@@ -237,7 +239,7 @@ export function grokExtensionsHeadTags(projectId = readGrokProjectId()) {
   tags.push(
     `<script src="${GROK_EXTENSIONS_SCRIPT_SRC}"${
       projectId ? ` data-project-id="${id}"` : ""
-    } defer></script>`,
+    }${nonce ? ` nonce="${escapeHtml(nonce)}"` : ""} defer></script>`,
   );
   return tags;
 }
@@ -448,7 +450,7 @@ export function injectGrokPwaHead(html, ctx = {}) {
   );
 
   if (!next.includes("/grok-app-builder/extensions.js")) {
-    missing.push(...grokExtensionsHeadTags(projectId));
+    missing.push(...grokExtensionsHeadTags(projectId, ctx.nonce));
   } else if (projectId && !next.includes('name="grok-project-id"')) {
     missing.push(`<meta name="grok-project-id" content="${escapeHtml(projectId)}">`);
   }
@@ -498,6 +500,7 @@ export function createHeadInjector(ctx = {}) {
       host: normalized.host,
       cwd: normalized.cwd,
       site: normalized.site,
+      nonce: ctx.nonce,
     });
 
   return {

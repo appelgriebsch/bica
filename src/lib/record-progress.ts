@@ -1,5 +1,6 @@
 import { saveLessonProgress, saveProgressSnapshot } from "@/lib/progress-server";
 import { useProgress } from "@/lib/progress-store";
+import { isInvalidInputError } from "@/lib/server-fn-status.mjs";
 
 /**
  * Always write locally first. Then try the account — guests 401 and stay
@@ -21,8 +22,10 @@ export async function persistCompletion(
     const changes = useProgress.getState().changes;
     await saveProgressSnapshot({ data: useProgress.getState().snapshot() });
     useProgress.getState().markSynced(changes);
-  } catch {
-    /* guest, or the line dropped — stays pending; ProgressSync flushes on reconnect / sign-in */
+  } catch (err) {
+    // Guest (401) or the line dropped: quiet, stays pending; ProgressSync flushes on
+    // reconnect / sign-in. A 400 is a bug in what we sent: log it (no retry loop).
+    if (isInvalidInputError(err)) console.error("[bica] lesson save rejected as invalid input");
   }
   return xp;
 }

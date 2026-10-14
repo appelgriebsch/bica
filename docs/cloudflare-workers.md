@@ -109,6 +109,12 @@ Nitro may write `.output/server/wrangler.json` and warn that `main` / `assets` i
 
 `DEPLOY_TARGET=cloudflare node scripts/offline-smoke.mjs` runs the offline smoke on the Cloudflare output (served by Node, not workerd).
 
+## Security headers (#28)
+
+- Every Worker response gets HSTS (no `preload` yet), `X-Frame-Options: DENY`, `Referrer-Policy`, `nosniff`, `Permissions-Policy` and `COOP: same-origin-allow-popups` (`server/middleware/00-security-headers.ts`). Static assets get the same set from `public/_headers` (`/*`).
+- HTML gets a per-request nonce CSP, set by the router (`src/lib/csp-nonce.ts`, policy in `src/lib/security-headers.mjs`). It is `Content-Security-Policy-Report-Only` until the Worker var `CSP_ENFORCE=1` is set; reports go to `/api/csp-report` (logged, not stored). Switch to enforce after a staging pass with no unexpected reports.
+- `/_shell` is a static file, so it has the static headers but no CSP (a nonce can't be baked into it).
+
 ## Deferred
 
 Production Worker, `[env.production]`, deploy-on-main, custom domains, DNS, and redirects onto or off `*.workers.dev` are out of scope (#8), including a production D1. No `_redirects`.

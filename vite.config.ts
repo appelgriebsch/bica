@@ -6,6 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
+import { APP_NAME } from "./src/lib/app-name.mjs";
 // @ts-expect-error JS module alongside the TS vite config
 import { activePreset } from "./scripts/build-output.mjs";
 
@@ -120,7 +121,7 @@ export default defineConfig(({ command }) => ({
     // Before tanstackStart so /auth/popup never falls through to the SPA.
     authPopupPlugin(),
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.
-    grokPwaPlugin(),
+    grokPwaPlugin({ appName: APP_NAME }),
     tailwindcss(),
     tanstackStart(),
     ...(command === "build"

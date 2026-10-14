@@ -29,6 +29,8 @@ const isoTime = z
   .string()
   .max(40)
   .refine((v) => /^\d{4}-\d{2}-\d{2}T/.test(v) && !Number.isNaN(Date.parse(v)));
+/** Exactly Date.toISOString() (UTC, Z), so timestamps order correctly as text in SQL. */
+const utcIso = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
 const lessonId = z.string().refine((id) => LESSON_IDS.has(id));
 
 const lessonRow = z
@@ -56,6 +58,7 @@ const snapshotSchema = z.object({
     .refine((r) => Object.keys(r).length <= CARDS_MAX)
     .optional(),
   floor: z.enum(["A1", "A2", "B1", "B2", "C1"]).optional(),
+  floorUpdatedAt: utcIso.nullable().optional(),
 });
 
 const resultSchema = z
@@ -104,10 +107,19 @@ ON CONFLICT (user_id, lesson_id) DO UPDATE SET
                      coalesce(excluded.completed_at, lesson_progress.completed_at)),
   updated_at = excluded.updated_at`;
 
+// The floor goes with the newer floor_updated_at (#15), as on the client (progress-store
+// mergeRemote): a timestamp beats none; rank max only when neither side has one
+// (A1 < A2 < B1 < B2 < C1 sorts as text); an equal timestamp keeps the stored value.
+// ponytail: recency trusts device clocks; a device with a skewed clock can win or lose a
+// floor change. Fine for a self-chosen setting; use a server timestamp if that bites.
+const FLOOR_NEWER = `?5 IS NOT NULL AND ?7 IS NOT NULL
+  AND (user_stats.floor_updated_at IS NULL OR ?7 > user_stats.floor_updated_at)`;
+const FLOOR_NO_TIMES = `?5 IS NOT NULL AND ?7 IS NULL AND user_stats.floor_updated_at IS NULL`;
+
 // The streak belongs to the later study day (so a broken streak can drop); on a tie, the max.
 const STATS_UPSERT = `
-INSERT INTO user_stats (user_id, streak, last_study_date, total_xp, floor, updated_at)
-VALUES (?1, ?2, ?3, ?4, coalesce(?5, 'A1'), ?6)
+INSERT INTO user_stats (user_id, streak, last_study_date, total_xp, floor, updated_at, floor_updated_at)
+VALUES (?1, ?2, ?3, ?4, coalesce(?5, 'A1'), ?6, ?7)
 ON CONFLICT (user_id) DO UPDATE SET
   streak = CASE
     WHEN coalesce(excluded.last_study_date, '') > coalesce(user_stats.last_study_date, '')
@@ -119,9 +131,13 @@ ON CONFLICT (user_id) DO UPDATE SET
     WHEN coalesce(excluded.last_study_date, '') > coalesce(user_stats.last_study_date, '')
       THEN excluded.last_study_date ELSE user_stats.last_study_date END,
   total_xp = max(user_stats.total_xp, excluded.total_xp),
-  floor = CASE WHEN ?5 IS NULL THEN user_stats.floor ELSE max(user_stats.floor, excluded.floor) END,
+  floor = CASE
+    WHEN ${FLOOR_NEWER} THEN excluded.floor
+    WHEN ${FLOOR_NO_TIMES} THEN max(user_stats.floor, excluded.floor)
+    ELSE user_stats.floor END,
+  floor_updated_at = CASE
+    WHEN ${FLOOR_NEWER} THEN ?7 ELSE user_stats.floor_updated_at END,
   updated_at = excluded.updated_at`;
-// Floor is the max, as on the client (progress-store mergeRemote); A1 < A2 < B1 < B2 < C1 sorts as text.
 
 // Per card, the client rule (progress-store mergeRemote): more reps wins, then the later due.
 // json_patch only ever receives the incoming cards that win, never a stale one.
@@ -146,7 +162,15 @@ export function snapshotStatements(
   return [
     db
       .prepare(STATS_UPSERT)
-      .bind(userId, s.streak, s.lastStudyDate ?? null, s.xp, s.floor ?? null, at),
+      .bind(
+        userId,
+        s.streak,
+        s.lastStudyDate ?? null,
+        s.xp,
+        s.floor ?? null,
+        at,
+        s.floor ? (s.floorUpdatedAt ?? null) : null,
+      ),
     db.prepare(CARDS_MERGE).bind(userId, JSON.stringify(s.cards ?? {})),
     db.prepare(LESSONS_UPSERT).bind(userId, JSON.stringify(s.completed), at),
   ];
@@ -178,6 +202,7 @@ type StatsRowDb = {
   total_xp: number;
   vocab_cards: string;
   floor: Snapshot["floor"];
+  floor_updated_at: string | null;
 };
 
 /** The account's progress in the client's snapshot shape (one batch, two reads). */
@@ -190,7 +215,7 @@ export async function loadProgress(db: D1Database, userId: string) {
       .bind(userId),
     db
       .prepare(
-        "SELECT streak, last_study_date, total_xp, vocab_cards, floor FROM user_stats WHERE user_id = ?1",
+        "SELECT streak, last_study_date, total_xp, vocab_cards, floor, floor_updated_at FROM user_stats WHERE user_id = ?1",
       )
       .bind(userId),
   ]);
@@ -214,5 +239,6 @@ export async function loadProgress(db: D1Database, userId: string) {
     lastStudyDate: s?.last_study_date ?? null,
     cards: (s ? JSON.parse(s.vocab_cards) : {}) as NonNullable<Snapshot["cards"]>,
     floor: s?.floor ?? "A1",
+    floorUpdatedAt: s?.floor_updated_at ?? null,
   };
 }

@@ -273,7 +273,7 @@ test("health check curl has a per-request timeout", () => {
   for (const c of curls) assert.match(c, /--max-time 10\b/, c);
 });
 
-test("manual-run guard takes the newest CI check run", () => {
+test("manual-run guard takes the newest CI check run, and a pending one blocks", () => {
   const filter = workflow.match(/--jq '([^']+)'/)?.[1];
   assert.ok(filter, "no --jq filter in the manual-run guard");
   const jq = (runs) =>
@@ -281,19 +281,30 @@ test("manual-run guard takes the newest CI check run", () => {
       input: JSON.stringify({ check_runs: runs }),
       encoding: "utf8",
     }).stdout.trim();
-  const run = (conclusion, completed_at, slug = "github-actions") => ({
+  const at = (h) => `2026-10-14T0${h}:00:00Z`;
+  const done = (conclusion, h, slug = "github-actions") => ({
+    status: "completed",
     conclusion,
-    completed_at,
+    started_at: at(h),
+    completed_at: at(h + 1),
     app: { slug },
   });
-  const older = "2026-10-14T07:00:00Z";
-  const newer = "2026-10-14T08:00:00Z";
+  const pending = (h) => ({
+    status: "in_progress",
+    conclusion: null,
+    started_at: at(h),
+    completed_at: null,
+    app: { slug: "github-actions" },
+  });
   // listed in either order: only the newest run counts
-  assert.equal(jq([run("failure", older), run("success", newer)]), "success");
-  assert.equal(jq([run("success", newer), run("failure", older)]), "success");
-  assert.equal(jq([run("success", older), run("failure", newer)]), "failure");
-  assert.equal(jq([run("failure", newer), run("success", older)]), "failure");
+  assert.equal(jq([done("failure", 1), done("success", 3)]), "success");
+  assert.equal(jq([done("success", 3), done("failure", 1)]), "success");
+  assert.equal(jq([done("success", 1), done("failure", 3)]), "failure");
+  assert.equal(jq([done("failure", 3), done("success", 1)]), "failure");
+  // #24 S5: a newer pending re-run (completed_at null) is not passed over for an older green run
+  assert.equal(jq([done("success", 1), pending(3)]), "pending");
+  assert.equal(jq([pending(3), done("success", 1)]), "pending");
   // another app's check named CI doesn't count; no run at all is "missing"
-  assert.equal(jq([run("failure", older), run("success", newer, "someone-else")]), "failure");
+  assert.equal(jq([done("failure", 1), done("success", 3, "someone-else")]), "failure");
   assert.equal(jq([]), "missing");
 });

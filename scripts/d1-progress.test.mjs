@@ -69,7 +69,11 @@ let proxy, db;
 before(async () => {
   proxy = await getPlatformProxy({ persist: false });
   db = proxy.env.DB;
-  assert.deepEqual(await m.applyMigrations(db, migrations), ["0001_auth.sql", "0002_progress.sql"]);
+  assert.deepEqual(await m.applyMigrations(db, migrations), [
+    "0001_auth.sql",
+    "0002_progress.sql",
+    "0003_floor_updated_at.sql",
+  ]);
 });
 after(async () => {
   await proxy?.dispose();
@@ -187,25 +191,84 @@ test("saveLesson: the same upsert in one statement", async () => {
   assert.equal(r.xp, 50);
 });
 
-test("floor: the max wins on the server; a snapshot without one keeps it", async () => {
-  assert.equal((await load()).floor, "A1");
-  await save(snap({ floor: "B2" }));
-  assert.equal((await load()).floor, "B2");
-  await save(snap());
-  assert.equal((await load()).floor, "B2");
-  await save(snap({ floor: "A2" })); // a device still on A2 never lowers it
-  assert.equal((await load()).floor, "B2");
-  await save(snap({ floor: "C1" }));
-  assert.equal((await load()).floor, "C1");
+const T1 = "2026-10-14T08:00:00.000Z";
+const T2 = "2026-10-14T09:00:00.000Z";
+
+test("floor (server): the newer setting wins in both orders, and round-trips", async () => {
+  // device A lowers to A2 later than device B raised to B2; whichever syncs first
+  await save(snap({ floor: "B2", floorUpdatedAt: T1 }));
+  await save(snap({ floor: "A2", floorUpdatedAt: T2 }));
+  assert.deepEqual([(await load()).floor, (await load()).floorUpdatedAt], ["A2", T2]);
+  await save(snap({ floor: "B2", floorUpdatedAt: T1 })); // the stale device syncs again
+  assert.deepEqual([(await load()).floor, (await load()).floorUpdatedAt], ["A2", T2]);
+
+  user = `${user}-b`;
+  await addUser(user);
+  await save(snap({ floor: "A2", floorUpdatedAt: T2 }));
+  await save(snap({ floor: "B2", floorUpdatedAt: T1 }));
+  assert.deepEqual([(await load()).floor, (await load()).floorUpdatedAt], ["A2", T2]);
 });
 
-test("floor: the max wins on the client too, both ways", () => {
+test("floor (server): a timestamp beats none; rank max only without timestamps; none keeps it", async () => {
+  assert.deepEqual([(await load()).floor, (await load()).floorUpdatedAt], ["A1", null]);
+  await save(snap({ floor: "B1" })); // no timestamps anywhere: rank max
+  await save(snap({ floor: "A2" }));
+  assert.equal((await load()).floor, "B1");
+  await save(snap({ floor: "B2" })); // ... both ways
+  assert.equal((await load()).floor, "B2");
+  await save(snap({ floor: "A2", floorUpdatedAt: T1 })); // a dated setting beats an undated one
+  assert.deepEqual([(await load()).floor, (await load()).floorUpdatedAt], ["A2", T1]);
+  await save(snap({ floor: "C1" })); // an undated one never overwrites a dated one
+  await save(snap()); // no floor at all keeps it
+  assert.deepEqual([(await load()).floor, (await load()).floorUpdatedAt], ["A2", T1]);
+  await save(snap({ floor: "B2", floorUpdatedAt: T1 })); // same time: the stored one stays
+  assert.equal((await load()).floor, "A2");
+  await assert.rejects(
+    save(snap({ floor: "B2", floorUpdatedAt: "2026-10-14T10:00:00+02:00" })),
+    (e) => e.message === m.INVALID_PROGRESS,
+  );
+});
+
+test("floor (client): mergeRemote takes the newer setting, both ways, with the rank fallback", () => {
   const st = () => m.useProgress.getState();
-  m.useProgress.setState({ floor: "A2" });
-  st().mergeRemote(snap({ floor: "B1" }));
+  const floorOf = () => [st().floor, st().floorUpdatedAt];
+  m.useProgress.setState({ floor: "B2", floorUpdatedAt: T1 });
+  st().mergeRemote(snap({ floor: "A2", floorUpdatedAt: T2 })); // remote lowered it later
+  assert.deepEqual(floorOf(), ["A2", T2]);
+  m.useProgress.setState({ floor: "A2", floorUpdatedAt: T2 });
+  st().mergeRemote(snap({ floor: "B2", floorUpdatedAt: T1 })); // remote is the stale one
+  assert.deepEqual(floorOf(), ["A2", T2]);
+  m.useProgress.setState({ floor: "A2", floorUpdatedAt: null });
+  st().mergeRemote(snap({ floor: "B1", floorUpdatedAt: null })); // neither dated: rank max
+  assert.deepEqual(floorOf(), ["B1", null]);
+  st().mergeRemote(snap({ floor: "A1" })); // still rank max
   assert.equal(st().floor, "B1");
-  st().mergeRemote(snap({ floor: "A1" }));
-  assert.equal(st().floor, "B1");
+  st().mergeRemote(snap({ floor: "A1", floorUpdatedAt: T1 })); // dated beats undated
+  assert.deepEqual(floorOf(), ["A1", T1]);
+  m.useProgress.setState({ floor: "C1", floorUpdatedAt: T1 });
+  st().mergeRemote(snap({ floor: "A1", floorUpdatedAt: null })); // undated never beats dated
+  assert.deepEqual(floorOf(), ["C1", T1]);
+});
+
+test("floor: setFloor stamps the time; lowering on device A shows on device B after sync", async () => {
+  const st = () => m.useProgress.getState();
+  globalThis.__stub.online = true;
+  globalThis.__stub.fetchProgress = () => load();
+  globalThis.__stub.saveProgressSnapshot = (input) => save(input.data);
+  // device B raised to B2 earlier and synced
+  await save(snap({ floor: "B2", floorUpdatedAt: T1 }));
+  // device A: lowers to A2 now, then syncs
+  m.useProgress.setState({ floor: "B2", floorUpdatedAt: T1, syncing: false });
+  st().setFloor("A2");
+  assert.ok(st().floorUpdatedAt > T1, st().floorUpdatedAt);
+  assert.deepEqual(await m.syncProgressWithAccount(), { ok: true });
+  const stamped = st().floorUpdatedAt;
+  assert.deepEqual([(await load()).floor, (await load()).floorUpdatedAt], ["A2", stamped]);
+  // device B (still on B2 @ T1) syncs: it picks up A2
+  m.useProgress.setState({ floor: "B2", floorUpdatedAt: T1, syncPending: true });
+  assert.deepEqual(await m.syncProgressWithAccount(), { ok: true });
+  assert.deepEqual([st().floor, st().floorUpdatedAt], ["A2", stamped]);
+  assert.equal((await load()).floor, "A2");
 });
 
 test("FK: deleting the user cascades to lesson_progress and user_stats", async () => {

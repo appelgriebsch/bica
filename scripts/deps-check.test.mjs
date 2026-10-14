@@ -209,3 +209,10 @@ test("a missing optional entry still fails", () => {
   assert.equal(r.code, 1);
   assert.match(r.out, /npm ls: missing: dep@\^1\.0\.0/);
 });
+
+test("an invalid optional entry still fails (only extraneous ones are allowed)", () => {
+  const dir = fixture({ lockEntry: { optional: true } });
+  const r = check(dir, [], lsNpm(dir, [`invalid: dep@1.0.0 ${join(dir, "node_modules/dep")}`]));
+  assert.equal(r.code, 1);
+  assert.match(r.out, /npm ls: invalid: dep@1\.0\.0/);
+});

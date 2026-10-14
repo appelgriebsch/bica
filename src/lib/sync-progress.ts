@@ -10,6 +10,9 @@ import { useProgress } from "@/lib/progress-store";
 export async function syncProgressWithAccount(): Promise<{ ok: boolean; error?: string }> {
   const progress = useProgress.getState();
   if (progress.syncing) return { ok: true };
+  // Never pull-and-push before this device's progress is restored: the push would be a
+  // snapshot of an empty store (#15). The component gates too; this is the backstop.
+  if (!progress.hydrated) return { ok: false, error: "not-hydrated" };
   // Offline: stay queued (syncPending); ProgressSync flushes on a confirmed reconnect.
   if (!isOnline()) return { ok: false, error: "offline" };
   const queued = progress.syncPending;

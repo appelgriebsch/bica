@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { injectId, MARKER } from "./ci-d1-provision.mjs";
+import { findDatabase, injectId, MARKER } from "./ci-d1-provision.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const script = join(root, "scripts/ci-d1-provision.mjs");
@@ -159,4 +159,46 @@ test("injectId refuses a config without the marker", () => {
     /has no database_id/,
   );
   assert.throws(() => injectId("[env.staging]\n", "staging", ID), /not found/);
+});
+
+test("findDatabase: the list must start its own line; mid-line brackets are warnings", () => {
+  const list = JSON.stringify([{ uuid: ID, name: "bica-staging" }], null, 2);
+  assert.equal(findDatabase(`▲ [WARNING] see [{"x":1}] here\n${list}`, "bica-staging"), ID);
+  assert.equal(findDatabase(`[WARNING] a\n[]`, "bica-staging"), undefined);
+  assert.throws(
+    () => findDatabase(`note: [{"uuid":"${ID}","name":"bica-staging"}]`, "bica-staging"),
+    /did not return a list/,
+  );
+  assert.throws(
+    () => findDatabase("[WARNING] only warnings", "bica-staging"),
+    /did not return a list/,
+  );
+});
+
+test("injectId: the header must start the block; a mention in a comment doesn't count", () => {
+  const toml = [
+    "[env.staging]",
+    "# see [[env.staging.d1_databases]] below",
+    'name = "x"',
+    "",
+    "[[env.staging.d1_databases]]",
+    'binding = "DB"',
+    `database_id = "${MARKER}"`,
+    "",
+  ].join("\n");
+  const out = injectId(toml, "staging", ID);
+  assert.match(out, new RegExp(`^database_id = "${ID}"$`, "m"));
+  assert.ok(out.startsWith("[env.staging]\n# see [[env.staging.d1_databases]] below"));
+});
+
+test("injectId: a marker left anywhere else fails instead of shipping", () => {
+  const toml = [
+    "[[env.staging.d1_databases]]",
+    `database_id = "${MARKER}"`,
+    "",
+    "[[env.preview.d1_databases]]",
+    `database_id = "${MARKER}"`,
+    "",
+  ].join("\n");
+  assert.throws(() => injectId(toml, "staging", ID), /still has the marker/);
 });

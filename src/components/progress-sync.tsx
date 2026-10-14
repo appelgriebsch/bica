@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useOnline } from "@/lib/online";
 import { useProgress } from "@/lib/progress-store";
+import { whenHydrated } from "@/lib/progress-hydration";
 import { syncProgressWithAccount } from "@/lib/sync-progress";
 
 /**
@@ -19,17 +20,8 @@ export function ProgressSync() {
 
   useEffect(() => {
     if (useProgress.getState().hydrated) return;
-    const persist = useProgress.persist;
-    const unsub = persist.onFinishHydration(() => {
-      useProgress.getState().markHydrated();
-    });
-    if (persist.hasHydrated()) useProgress.getState().markHydrated();
-    else void persist.rehydrate();
-    const fallback = window.setTimeout(() => useProgress.getState().markHydrated(), 800);
-    return () => {
-      unsub();
-      window.clearTimeout(fallback);
-    };
+    // Sync starts only once persist has hydrated; there is no timer fallback (#15).
+    return whenHydrated(useProgress.persist, () => useProgress.getState().markHydrated());
   }, []);
 
   useEffect(() => {

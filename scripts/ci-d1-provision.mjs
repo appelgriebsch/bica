@@ -33,15 +33,14 @@ function wrangler(args, env = process.env) {
 
 /** The uuid of the database called `name`, or undefined. */
 export function findDatabase(listJson, name) {
-  // Wrangler may print warnings first; the list starts on a line of its own.
+  // Wrangler may print warnings first ("[WARNING] ..."); the list itself starts a line
+  // with "[{" or "[]" (pretty-printed: "[" then a newline and "{").
+  const at = listJson.search(/^\[\s*[{\]]/m);
   let list;
-  for (const m of listJson.matchAll(/^\[/gm)) {
-    try {
-      list = JSON.parse(listJson.slice(m.index));
-      break;
-    } catch {
-      // a warning line such as "[WARNING] ..."; keep looking
-    }
+  try {
+    list = at < 0 ? undefined : JSON.parse(listJson.slice(at));
+  } catch {
+    list = undefined;
   }
   if (!Array.isArray(list)) throw new Error("wrangler d1 list --json did not return a list");
   const hits = list.filter((d) => d?.name === name);
@@ -60,8 +59,8 @@ export function injectId(toml, env, id) {
   if (!blocks[at].includes(line)) throw new Error(`${header} has no ${line}`);
   blocks[at] = blocks[at].replace(line, `database_id = "${id}"`);
   const out = blocks.join("");
-  if (out.includes(MARKER) || !out.includes(`database_id = "${id}"`))
-    throw new Error("generated config still has the marker or lacks the id");
+  // The marker anywhere else would ship as a database id: refuse.
+  if (out.includes(MARKER)) throw new Error("generated config still has the marker");
   return out;
 }
 

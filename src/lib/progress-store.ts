@@ -18,6 +18,8 @@ export type ProgressSnapshot = {
   lastStudyDate: string | null;
   cards: Record<string, SrsCard>;
   floor: CefrLevel;
+  /** When the floor was last set (Date.toISOString), or null if never on record. */
+  floorUpdatedAt?: string | null;
 };
 
 export type ProgressState = {
@@ -26,7 +28,9 @@ export type ProgressState = {
   streak: number;
   lastStudyDate: string | null;
   floor: CefrLevel;
+  floorUpdatedAt: string | null;
   cards: Record<string, SrsCard>;
+  /** True once persist has restored this device's progress; sync never runs before. */
   hydrated: boolean;
   lastSyncedAt: string | null;
   syncing: boolean;
@@ -76,6 +80,7 @@ export const useProgress = create<ProgressState>()(
       streak: 0,
       lastStudyDate: null,
       floor: "A1",
+      floorUpdatedAt: null,
       cards: {},
       hydrated: false,
       lastSyncedAt: null,
@@ -97,7 +102,12 @@ export const useProgress = create<ProgressState>()(
       setSyncing: (syncing) => set({ syncing }),
       setSyncError: (syncError) => set({ syncError, syncing: false }),
       setFloor: (level) =>
-        set((s) => ({ floor: level, syncPending: true, changes: s.changes + 1 })),
+        set((s) => ({
+          floor: level,
+          floorUpdatedAt: new Date().toISOString(),
+          syncPending: true,
+          changes: s.changes + 1,
+        })),
       completeLesson: (lessonId, result) => {
         const today = todayKey();
         const prev = get();
@@ -175,8 +185,14 @@ export const useProgress = create<ProgressState>()(
         const lastStudyDate = l > r ? localDay : remoteDay;
         const streak =
           l > r ? local.streak : l < r ? remote.streak : Math.max(local.streak, remote.streak);
+        // Floor: the newer setting wins (#15), the same rule as the server's STATS_UPSERT. A
+        // timestamp beats none; rank max only when neither side has one; a tie keeps local.
         const remoteFloor = remote.floor ?? "A1";
-        const floor = rank[local.floor] >= rank[remoteFloor] ? local.floor : remoteFloor;
+        const lt = local.floorUpdatedAt ?? "";
+        const rt = remote.floorUpdatedAt ?? "";
+        const remoteWins = lt || rt ? rt > lt : rank[remoteFloor] > rank[local.floor];
+        const floor = remoteWins ? remoteFloor : local.floor;
+        const floorUpdatedAt = remoteWins ? (remote.floorUpdatedAt ?? null) : local.floorUpdatedAt;
         set({
           completed,
           cards,
@@ -184,6 +200,7 @@ export const useProgress = create<ProgressState>()(
           streak,
           lastStudyDate,
           floor,
+          floorUpdatedAt,
         });
       },
       snapshot: () => {
@@ -195,6 +212,7 @@ export const useProgress = create<ProgressState>()(
           lastStudyDate: asDayKey(s.lastStudyDate),
           cards: s.cards,
           floor: s.floor,
+          floorUpdatedAt: s.floorUpdatedAt,
         };
       },
     }),
@@ -206,12 +224,19 @@ export const useProgress = create<ProgressState>()(
         streak: s.streak,
         lastStudyDate: s.lastStudyDate,
         floor: s.floor,
+        floorUpdatedAt: s.floorUpdatedAt,
         cards: s.cards,
         syncPending: s.syncPending,
       }),
-      onRehydrateStorage: () => (_state, error) => {
-        if (!error) useProgress.getState().markHydrated();
-        else useProgress.getState().markHydrated();
+      // A failed hydration leaves `hydrated` false, so nothing syncs: pushing an empty
+      // store would overwrite the account (the device is the re-upload source, #19).
+      // Uses the callback's `state`: with synchronous storage this runs inside create(),
+      // before `useProgress` is assigned. On error `state` is undefined and a throwing
+      // synchronous getItem lands here inside create() too, so the error is set later.
+      onRehydrateStorage: () => (state, error) => {
+        if (!error) return state?.markHydrated();
+        console.error("[bica] progress hydration failed; sync stays off:", error);
+        queueMicrotask(() => useProgress.getState().setSyncError("hydration-failed"));
       },
     },
   ),

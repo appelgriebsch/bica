@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { speakScenarios } from "@/data/curriculum";
-import { checkGate } from "@/lib/chat-gate";
+import { checkGate, parseHostnames, sessionSecretOk } from "@/lib/chat-gate";
 import {
   chatLimiter,
   checkChatLimit,
@@ -140,7 +140,8 @@ export type ChatRequest = {
 
 /**
  * What `sendChat` runs. Fails closed without XAI_API_KEY or
- * TURNSTILE_SECRET_KEY. 403 without a valid token or session cookie, 429 (with
+ * TURNSTILE_SECRET_KEY, or with a CHAT_SESSION_SECRET under 32 bytes. TURNSTILE_HOSTNAMES lists the hostnames siteverify may
+ * report (empty → every token fails). 403 without a valid token or session cookie, 429 (with
  * retry-after) from the per-IP burst or a daily cap; neither reaches xAI.
  */
 export async function sendChatHandler(
@@ -150,26 +151,35 @@ export async function sendChatHandler(
   env: Record<string, string | undefined> = process.env,
 ): Promise<ChatResult> {
   const secret = env.TURNSTILE_SECRET_KEY;
+  const sessionSecret = env.CHAT_SESSION_SECRET;
   const key = ipKey(req.ip);
   const { turnstileToken, ...input } = data;
+  // Set only once the turn gets past the limiter (S4): a refused turn neither
+  // renews the cookie nor spends one of its turns.
+  let pendingCookie: string | undefined;
   const result = await chatTurn({
     data: input,
-    apiKey: secret ? env.XAI_API_KEY : undefined,
+    // Fails closed without the Turnstile secret or a 32-byte session secret.
+    apiKey: secret && sessionSecretOk(sessionSecret) ? env.XAI_API_KEY : undefined,
     gate: async () => {
       const g = await checkGate({
         token: turnstileToken,
         cookie: req.cookie,
         firstTurn: input.messages.filter((m) => m.role === "user").length <= 1,
         secret: secret!,
-        sessionSecret: env.CHAT_SESSION_SECRET || undefined,
-        ip: req.ip,
+        sessionSecret,
+        ip: req.ip && req.ip !== "unknown" ? req.ip : undefined,
+        bind: key,
+        hostnames: parseHostnames(env.TURNSTILE_HOSTNAMES),
         now,
       });
-      if (g.cookie) req.setCookie(g.cookie);
+      pendingCookie = g.cookie;
       return g.ok;
     },
     limit: () => checkChatLimit(key, now, chatLimiter(env)),
   });
+  const refusedByLimit = !result.ok && "retryAfter" in result;
+  if (pendingCookie && !refusedByLimit) req.setCookie(pendingCookie);
   if (!result.ok && result.error === CHALLENGE_REQUIRED) req.setStatus(403);
   if (!result.ok && "retryAfter" in result) {
     req.setStatus(429, { "retry-after": String(result.retryAfter) });

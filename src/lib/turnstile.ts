@@ -3,9 +3,9 @@
  * use (from a nonced module, so CSP 'strict-dynamic' allows it), renders one
  * invisible-until-needed widget and hands out single-use tokens.
  */
-import { TURNSTILE_TEST_KEYS } from "@/lib/chat-gate";
+import { TURNSTILE_ACTION, TURNSTILE_TEST_KEYS } from "@/lib/turnstile-keys.mjs";
 
-/** Build-time TURNSTILE_SITE_KEY (vite.config.ts); Cloudflare's test key when unset. */
+/** Build-time site key (vite.config.ts: staging key for build:cf, test key otherwise). */
 export const TURNSTILE_SITE_KEY: string =
   (import.meta.env.TURNSTILE_SITE_KEY as string | undefined) ||
   TURNSTILE_TEST_KEYS.siteAlwaysPasses;
@@ -37,9 +37,14 @@ function load(): Promise<Turnstile> {
   return script;
 }
 
-/** One widget in `el`; `token()` resolves with a fresh token or rejects. */
+/**
+ * One explicitly rendered widget in `el` (render=explicit; turnstile.render
+ * returns the widget id). `token()` resolves with a fresh token; call
+ * `reset()` after every chat request so each token is used once.
+ */
 export function createTurnstile(el: HTMLElement, siteKey = TURNSTILE_SITE_KEY) {
   let id: string | undefined;
+  let issued = false;
   let pending: { resolve(t: string): void; reject(e: Error): void } | undefined;
   const settle = (t: string | Error) => {
     const p = pending;
@@ -51,21 +56,25 @@ export function createTurnstile(el: HTMLElement, siteKey = TURNSTILE_SITE_KEY) {
     async token(): Promise<string> {
       const ts = await load();
       const out = new Promise<string>((resolve, reject) => (pending = { resolve, reject }));
-      if (id === undefined) {
-        id = ts.render(el, {
-          sitekey: siteKey,
-          action: "chat",
-          execution: "execute",
-          appearance: "interaction-only",
-          callback: (t: string) => settle(t),
-          "error-callback": () => settle(new Error("turnstile")),
-          "expired-callback": () => settle(new Error("turnstile")),
-        });
-      } else {
-        ts.reset(id); // tokens are single-use
-      }
+      id ??= ts.render(el, {
+        sitekey: siteKey,
+        action: TURNSTILE_ACTION,
+        execution: "execute",
+        appearance: "interaction-only",
+        callback: (t: string) => settle(t),
+        "error-callback": () => settle(new Error("turnstile")),
+        "expired-callback": () => settle(new Error("turnstile")),
+      });
+      if (issued) ts.reset(id); // a token was handed out since the last reset
+      issued = true;
       ts.execute(id);
       return out;
+    },
+    /** Single-use tokens: reset the widget after each request that carried one. */
+    reset() {
+      const ts = (window as W).turnstile;
+      if (ts && id !== undefined && issued) ts.reset(id);
+      issued = false;
     },
   };
 }

@@ -61,7 +61,9 @@ before(async () => {
       "--var",
       "TURNSTILE_SECRET_KEY:2x0000000000000000000000000000000AA",
       "--var",
-      "CHAT_SESSION_SECRET:built-test-session-secret",
+      "CHAT_SESSION_SECRET:built-test-session-secret-0123456789",
+      "--var",
+      "TURNSTILE_HOSTNAMES:bica-staging.appelgriebsch.workers.dev",
     ],
     { cwd: root, stdio: ["ignore", "pipe", "pipe"], detached: true },
   );

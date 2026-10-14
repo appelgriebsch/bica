@@ -21,7 +21,7 @@ const bundle = await build({
   platform: "node",
   resolve: { alias: { "@": join(root, "src") } },
   external: ["zod"],
-  transform: { define: { "import.meta.env.DEV": "false" } },
+  transform: { define: { "import.meta.env.DEV": "false", "import.meta.env.TURNSTILE_SITE_KEY": "\"\"" } },
   plugins: [
     {
       name: "entry",
@@ -30,7 +30,7 @@ const bundle = await build({
         id === "\0entry"
           ? `export * from "@/lib/chat-limit"; export * from "@/lib/chat-core";
              export * from "@/lib/chat-gate"; export * from "@/lib/chat-budget.mjs";
-             export * from "@/lib/chat-messages";`
+             export * from "@/lib/chat-messages"; export * from "@/lib/turnstile";`
           : null,
     },
     {
@@ -258,8 +258,11 @@ test("limits: CHAT_DAILY_GLOBAL / CHAT_DAILY_PER_IP override, bad values ignored
 // ---- Turnstile gate -----------------------------------------------------
 
 const SECRET = m.TURNSTILE_TEST_KEYS.secretAlwaysPasses;
-const SESSION = "test-session-secret";
-const verifyOk = async () => Response.json({ success: true });
+const SESSION = "test-session-secret-0123456789abcdef"; // 32+ bytes
+const IP = "203.0.113.7";
+const HOST = "bica-staging.appelgriebsch.workers.dev";
+const HOSTS = new Set([HOST]);
+const verifyOk = async () => Response.json({ success: true, action: "chat", hostname: HOST });
 const verifyNo = async () =>
   Response.json({ success: false, "error-codes": ["invalid-input-response"] });
 const gate = (o) =>
@@ -269,7 +272,9 @@ const gate = (o) =>
     firstTurn: false,
     secret: SECRET,
     sessionSecret: SESSION,
-    ip: "203.0.113.7",
+    ip: IP,
+    bind: IP,
+    hostnames: HOSTS,
     now: T0,
     fetch: () => assert.fail("siteverify called"),
     ...o,
@@ -286,40 +291,79 @@ test("Turnstile test keys are Cloudflare's documented ones", () => {
   );
 });
 
-test("verifyTurnstile: posts secret, token and remoteip; only success: true passes", async () => {
+const never = () => assert.fail("siteverify called");
+const answer = (body, init) => async () => Response.json(body, init);
+const passed = { success: true, action: "chat", hostname: HOST };
+
+test("verifyTurnstile: canonical POST: form-encoded secret, response, remoteip; 10 s timeout", async () => {
   let req;
-  const spy = async (url, init) => ((req = { url, init }), Response.json({ success: true }));
-  assert.equal(await m.verifyTurnstile("tok", "sec", "203.0.113.7", spy), true);
+  const timeouts = [];
+  const realTimeout = AbortSignal.timeout;
+  AbortSignal.timeout = (ms) => (timeouts.push(ms), realTimeout.call(AbortSignal, ms));
+  try {
+    const spy = async (url, init) => ((req = { url, init }), Response.json(passed));
+    assert.equal(await m.verifyTurnstile("tok", "sec", "203.0.113.7", HOSTS, spy), true);
+  } finally {
+    AbortSignal.timeout = realTimeout;
+  }
   assert.equal(req.url, "https://challenges.cloudflare.com/turnstile/v0/siteverify");
   assert.equal(req.init.method, "POST");
+  assert.equal(req.init.headers["Content-Type"], "application/x-www-form-urlencoded");
+  assert.ok(req.init.body instanceof URLSearchParams);
   assert.deepEqual(Object.fromEntries(req.init.body), {
     secret: "sec",
     response: "tok",
     remoteip: "203.0.113.7",
   });
   assert.ok(req.init.signal instanceof AbortSignal);
-  assert.equal(m.SITEVERIFY_TIMEOUT_MS, 5000);
-  for (const f of [
-    verifyNo,
-    async () => Response.json({ success: "true" }),
-    async () => Response.json({ success: true }, { status: 500 }),
-    async () => new Response("<html>", { headers: { "content-type": "text/html" } }),
-    async () => Promise.reject(new TypeError("fetch failed")),
-  ]) {
-    assert.equal(await m.verifyTurnstile("tok", "sec", undefined, f), false);
+  assert.deepEqual(timeouts, [10_000]);
+  assert.equal(m.SITEVERIFY_TIMEOUT_MS, 10_000);
+});
+
+test("verifyTurnstile: empty and oversize tokens and an empty allowlist never reach fetch", async () => {
+  for (const t of [undefined, "", "x".repeat(2049)]) {
+    assert.equal(await m.verifyTurnstile(t, "sec", "1.2.3.4", HOSTS, never), false, String(t?.length));
   }
+  assert.equal(await m.verifyTurnstile("x".repeat(2048), "sec", "1.2.3.4", HOSTS, answer(passed)), true);
+  assert.equal(await m.verifyTurnstile("tok", "sec", "1.2.3.4", new Set(), never), false);
+  assert.equal(m.MAX_TOKEN_LENGTH, 2048);
+});
+
+test("verifyTurnstile: requires success === true, action 'chat' and an allowed hostname", async () => {
+  const v = (body, init) => m.verifyTurnstile("tok", "sec", undefined, HOSTS, answer(body, init));
+  assert.equal(await v(passed), true);
+  assert.equal(await v({ ...passed, hostname: "BICA-STAGING.appelgriebsch.workers.dev" }), true);
+  assert.equal(await v({ ...passed, success: false, "error-codes": ["invalid-input-response"] }), false);
+  assert.equal(await v({ ...passed, success: "true" }), false);
+  assert.equal(await v({ ...passed, action: "login" }), false); // wrong action
+  assert.equal(await v({ success: true, hostname: HOST }), false); // no action (test keys)
+  assert.equal(await v({ ...passed, hostname: "localhost" }), false); // wrong hostname
+  assert.equal(await v({ ...passed, hostname: "evil.example" }), false);
+  assert.equal(await v({ success: true, action: "chat" }), false); // no hostname
+  assert.equal(await v(passed, { status: 500 }), false); // non-OK
+  assert.equal(await v(null), false);
+  const html = async () => new Response("<html>", { headers: { "content-type": "text/html" } });
+  assert.equal(await m.verifyTurnstile("tok", "sec", undefined, HOSTS, html), false);
+  const boom = async () => Promise.reject(new TypeError("fetch failed"));
+  assert.equal(await m.verifyTurnstile("tok", "sec", undefined, HOSTS, boom), false); // fetch error
+});
+
+test("TURNSTILE_HOSTNAMES parsing: comma list, trimmed, lower-cased, empty → none", () => {
+  assert.deepEqual([...m.parseHostnames(` ${HOST} , Example.com,,`)], [HOST, "example.com"]);
+  assert.equal(m.parseHostnames(undefined).size, 0);
+  assert.equal(m.parseHostnames(" , ").size, 0);
 });
 
 test("session cookie: signed, expires, tamper-proof", async () => {
-  const c = await m.signSession(SESSION, { exp: T0 + 1000, n: 3 });
-  assert.match(c, /^v1\.\d+\.3\.[A-Za-z0-9_-]{43}$/);
-  assert.deepEqual(await m.readSession(SESSION, c, T0), { exp: T0 + 1000, n: 3 });
-  assert.equal(await m.readSession(SESSION, c, T0 + 1000), null); // expired
-  assert.equal(await m.readSession("other", c, T0), null);
-  assert.equal(await m.readSession(SESSION, c.replace(".3.", ".1."), T0), null); // n rewound
-  assert.equal(await m.readSession(SESSION, c.replace(/^v1\.\d+/, `v1.${T0 + 9e9}`), T0), null);
+  const c = await m.signSession(SESSION, { exp: T0 + 1000, n: 3 }, IP);
+  assert.match(c, /^v1\.\d+\.3\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}$/);
+  assert.deepEqual(await m.readSession(SESSION, c, T0, IP), { exp: T0 + 1000, n: 3 });
+  assert.equal(await m.readSession(SESSION, c, T0 + 1000, IP), null); // expired
+  assert.equal(await m.readSession("other", c, T0, IP), null);
+  assert.equal(await m.readSession(SESSION, c.replace(".3.", ".1."), T0, IP), null); // n rewound
+  assert.equal(await m.readSession(SESSION, c.replace(/^v1\.\d+/, `v1.${T0 + 9e9}`), T0, IP), null);
   for (const v of [undefined, "", "v1.1.1.x", "garbage"])
-    assert.equal(await m.readSession(SESSION, v, T0), null);
+    assert.equal(await m.readSession(SESSION, v, T0, IP), null);
 });
 
 test("gate: no token and no cookie → refused, siteverify never called", async () => {
@@ -334,19 +378,19 @@ test("gate: an invalid token → refused, no cookie", async () => {
 test("gate: a valid token → a 30-min session covering 10 turns", async () => {
   const g = await gate({ token: "good", firstTurn: true, fetch: verifyOk });
   assert.equal(g.ok, true);
-  assert.deepEqual(await m.readSession(SESSION, g.cookie, T0), { exp: T0 + 30 * 60_000, n: 1 });
+  assert.deepEqual(await m.readSession(SESSION, g.cookie, T0, IP), { exp: T0 + 30 * 60_000, n: 1 });
   assert.equal(m.SESSION_TTL_MS, 30 * 60_000);
   let cookie = g.cookie;
   for (let n = 2; n <= 10; n++) {
     const next = await gate({ cookie, now: T0 + n });
     assert.equal(next.ok, true, `turn ${n}`);
-    assert.deepEqual(await m.readSession(SESSION, next.cookie, T0), { exp: T0 + 30 * 60_000, n });
+    assert.deepEqual(await m.readSession(SESSION, next.cookie, T0, IP), { exp: T0 + 30 * 60_000, n });
     cookie = next.cookie;
   }
   // the 11th turn needs a fresh token
   assert.deepEqual(await gate({ cookie, now: T0 + 11 }), { ok: false });
   const again = await gate({ cookie, token: "t2", now: T0 + 12, fetch: verifyOk });
-  assert.deepEqual(await m.readSession(SESSION, again.cookie, T0), {
+  assert.deepEqual(await m.readSession(SESSION, again.cookie, T0, IP), {
     exp: T0 + 12 + 30 * 60_000,
     n: 1,
   });
@@ -362,7 +406,7 @@ test("gate: the first turn of a conversation needs a token even with a valid coo
 });
 
 test("gate: without CHAT_SESSION_SECRET every turn needs a token and no cookie is set", async () => {
-  const cookie = await m.signSession(SESSION, { exp: T0 + 1000, n: 1 });
+  const cookie = await m.signSession(SESSION, { exp: T0 + 1000, n: 1 }, IP);
   assert.deepEqual(await gate({ sessionSecret: undefined, cookie }), { ok: false });
   assert.deepEqual(await gate({ sessionSecret: undefined, token: "t", fetch: verifyOk }), {
     ok: true,
@@ -373,7 +417,12 @@ test("gate: without CHAT_SESSION_SECRET every turn needs a token and no cookie i
 // ---- sendChat end to end (mocked siteverify, xAI and bindings) ----------
 
 const XAI = "https://api.x.ai/v1/chat/completions";
-const ENV = { XAI_API_KEY: "sk-test", TURNSTILE_SECRET_KEY: SECRET, CHAT_SESSION_SECRET: SESSION };
+const ENV = {
+  XAI_API_KEY: "sk-test",
+  TURNSTILE_SECRET_KEY: SECRET,
+  CHAT_SESSION_SECRET: SESSION,
+  TURNSTILE_HOSTNAMES: HOST,
+};
 const reply = () => Response.json({ choices: [{ message: { content: "Olá!" } }] });
 
 /** Runs sendChatHandler with mocked fetch; returns the result, status, headers, cookie and calls. */
@@ -455,6 +504,64 @@ test("sendChat: missing token → 403, no limiter, no xAI", async () => {
   assert.equal(later.status, 403);
 });
 
+test("sendChat: Turnstile replay: the second use of a token gets timeout-or-duplicate → 403", async () => {
+  const redeemed = new Set();
+  const siteverify = async (_url, init) => {
+    const t = init.body.get("response");
+    if (redeemed.has(t)) {
+      return Response.json({ success: false, "error-codes": ["timeout-or-duplicate"] });
+    }
+    redeemed.add(t);
+    return Response.json(passed);
+  };
+  const first = await send({ token: "once", siteverify, ip: "198.51.100.201" });
+  assert.equal(first.result.ok, true);
+  const replay = await send({ token: "once", siteverify, ip: "198.51.100.201", bindings: refuseLimiter });
+  assert.equal(replay.status, 403);
+  assert.deepEqual(replay.result, { ok: false, error: "challenge_required" });
+  assert.equal(replay.xai, 0);
+  assert.equal(replay.cookie, undefined);
+});
+
+test("sendChat: empty/oversize token never reaches siteverify; wrong action/hostname, fetch error, non-OK → 403", async () => {
+  for (const token of ["", "x".repeat(2049)]) {
+    const r = await send({ data: { ...data, turnstileToken: token }, bindings: refuseLimiter });
+    assert.equal(r.status, 403);
+    assert.deepEqual(r.calls, []);
+  }
+  for (const siteverify of [
+    answer({ ...passed, action: "signup" }),
+    answer({ ...passed, hostname: "localhost" }),
+    answer(passed, { status: 502 }),
+    async () => Promise.reject(new TypeError("fetch failed")),
+  ]) {
+    const r = await send({ token: "t", siteverify, bindings: refuseLimiter });
+    assert.equal(r.status, 403);
+    assert.deepEqual(r.calls, [m.SITEVERIFY_URL]);
+  }
+  // an allowlist without the reported host (e.g. unset on a deploy) refuses before fetch
+  const r = await send({ token: "t", env: { ...ENV, TURNSTILE_HOSTNAMES: "" }, bindings: refuseLimiter });
+  assert.equal(r.status, 403);
+  assert.deepEqual(r.calls, []);
+});
+
+test("sendChat: remoteip sent to siteverify is the CF-Connecting-IP; the secret never leaves the body", async () => {
+  let body;
+  const logs = [];
+  const orig = { log: console.log, warn: console.warn, error: console.error };
+  for (const k of Object.keys(orig)) console[k] = (...a) => logs.push(a.join(" "));
+  try {
+    const siteverify = async (_url, init) => ((body = Object.fromEntries(init.body)), Response.json(passed));
+    await send({ token: "t", ip: "2001:db8:9:9::5", siteverify });
+    await send({ token: "bad", siteverify: verifyNo, bindings: refuseLimiter });
+  } finally {
+    Object.assign(console, orig);
+  }
+  assert.equal(body.remoteip, "2001:db8:9:9::5");
+  assert.equal(body.secret, SECRET);
+  assert.ok(!logs.some((l) => l.includes(SECRET)), "secret logged");
+});
+
 test("sendChat: invalid token → 403 after siteverify, no xAI", async () => {
   const r = await send({ token: "bad", siteverify: verifyNo, bindings: refuseLimiter });
   assert.equal(r.status, 403);
@@ -466,7 +573,7 @@ test("sendChat: valid token → cookie set, xAI answers; later turns ride the co
   assert.deepEqual(r.result, { ok: true, text: "Olá!" });
   assert.equal(r.status, 200);
   assert.deepEqual(r.calls, [m.SITEVERIFY_URL, XAI]);
-  assert.deepEqual(await m.readSession(SESSION, r.cookie, T0), { exp: T0 + 30 * 60_000, n: 1 });
+  assert.deepEqual(await m.readSession(SESSION, r.cookie, T0, IP), { exp: T0 + 30 * 60_000, n: 1 });
   const turn2 = {
     ...data,
     messages: [
@@ -475,9 +582,9 @@ test("sendChat: valid token → cookie set, xAI answers; later turns ride the co
       { role: "user", content: "Um café" },
     ],
   };
-  const r2 = await send({ data: turn2, cookie: r.cookie, ip: "203.0.113.8" });
+  const r2 = await send({ data: turn2, cookie: r.cookie });
   assert.deepEqual(r2.calls, [XAI]); // no siteverify
-  assert.equal((await m.readSession(SESSION, r2.cookie, T0)).n, 2);
+  assert.equal((await m.readSession(SESSION, r2.cookie, T0, IP)).n, 2);
   // a new conversation (one user line) needs a token even with the cookie
   const fresh = await send({ cookie: r.cookie, bindings: refuseLimiter });
   assert.equal(fresh.status, 403);
@@ -607,7 +714,7 @@ test("#35: the #33 CHAT_ENABLED flag is gone; sendChat wires the request into th
   assert.match(server, /return sendChatHandler\(data, chatRequest\(\)\);/);
   assert.doesNotMatch(server, /authMiddleware|lib\/auth/);
   const reqSrc = readFileSync(join(root, "src/lib/chat-request.server.ts"), "utf8");
-  assert.match(reqSrc, /getRequestHeader\("cf-connecting-ip"\)/);
+  assert.match(reqSrc, /ip: clientIp\(\(name\) => getRequestHeader\(name\)\),/);
   assert.match(reqSrc, /httpOnly: true,\n\s+secure: true,\n\s+sameSite: "strict",/);
   const speak = readFileSync(join(root, "src/routes/speak/$id.tsx"), "utf8");
   assert.match(speak, /chatErrorMessage\(res\)/);
@@ -691,4 +798,110 @@ test("validator: known scene, at most 16 messages, 8000 chars in total", () => {
   assert.ok(v({ messages: [msg(2000), msg(2000), msg(2000), msg(2000)] }));
   assert.ok(!v({ messages: [msg(2000), msg(2000), msg(2000), msg(2000), msg(1)] }));
   assert.ok(!v({ messages: [msg(2001)] }));
+});
+
+test("client: explicit render (widget id, action chat), execute, reset after every request", async () => {
+  const calls = [];
+  let cb;
+  const fake = {
+    render: (el, o) => (calls.push(["render", el, o.sitekey, o.action, o.execution]), (cb = o.callback), "w1"),
+    execute: (id) => (calls.push(["execute", id]), queueMicrotask(() => cb(`tok-${calls.length}`))),
+    reset: (id) => calls.push(["reset", id]),
+  };
+  globalThis.window = { turnstile: fake };
+  try {
+    const t = m.createTurnstile("EL", "site-key");
+    t.reset(); // nothing rendered yet: no-op
+    assert.match(await t.token(), /^tok-/);
+    t.reset(); // after the request
+    assert.match(await t.token(), /^tok-/);
+    assert.match(await t.token(), /^tok-/); // a retry without reset resets first
+    t.reset();
+    assert.deepEqual(calls, [
+      ["render", "EL", "site-key", "chat", "execute"],
+      ["execute", "w1"],
+      ["reset", "w1"],
+      ["execute", "w1"],
+      ["reset", "w1"],
+      ["execute", "w1"],
+      ["reset", "w1"],
+    ]);
+  } finally {
+    delete globalThis.window;
+  }
+  assert.equal(m.TURNSTILE_SCRIPT, "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit");
+  const speak = readFileSync(join(root, "src/routes/speak/$id.tsx"), "utf8");
+  assert.match(speak, /\} finally \{\n(?:\s*\/\/.*\n)*\s*turnstile\.current\?\.reset\(\);/);
+});
+
+test("W1: clientIp uses CF-Connecting-IP, never X-Forwarded-For; x-real-ip only without CF", () => {
+  const h = (o) => (name) => o[name];
+  assert.equal(
+    m.clientIp(h({ "x-forwarded-for": "6.6.6.6", "cf-connecting-ip": "203.0.113.7" })),
+    "203.0.113.7",
+  );
+  assert.equal(m.clientIp(h({ "x-forwarded-for": "6.6.6.6" })), "unknown"); // XFF alone: never
+  assert.equal(m.clientIp(h({ "x-forwarded-for": "6.6.6.6, 7.7.7.7", "x-real-ip": "198.51.100.1" })), "198.51.100.1");
+  assert.equal(m.clientIp(h({ "cf-connecting-ip": "203.0.113.7", "x-real-ip": "198.51.100.1" })), "203.0.113.7");
+  assert.equal(m.clientIp(h({ "cf-connecting-ip": " ", "x-real-ip": "198.51.100.1" })), "198.51.100.1");
+  assert.equal(m.clientIp(h({})), "unknown");
+  assert.equal(m.clientIp(() => null), "unknown");
+});
+
+test("S1: the session cookie is bound to the client IP (IPv4, or IPv6 /64)", async () => {
+  const c = await m.signSession(SESSION, { exp: T0 + 1000, n: 1 }, m.ipKey("2001:db8:1:2::a"));
+  assert.ok(await m.readSession(SESSION, c, T0, m.ipKey("2001:db8:1:2:ffff::b"))); // same /64
+  assert.equal(await m.readSession(SESSION, c, T0, m.ipKey("2001:db8:1:3::a")), null);
+  // the tag can't be swapped: it's under the HMAC
+  const other = await m.signSession(SESSION, { exp: T0 + 1000, n: 1 }, "198.51.100.9");
+  const swapped = c.split(".").slice(0, 3).concat(other.split(".")[3], c.split(".")[4]).join(".");
+  assert.equal(await m.readSession(SESSION, swapped, T0, "198.51.100.9"), null);
+  // end to end: same IP accepted, a different IP → 403 challenge_required
+  const r = await send({ token: "good", ip: "198.51.100.70" });
+  const turn2 = { ...data, messages: [...data.messages, { role: "assistant", content: "Olá" }, { role: "user", content: "Um café" }] };
+  const same = await send({ data: turn2, cookie: r.cookie, ip: "198.51.100.70" });
+  assert.equal(same.result.ok, true);
+  assert.deepEqual(same.calls, [XAI]);
+  const moved = await send({ data: turn2, cookie: r.cookie, ip: "198.51.100.71", bindings: refuseLimiter });
+  assert.equal(moved.status, 403);
+  assert.deepEqual(moved.result, { ok: false, error: "challenge_required" });
+  assert.deepEqual(moved.calls, []);
+});
+
+test("S3: sendChat signs with CHAT_SESSION_SECRET; missing or < 32 bytes → unavailable, nothing called", async () => {
+  const r = await send({ token: "good", ip: "198.51.100.80" });
+  assert.ok(await m.readSession(SESSION, r.cookie, T0, "198.51.100.80"));
+  assert.equal(await m.readSession("fallback", r.cookie, T0, "198.51.100.80"), null);
+  for (const v of [undefined, "", "x".repeat(31), "é".repeat(15)]) {
+    const u = await send({ token: "good", env: { ...ENV, CHAT_SESSION_SECRET: v }, bindings: refuseLimiter });
+    assert.deepEqual(u.result, { ok: false, error: m.UNAVAILABLE }, String(v));
+    assert.deepEqual(u.calls, []);
+  }
+  assert.equal(m.sessionSecretOk("x".repeat(32)), true);
+  assert.equal(m.sessionSecretOk("é".repeat(16)), true); // bytes, not chars
+  assert.equal(m.MIN_SESSION_SECRET_BYTES, 32);
+});
+
+test("S4: a turn refused by the burst limit or daily budget doesn't renew or spend the cookie", async () => {
+  const ip = "198.51.100.90";
+  const first = await send({ token: "good", ip });
+  const turn2 = { ...data, messages: [...data.messages, { role: "assistant", content: "Olá" }, { role: "user", content: "Um café" }] };
+  for (const bindings of [
+    { CHAT_RATE: { limit: async () => ({ success: false }) } },
+    {
+      CHAT_RATE: { limit: async () => ({ success: true }) },
+      CHAT_BUDGET: { idFromName: (n) => n, get: () => ({ take: async () => ({ ok: false, scope: "ip_day", retryAfter: 9 }) }) },
+    },
+  ]) {
+    const r = await send({ data: turn2, cookie: first.cookie, ip, bindings });
+    assert.equal(r.status, 429);
+    assert.equal(r.cookie, undefined); // not renewed, n not spent
+  }
+  // a fresh token refused by the limiter doesn't earn a cookie either
+  const t = await send({ token: "good", ip, bindings: { CHAT_RATE: { limit: async () => ({ success: false }) } } });
+  assert.equal(t.status, 429);
+  assert.equal(t.cookie, undefined);
+  // the old cookie still has its turn: n goes 1 → 2
+  const ok2 = await send({ data: turn2, cookie: first.cookie, ip });
+  assert.equal((await m.readSession(SESSION, ok2.cookie, T0, ip)).n, 2);
 });

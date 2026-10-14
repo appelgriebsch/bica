@@ -8,11 +8,12 @@ import {
 } from "@tanstack/react-start/server";
 import type { ChatRequest } from "@/lib/chat-core";
 import { CHAT_COOKIE, SESSION_TTL_MS } from "@/lib/chat-gate";
+import { clientIp } from "@/lib/chat-limit";
 
 export function chatRequest(): ChatRequest {
   return {
-    // Workers always set cf-connecting-ip; x-real-ip is the Vercel equivalent.
-    ip: getRequestHeader("cf-connecting-ip") ?? getRequestHeader("x-real-ip") ?? undefined,
+    // CF-Connecting-IP first; X-Forwarded-For is never read (chat-limit.ts).
+    ip: clientIp((name) => getRequestHeader(name)),
     cookie: getCookie(CHAT_COOKIE),
     setCookie: (value) =>
       setCookie(CHAT_COOKIE, value, {

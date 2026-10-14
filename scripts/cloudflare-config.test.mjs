@@ -89,7 +89,7 @@ test("workflow checks, builds, deploys, then smokes", () => {
     /name: Require green CI \(manual runs\)/,
     /ref: \$\{\{ github\.event\.workflow_run\.head_sha \|\| github\.sha \}\}/,
     /run: npm ci/,
-    /\n {10}npm run build:cf\n/,
+    /run: npm run build:cf/,
     /run: npx wrangler deploy --env staging --config wrangler\.toml \| tee deploy\.log/,
     /curl -fsS --max-time 10 "\$url\/api\/health"/,
   ].map(at);
@@ -398,12 +398,26 @@ test("#35: the Worker entry exports ChatBudget from a copy of chat-budget.mjs", 
   );
 });
 
-test("#35: the staging build gets TURNSTILE_SITE_KEY from vars, and the smoke checks Turnstile's frame-src", () => {
-  const build = workflow.slice(workflow.indexOf("npm run build:cf") - 200, workflow.indexOf("- name: Deploy bica-staging"));
-  assert.match(build, /TURNSTILE_SITE_KEY: \$\{\{ vars\.TURNSTILE_SITE_KEY \}\}/);
-  assert.doesNotMatch(workflow, /secrets\.TURNSTILE|TURNSTILE_SECRET_KEY/); // a Worker secret, never in CI
-  assert.match(build, /::warning::vars\.TURNSTILE_SITE_KEY is unset/);
+test("#35: the site key is committed (staging for build:cf, test key otherwise); no GitHub var", async () => {
+  const k = await import("../src/lib/turnstile-keys.mjs");
+  assert.equal(k.STAGING_TURNSTILE_SITE_KEY, "0x4AAAAAAFWlhnYXXvgEtMvS");
+  assert.equal(k.siteKeyForBuild({ DEPLOY_TARGET: "cloudflare" }), "0x4AAAAAAFWlhnYXXvgEtMvS");
+  assert.equal(k.siteKeyForBuild({}), "1x00000000000000000000AA");
+  assert.equal(k.siteKeyForBuild(), "1x00000000000000000000AA");
+  assert.equal(k.TURNSTILE_ACTION, "chat");
+  assert.match(viteConfig, /"import\.meta\.env\.TURNSTILE_SITE_KEY": JSON\.stringify\(siteKeyForBuild\(process\.env\)\)/);
+  assert.doesNotMatch(workflow, /TURNSTILE/);
+  assert.doesNotMatch(workflow, /vars\./);
   const step = workflow.slice(workflow.indexOf("- name: Smoke security headers"));
   assert.match(step, /frame-src https:\/\/challenges\\\.cloudflare\\\.com/);
-  assert.match(viteConfig, /"import\.meta\.env\.TURNSTILE_SITE_KEY": JSON\.stringify\(process\.env\.TURNSTILE_SITE_KEY \?\? ""\)/);
+});
+
+test("#35: TURNSTILE_HOSTNAMES for staging is the workers.dev host only, never localhost", () => {
+  const vars = wrangler.slice(wrangler.indexOf("[env.staging.vars]"), wrangler.indexOf("[[env.staging.ratelimits]]"));
+  assert.match(vars, /^TURNSTILE_HOSTNAMES = "bica-staging\.appelgriebsch\.workers\.dev"$/m);
+  assert.doesNotMatch(wrangler, /TURNSTILE_HOSTNAMES = "[^"]*(localhost|127\.0\.0\.1|,)/);
+  assert.equal(wrangler.match(/TURNSTILE_HOSTNAMES/g).length, 1); // not at top level
+  // never a secret in the repo
+  const r = spawnSync("git", ["grep", "-nE", "TURNSTILE_SECRET_KEY *[=:] *\"?[0-9A-Za-z]", "--", ".", ":!scripts/*.test.mjs"], { cwd: root, encoding: "utf8" });
+  assert.equal(r.stdout.split("\n").filter((l) => l && !/1x0000|2x0000/.test(l)).join("\n"), "");
 });

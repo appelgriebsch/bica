@@ -65,6 +65,17 @@ export function ipKey(raw: string | null | undefined): string {
   );
 }
 
+/**
+ * The client address for the limiter and Turnstile's remoteip: CF-Connecting-IP
+ * (set by Cloudflare, not spoofable on Workers), else x-real-ip (Vercel's
+ * equivalent) only when CF's header is missing. X-Forwarded-For is client-
+ * controlled and never read. Missing → "unknown".
+ */
+export function clientIp(get: (name: string) => string | null | undefined): string {
+  const pick = (name: string) => get(name)?.trim() || undefined;
+  return pick("cf-connecting-ip") ?? pick("x-real-ip") ?? "unknown";
+}
+
 /** True when the burst limit lets this key through. */
 export type Burst = (key: string, now: number) => Promise<boolean>;
 /** Takes a daily turn for this key, or says which day cap refused it. */

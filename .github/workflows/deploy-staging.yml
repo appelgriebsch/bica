@@ -66,14 +66,8 @@ jobs:
           cache: npm
       - run: npm ci
       # The release build. Tests, lint and deps:check ran in CI for this sha.
-      # TURNSTILE_SITE_KEY (#35) is public and baked into the client; it's a
-      # GitHub `staging` environment variable, not a secret. Unset, the build
-      # uses Cloudflare's test key and the real secret rejects every token.
-      - run: |
-          [ -n "$TURNSTILE_SITE_KEY" ] || echo "::warning::vars.TURNSTILE_SITE_KEY is unset: Conversas will refuse every turn (403)"
-          npm run build:cf
-        env:
-          TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
+      # The public Turnstile site key (#35) is committed (src/lib/turnstile-keys.mjs).
+      - run: npm run build:cf
       - name: Deploy bica-staging
         run: npx wrangler deploy --env staging --config wrangler.toml | tee deploy.log
         env:

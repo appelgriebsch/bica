@@ -78,6 +78,8 @@ function SpeakScene() {
     } catch {
       setError("Could not send. Try again.");
     } finally {
+      // Turnstile tokens are single-use: reset after every chat request.
+      turnstile.current?.reset();
       setBusy(false);
     }
   }

@@ -47,6 +47,10 @@ workers_dev = true
 
 [env.staging.vars]
 BICA_STAGE = "staging"
+# #35: the only frontend hostname siteverify may report for staging. Never
+# localhost. The public site key is a build-time constant
+# (src/lib/turnstile-keys.mjs); TURNSTILE_SECRET_KEY is a Worker secret.
+TURNSTILE_HOSTNAMES = "bica-staging.appelgriebsch.workers.dev"
 
 # Chat burst limit (#13, keyed by client IP since #35), across isolates.
 # Cloudflare allows only period = 10 or 60. limit must match

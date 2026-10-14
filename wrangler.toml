@@ -1,6 +1,7 @@
-# Staging Worker only. Top-level publish has no workers.dev route and no
-# BICA_STAGE, so /api/health fails closed. Do not add a production
-# environment, routes, or a custom domain in this file.
+# Staging and production Workers (#8). The top level stays inert: no
+# workers.dev route, no route and no BICA_STAGE, so a publish without --env
+# fails closed at /api/health. Production deploys only through
+# .github/workflows/deploy-production.yml (manual, approval-gated).
 name = "bica"
 main = ".output/server/staging-entry.mjs"
 compatibility_date = "2026-10-05"
@@ -54,13 +55,34 @@ TURNSTILE_HOSTNAMES = "bica-staging.appelgriebsch.workers.dev"
 
 # Chat burst limit (#13, keyed by client IP since #35), across isolates.
 # Cloudflare allows only period = 10 or 60. limit must match
-# DEFAULT_LIMITS.perMinute. Production gets its own block via #8.
+# DEFAULT_LIMITS.perMinute. Production has its own block below.
 [[env.staging.ratelimits]]
 name = "CHAT_RATE"
 namespace_id = "1301"
 simple = { limit = 6, period = 60 }
 
-# Daily chat budget (#35). Production repeats this block in #8.
+# Daily chat budget (#35). Production repeats this block.
 [[env.staging.durable_objects.bindings]]
+name = "CHAT_BUDGET"
+class_name = "ChatBudget"
+
+# Production (#8): custom domain only, no workers.dev, no D1, no auth.
+[env.production]
+workers_dev = false
+routes = [{ pattern = "bica.appelgriebsch.org", custom_domain = true }]
+
+[env.production.vars]
+BICA_STAGE = "production"
+# Only the prod hostname, never localhost. Add it to the Turnstile widget too.
+TURNSTILE_HOSTNAMES = "bica.appelgriebsch.org"
+
+# Its own namespace, so prod and staging bursts never share a counter.
+# limit must match DEFAULT_LIMITS.perMinute.
+[[env.production.ratelimits]]
+name = "CHAT_RATE"
+namespace_id = "1302"
+simple = { limit = 6, period = 60 }
+
+[[env.production.durable_objects.bindings]]
 name = "CHAT_BUDGET"
 class_name = "ChatBudget"

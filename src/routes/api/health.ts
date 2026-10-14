@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { healthForStage, resolveBicaStage } from "@/lib/health-stage.mjs";
 
-/** Staging liveness. Do not import the auth server or the database from here. */
+/** Staging and production liveness. Do not import the auth server or the database from here. */
 function readBicaStage(): string | undefined {
   const workerEnv = (globalThis as { __env__?: { BICA_STAGE?: unknown } }).__env__;
   return resolveBicaStage({

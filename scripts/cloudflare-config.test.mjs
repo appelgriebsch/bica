@@ -45,7 +45,7 @@ test("deploy scripts always target the staging environment", () => {
   assert.doesNotMatch(workflow, /pull_request/);
 });
 
-test("root wrangler config is staging-only and fail-closed", () => {
+test("root wrangler config: top level inert, staging and production envs", () => {
   assert.match(wrangler, /name = "bica"/);
   assert.match(wrangler, /compatibility_date = "2026-10-05"/);
   assert.match(wrangler, /nodejs_compat/);
@@ -53,8 +53,10 @@ test("root wrangler config is staging-only and fail-closed", () => {
   assert.match(wrangler, /\[env\.staging\]/);
   assert.match(wrangler, /workers_dev = true/);
   assert.match(wrangler, /BICA_STAGE = "staging"/);
-  assert.doesNotMatch(wrangler, /\[env\.production\]/);
-  assert.doesNotMatch(wrangler, /routes?\s*=/);
+  // routes only inside [env.production]
+  const top = wrangler.slice(0, wrangler.indexOf("[env.staging]")).replace(/^#.*$/gm, "");
+  assert.doesNotMatch(top, /routes?\s*=|BICA_STAGE/);
+  assert.equal(wrangler.match(/routes?\s*=/g).length, 1);
   assert.match(wrangler, /\.output\/server\/staging-entry\.mjs/);
   assert.match(pkg.scripts["build:cf"], /write-cf-entry\.mjs/);
   assert.match(wrangler, /\.output\/public/);
@@ -372,8 +374,6 @@ test("#35: CHAT_RATE and the ChatBudget DO binding for staging, one sqlite migra
   assert.match(top, /\[\[migrations\]\]\ntag = "v1-chat-budget"\nnew_sqlite_classes = \["ChatBudget"\]/);
   assert.equal(wrangler.match(/\[\[migrations\]\]/g).length, 1);
   assert.doesNotMatch(wrangler, /new_classes|script_name/);
-  // Production is #8: no [env.production] here, but the docs carry its blocks.
-  assert.doesNotMatch(wrangler, /\[env\.production/);
   const docs = readFileSync(join(root, "docs/cloudflare-workers.md"), "utf8");
   assert.match(docs, /\[\[env\.production\.ratelimits\]\]\nname = "CHAT_RATE"/);
   assert.match(docs, /\[\[env\.production\.durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/);
@@ -416,8 +416,95 @@ test("#35: TURNSTILE_HOSTNAMES for staging is the workers.dev host only, never l
   const vars = wrangler.slice(wrangler.indexOf("[env.staging.vars]"), wrangler.indexOf("[[env.staging.ratelimits]]"));
   assert.match(vars, /^TURNSTILE_HOSTNAMES = "bica-staging\.appelgriebsch\.workers\.dev"$/m);
   assert.doesNotMatch(wrangler, /TURNSTILE_HOSTNAMES = "[^"]*(localhost|127\.0\.0\.1|,)/);
-  assert.equal(wrangler.match(/TURNSTILE_HOSTNAMES/g).length, 1); // not at top level
+  assert.equal(wrangler.match(/TURNSTILE_HOSTNAMES/g).length, 2); // staging + production, not top level
   // never a secret in the repo
   const r = spawnSync("git", ["grep", "-nE", "TURNSTILE_SECRET_KEY *[=:] *\"?[0-9A-Za-z]", "--", ".", ":!scripts/*.test.mjs"], { cwd: root, encoding: "utf8" });
   assert.equal(r.stdout.split("\n").filter((l) => l && !/1x0000|2x0000/.test(l)).join("\n"), "");
+});
+
+const prodWorkflow = readFileSync(join(root, ".github/workflows/deploy-production.yml"), "utf8");
+const prod = wrangler.slice(wrangler.indexOf("[env.production]"));
+
+test("#8: [env.production] custom domain, stage, CHAT_RATE and DO; no D1, no auth", () => {
+  assert.ok(wrangler.indexOf("[env.production]") > wrangler.indexOf("[env.staging]"));
+  assert.match(prod, /^\[env\.production\]\nworkers_dev = false\n/);
+  assert.match(prod, /^routes = \[\{ pattern = "bica\.appelgriebsch\.org", custom_domain = true \}\]$/m);
+  assert.match(prod, /\[env\.production\.vars\]\nBICA_STAGE = "production"\n/);
+  assert.match(prod, /^TURNSTILE_HOSTNAMES = "bica\.appelgriebsch\.org"$/m);
+  const rate = prod.match(/\[\[env\.production\.ratelimits\]\]\nname = "CHAT_RATE"\nnamespace_id = "(\d+)"\nsimple = \{ limit = 6, period = 60 \}/);
+  assert.ok(rate);
+  const stagingNs = wrangler.match(/\[\[env\.staging\.ratelimits\]\]\nname = "CHAT_RATE"\nnamespace_id = "(\d+)"/)[1];
+  assert.notEqual(rate[1], stagingNs);
+  assert.match(prod, /\[\[env\.production\.durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/);
+  assert.doesNotMatch(wrangler, /d1_databases|hyperdrive|DATABASE_URL|BETTER_AUT[H]|GROK_AUT[H]/);
+});
+
+test("#8: prod deploy is manual from main, CI-gated, approval-gated, never cancelled", () => {
+  assert.match(prodWorkflow, /^on:\n {2}workflow_dispatch:\n\n/m);
+  assert.doesNotMatch(prodWorkflow, /^ {2}(push|pull_request|workflow_run|schedule):/m);
+  assert.match(prodWorkflow, /^concurrency:\n {2}group: deploy-production\n {2}cancel-in-progress: false$/m);
+  assert.match(prodWorkflow, /shell: bash -euo pipefail \{0\}/);
+  assert.match(prodWorkflow, /if: github\.ref == 'refs\/heads\/main'/);
+  const gate = prodWorkflow.slice(prodWorkflow.indexOf("  gate:"), prodWorkflow.indexOf("  deploy:"));
+  const deploy = prodWorkflow.slice(prodWorkflow.indexOf("  deploy:"));
+  assert.doesNotMatch(gate, /environment|secrets\./);
+  assert.match(deploy, /needs: gate/);
+  // #40 S2: no workflow-level grants; gate reads checks, deploy only contents
+  assert.match(prodWorkflow, /^permissions: \{\}$/m);
+  assert.equal(prodWorkflow.match(/^\s*permissions:/gm).length, 3);
+  assert.match(gate, /\n {4}permissions:\n {6}contents: read\n {6}checks: read\b/);
+  assert.match(deploy, /\n {4}permissions:\n {6}contents: read\n {4}runs-on/);
+  assert.doesNotMatch(prodWorkflow, /: write\b|id-token/);
+  assert.match(gate, /\n {10}SHA: \$\{\{ github\.sha \}\}\n/);
+  assert.equal(prodWorkflow.match(/^ +SHA:/gm).length, 1);
+  assert.doesNotMatch(prodWorkflow, /inputs:/);
+  assert.match(deploy, /environment:\n {6}name: production\n/);
+  assert.match(prodWorkflow, /actions\/checkout@[0-9a-f]{40}/);
+  assert.match(prodWorkflow, /actions\/setup-node@[0-9a-f]{40}/);
+  // same newest-check-run jq as staging
+  const jq = (w) => w.match(/--jq '([^']+)'/)[1];
+  assert.equal(jq(prodWorkflow), jq(workflow));
+  const at = (re) => prodWorkflow.search(re);
+  const order = [
+    /test "\$conclusion" = success/,
+    /ref: \$\{\{ needs\.gate\.outputs\.sha \}\}/,
+    /run: npm ci/,
+    /run: npm run build:cf/,
+    /run: npx wrangler deploy --env production --config wrangler\.toml \| tee deploy\.log/,
+    /curl -fsS --max-time 10 "\$url\/api\/health"/,
+    /"\$url\/"/,
+  ].map(at);
+  assert.ok(order.every((i, n) => i > -1 && (n === 0 || i > order[n - 1])), String(order));
+  assert.match(prodWorkflow, /= production \]/);
+  for (const c of prodWorkflow.match(/curl [^\n]*/g)) assert.match(c, /--max-time 10\b/, c);
+  // Cloudflare secrets only in the deploy step
+  const steps = deploy.split(/\n {6}- /).slice(1);
+  assert.deepEqual(steps.filter((st) => /CLOUDFLARE_/.test(st)).map((st) => st.match(/name: (.*)/)?.[1]), ["Deploy bica-production"]);
+  assert.doesNotMatch(prodWorkflow.slice(0, prodWorkflow.indexOf("\njobs:")), /CLOUDFLARE_/);
+  assert.doesNotMatch(prodWorkflow, /TURNSTILE_SECRET|XAI_API_KEY|CHAT_SESSION_SECRET|d1 |BETTER_AUT[H]/);
+  // staging never deploys production
+  assert.doesNotMatch(workflow, /--env production/);
+});
+
+test("#40: docs: rollback code-only, Vercel fallback, cutover order, env protection, token", () => {
+  const docs = readFileSync(join(root, "docs/cloudflare-workers.md"), "utf8");
+  const sec = (h) => docs.slice(docs.indexOf(h), docs.indexOf("\n### ", docs.indexOf(h) + 1) >>> 0);
+  const rb = sec("### Rollback");
+  assert.match(rb, /wrangler rollback --env production/);
+  assert.match(rb, /code only/);
+  assert.ok(rb.indexOf("wrangler rollback") < rb.indexOf("Detach the Workers custom domain"));
+  assert.ok(rb.indexOf("Detach") < rb.indexOf("Recreate Vercel's CNAME") && rb.indexOf("Recreate") < rb.indexOf("Verify"));
+  const co = sec("### Cutover");
+  assert.ok(co.indexOf("set the three Worker secrets") > -1 && co.indexOf("set the three Worker secrets") < co.indexOf("Remove Vercel's CNAME"));
+  assert.match(co, /Brief outage/);
+  assert.match(docs, /must have \*\*both\*\*/);
+  assert.match(docs, /\*\*`main` only\*\*/);
+  assert.match(docs, /Required reviewers: Andreas/);
+  const tok = sec("### Prod API token");
+  assert.match(tok, /developers\.cloudflare\.com\/api\/resources\/workers\/subresources\/domains/);
+  assert.match(tok, /no DNS Edit and no SSL and Certificates/);
+});
+
+test("#8: CI dry-runs the production env without a token", () => {
+  assert.match(ci, /run: npx wrangler deploy --dry-run --env production --config wrangler\.toml/);
 });

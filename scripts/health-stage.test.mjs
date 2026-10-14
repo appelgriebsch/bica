@@ -7,14 +7,16 @@ import { healthForStage, resolveBicaStage } from "../src/lib/health-stage.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-test("staging is the only accepted stage", () => {
-  const ok = healthForStage("staging");
-  assert.equal(ok.status, 200);
-  assert.deepEqual(ok.body, { ok: true, stage: "staging" });
+test("staging and production are the only accepted stages", () => {
+  for (const stage of ["staging", "production"]) {
+    const ok = healthForStage(stage);
+    assert.equal(ok.status, 200);
+    assert.deepEqual(ok.body, { ok: true, stage });
+  }
 });
 
-test("missing, blank, and non-staging values fail closed", () => {
-  for (const stage of [undefined, "", "  ", "production", "preview", "STAGING"]) {
+test("missing, blank, and unknown values fail closed", () => {
+  for (const stage of [undefined, "", "  ", "preview", "prod", "STAGING", "Production", " production"]) {
     const rejected = healthForStage(stage);
     assert.equal(rejected.status, 503);
     assert.deepEqual(rejected.body, { ok: false });

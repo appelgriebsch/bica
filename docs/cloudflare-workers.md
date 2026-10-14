@@ -1,4 +1,4 @@
-# Cloudflare Workers (staging)
+# Cloudflare Workers (staging and production)
 
 Bica’s staging host is a **Cloudflare Worker**, not Cloudflare Pages.
 
@@ -19,7 +19,8 @@ Account id comes from `wrangler login` or `CLOUDFLARE_ACCOUNT_ID`. It is not com
 `GET /api/health`
 
 - `BICA_STAGE=staging` → `200` `{ "ok": true, "stage": "staging" }` and `cache-control: no-store`
-- missing, blank, or any other value (including `production`) → `503` `{ "ok": false }`
+- `BICA_STAGE=production` → `200` `{ "ok": true, "stage": "production" }` (#8)
+- missing, blank, or any other value → `503` `{ "ok": false }`
 
 The handler touches no secrets.
 
@@ -60,20 +61,7 @@ Staging: the widget exists and its site key is committed. Andreas sets exactly t
 
 Nothing to do for the Durable Object: the first `wrangler deploy --env staging` applies migration `v1-chat-budget`. The widget's domain list must include `bica-staging.appelgriebsch.workers.dev`.
 
-Production is #8's PR (this file's rule: no `[env.production]` until then). It must add, alongside its own secrets, a production site key in `siteKeyForBuild` and its own `TURNSTILE_HOSTNAMES` (no localhost):
-
-```toml
-[[env.production.ratelimits]]
-name = "CHAT_RATE"
-namespace_id = "<unique id, not 1301>"
-simple = { limit = 6, period = 60 }
-
-[[env.production.durable_objects.bindings]]
-name = "CHAT_BUDGET"
-class_name = "ChatBudget"
-```
-
-The top-level `[[migrations]]` apply to production too. Without those blocks production still works, but the burst and daily caps only hold per isolate.
+Production: see [Production (#8)](#production-8) below.
 
 Without any secrets, staging serves `/api/health`, every app page, the precached offline shell, and text-to-speech (Web Speech runs in the browser). Lessons, review, streak and the level floor are stored in `localStorage` only.
 
@@ -90,7 +78,7 @@ Create the token from the **Edit Cloudflare Workers** template, scoped to the on
 
 The workflow passes the token and account id only to the deploy step, never at job level. A token made before #33 may still carry D1 › Edit; it is no longer needed.
 
-Remove what the template adds that bica doesn't use (KV, R2, Pages, and the zone permissions). Staging has no routes, so it needs no zone access. Only a production Worker with routes or a custom domain (#8) would need Zone › **Workers Routes › Edit** and Zone › **Zone › Read** (plus Zone › **DNS › Edit** for custom domains), and that belongs on its own prod token.
+Remove what the template adds that bica doesn't use (KV, R2, Pages, and the zone permissions). Staging has no routes, so it needs no zone access. Production's token is separate; see [Prod API token](#prod-api-token).
 
 The repo pins Node 22 (`.nvmrc`, `engines` with `engine-strict=true`, so `npm ci` refuses another major). The wrangler CLI needs it too. With an older Node on the PATH, run `npx -y node@22 node_modules/wrangler/bin/wrangler.js …`.
 
@@ -127,6 +115,81 @@ Nitro may write `.output/server/wrangler.json` and warn that `main` / `assets` i
 - HTML gets a per-request nonce CSP, set by the router (`src/lib/csp-nonce.ts`, policy in `src/lib/security-headers.mjs`). It is `Content-Security-Policy-Report-Only` until the Worker var `CSP_ENFORCE=1` is set; reports go to `/api/csp-report` (logged, not stored). Switch to enforce after a staging pass with no unexpected reports.
 - `/_shell` is a static file, so it has the static headers but no CSP (a nonce can't be baked into it).
 
+## Production (#8)
+
+[ADR 0003](adr/0003-production-workers.md). `[env.production]` in `wrangler.toml`: script `bica-production`, `workers_dev = false`, custom domain `bica.appelgriebsch.org`, `BICA_STAGE=production`, `TURNSTILE_HOSTNAMES=bica.appelgriebsch.org`, plus
+
+```toml
+[[env.production.ratelimits]]
+name = "CHAT_RATE"
+namespace_id = "1302"
+simple = { limit = 6, period = 60 }
+
+[[env.production.durable_objects.bindings]]
+name = "CHAT_BUDGET"
+class_name = "ChatBudget"
+```
+
+The top-level `[[migrations]]` (`v1-chat-budget`) apply on the first prod deploy. No database binding and no sign-in secrets (#33).
+
+### Deploy
+
+Only `.github/workflows/deploy-production.yml`, run by hand (`workflow_dispatch`). The `gate` job (no secrets, `contents: read` + `checks: read`) requires the newest `CI` check run of the dispatched sha to be `success`; the `deploy` job (`contents: read` only) runs in the `production` GitHub environment, checks out exactly that sha, runs `npm ci`, `build:cf` (with `VITE_PUBLIC_HOSTNAME=bica.appelgriebsch.org`), `wrangler deploy --env production`, then smoke-tests `/api/health` (`stage: "production"`) and `/`. Concurrency group `deploy-production`, never cancelled. CI runs `wrangler deploy --dry-run --env production` (no token).
+
+**The workflow's `main` check is not the protection.** A dispatch from another branch runs that branch's copy of the workflow, which can drop the check. What actually guards prod is the `production` environment, and it must have **both**:
+
+1. Deployment branches and tags: **`main` only** (so no other ref can use the environment or its secrets), and
+2. **Required reviewers: Andreas**, ideally with "Prevent self-review" enabled.
+
+Without both, anyone with write access could deploy prod from a branch.
+
+### Settings Andreas sets (never in the repo, never logged)
+
+| Name | Where | Notes |
+| --- | --- | --- |
+| `XAI_API_KEY` | Worker secret | `npx wrangler secret put XAI_API_KEY --env production` |
+| `TURNSTILE_SECRET_KEY` | Worker secret | The (shared staging) widget's secret. `npx wrangler secret put TURNSTILE_SECRET_KEY --env production` |
+| `CHAT_SESSION_SECRET` | Worker secret | ≥ 32 bytes, its own value (not staging's): `openssl rand -base64 32`, then `npx wrangler secret put CHAT_SESSION_SECRET --env production` |
+| Turnstile widget hostnames | Cloudflare dashboard | Add `bica.appelgriebsch.org` to the widget whose site key is committed |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | GitHub `production` environment secrets | Prod-only token, below |
+| Deployment branches `main` only + required reviewer Andreas | GitHub `production` environment | Both required (see Deploy) |
+| `CHAT_DAILY_GLOBAL`, `CHAT_DAILY_PER_IP`, `CSP_ENFORCE` | Optional plain vars | Defaults 2000 / 60; CSP stays Report-Only unless `CSP_ENFORCE=1` |
+
+`wrangler secret put` against a script that doesn't exist yet creates it, so the secrets can be set before the first deploy.
+
+### Prod API token
+
+Per Cloudflare's docs, the minimum is:
+
+- Account › **Workers Scripts › Edit**. Wrangler attaches a custom domain through the account-level Worker domains API, whose only accepted permission is Workers Scripts Write ([Attach Worker Domain](https://developers.cloudflare.com/api/resources/workers/subresources/domains/methods/update/)). Cloudflare then creates the DNS record and issues the certificate itself ([Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)), so the token needs **no DNS Edit and no SSL and Certificates** permission.
+- Zone › **Zone › Read**, on `appelgriebsch.org` only. Not listed for the domain API; a cheap read-only safety net for wrangler's zone lookups. Drop it if a real run succeeds without it.
+- **No** Workers Routes Edit (there are no `/*` routes, only a custom domain), no D1, no Account Settings Read (the account id is set). Permission names: [API token permissions](https://developers.cloudflare.com/fundamentals/api/reference/permissions/).
+
+Harden it: give it an expiry (TTL, e.g. 90 days, and rotate). Client IP filtering doesn't fit GitHub-hosted runners (their IPs change); use it only with a self-hosted runner. The zone must be on this Cloudflare account.
+
+### Cutover
+
+1. Freeze. Rehearse on staging (or a second temporary hostname): lessons, offline/PWA, export/import, Conversas.
+2. **Before touching DNS:** add `bica.appelgriebsch.org` to the Turnstile widget and set the three Worker secrets (`TURNSTILE_SECRET_KEY`, `CHAT_SESSION_SECRET`, `XAI_API_KEY`) for `--env production`. Otherwise Conversas fails closed right after cutover.
+3. Lower the TTL of the `bica.appelgriebsch.org` record and wait out the old TTL.
+4. Remove Vercel's CNAME (a custom domain can't attach while a CNAME holds the name), then immediately run the workflow and approve it. The deploy creates the record and certificate. **Brief outage:** from removing the CNAME until the deploy finishes and the certificate is issued (expect a few minutes).
+5. Check the smoke steps passed, then monitor for 24 h.
+6. Keep Vercel idle for 14 days, then decommission it (and its old Postgres database).
+7. Bump the service worker cache version with the deploy.
+
+Progress lives on the device under the origin. The hostname stays the same, so localStorage is kept. **If the prod hostname ever changes, users must export on the old origin and import on the new one (#34).**
+
+### Rollback
+
+1. **First choice: `npx wrangler rollback --env production`** (pick a version with `npx wrangler deployments list --env production`). It rolls back **code only**: vars, secrets and bindings stay as they are now. If the bad change was a secret or var, fix that with `wrangler secret put` instead.
+2. **Fallback to Vercel** (Vercel stays idle for 14 days for this):
+   1. Detach the Workers custom domain: dashboard › Workers & Pages › `bica-production` › Settings › Domains & Routes › remove `bica.appelgriebsch.org`. This removes the Worker's DNS record.
+   2. Recreate Vercel's CNAME for `bica.appelgriebsch.org` (as it was before cutover).
+   3. Verify: `dig bica.appelgriebsch.org` shows the Vercel target, and `curl -sI https://bica.appelgriebsch.org/` is served by Vercel (`server: Vercel`).
+   4. Delete the leftover Advanced Certificate (SSL/TLS › Edge Certificates); Cloudflare doesn't remove it on detach.
+
+Both are lossless for progress (it lives on devices). Vercel still shows its old sign-in UI until decommissioned. A later redeploy re-attaches the custom domain, so delete Vercel's CNAME first again.
+
 ## Deferred
 
-Production Worker, `[env.production]`, deploy-on-main, custom domains, DNS, and redirects onto or off `*.workers.dev` are out of scope (#8), No production database (ADR 0002 addendum). No `_redirects`.
+Prod deploy-on-push and redirects onto or off `*.workers.dev` are out of scope. No production database (ADR 0002 addendum). No `_redirects`.

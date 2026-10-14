@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Test-only, so cancelling a superseded run is safe.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# No secrets here: this runs on pull requests.
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+jobs:
+  ci:
+    # The required status check on main (branch ruleset).
+    name: CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run deps:check
+      - run: npm run build
+      - run: npm run build:cf
+      # The built-output tests against the Worker bundle just built.
+      - run: BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test
+      # Bundling, bindings and assets; needs no Cloudflare token.
+      - run: npx wrangler deploy --dry-run --env staging --config wrangler.toml

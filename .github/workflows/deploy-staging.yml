@@ -1,7 +1,13 @@
 name: Deploy staging
 
+# Deploys only a commit whose CI run on main succeeded for a push (#23).
+# workflow_run keeps the deploy secrets and the staging environment out of the
+# workflow that runs on pull requests, and a failed deploy never turns the
+# required CI check red. It always uses this file from the default branch.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -13,6 +19,7 @@ concurrency:
 
 permissions:
   contents: read
+  checks: read # the manual-run guard reads the CI check run
 
 defaults:
   run:
@@ -22,22 +29,37 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
     environment: staging
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
+      # A manual run deploys only a sha whose CI check succeeded.
+      - name: Require green CI (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          conclusion=$(gh api "repos/${{ github.repository }}/commits/$SHA/check-runs?check_name=CI" \
+            --jq '[.check_runs[] | select(.app.slug == "github-actions")] | sort_by(.completed_at) | last | .conclusion // "missing"')
+          echo "CI for $SHA: $conclusion"
+          test "$conclusion" = success
+      # Exactly the commit CI tested (workflow_run defaults to the branch head).
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm test
-      - run: npm run deps:check
+      # The release build. Tests, lint and deps:check ran in CI for this sha.
       - run: npm run build:cf
-      # The built-output tests against the Worker bundle just built.
-      - run: BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test
       # Finds or creates bica-staging and writes its id into wrangler.ci.toml
       # (gitignored). Fails fast when a Cloudflare secret is empty.
       - name: Provision staging D1

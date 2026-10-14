@@ -11,6 +11,7 @@ const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const viteConfig = readFileSync(join(root, "vite.config.ts"), "utf8");
 const wrangler = readFileSync(join(root, "wrangler.toml"), "utf8");
 const workflow = readFileSync(join(root, ".github/workflows/deploy-staging.yml"), "utf8");
+const ci = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
 
 test("default build stays the Vercel Nitro build", () => {
   assert.equal(pkg.scripts.build, "vite build && node scripts/precache.mjs");
@@ -28,7 +29,11 @@ test("deploy scripts always target the staging environment", () => {
     /wrangler deploy --env staging --config wrangler\.ci\.toml/,
   );
   assert.equal(pkg.scripts.deploy, undefined);
-  assert.match(workflow, /^on:\n {2}push:\n {4}branches: \[main\]\n {2}workflow_dispatch:\n/m);
+  assert.match(
+    workflow,
+    /^on:\n {2}workflow_run:\n {4}workflows: \[CI\]\n {4}types: \[completed\]\n {4}branches: \[main\]\n {2}workflow_dispatch:\n/m,
+  );
+  assert.doesNotMatch(workflow, /^ {2}push:/m);
   assert.match(workflow, /timeout-minutes:\s*15\b/);
   assert.match(workflow, /environment:\s*staging/);
   assert.match(workflow, /actions\/checkout@[0-9a-f]{40}/);
@@ -80,11 +85,10 @@ test("one fixed concurrency group that never cancels a running deploy", () => {
 test("workflow checks, builds, provisions, migrates, deploys, then smokes", () => {
   const at = (re) => workflow.search(re);
   const order = [
+    /name: Require green CI \(manual runs\)/,
+    /ref: \$\{\{ github\.event\.workflow_run\.head_sha \|\| github\.sha \}\}/,
     /run: npm ci/,
-    /run: npm test/,
-    /run: npm run deps:check/,
     /run: npm run build:cf/,
-    /run: BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test/,
     /run: node scripts\/ci-d1-provision\.mjs/,
     /run: npx wrangler d1 migrations apply DB --env staging --remote --config wrangler\.ci\.toml/,
     /run: npx wrangler deploy --env staging --config wrangler\.ci\.toml/,
@@ -158,4 +162,75 @@ test("assets: explicit html and not-found handling, shell and worker headers", (
     /^\/_shell\n {2}content-type: text\/html; charset=utf-8\n {2}cache-control: no-cache$/m,
   );
   assert.match(headers, /^\/sw\.js\n {2}cache-control: no-cache$/m);
+});
+
+test("deploy runs only after green CI for a push to main, on exactly that sha", () => {
+  assert.match(
+    workflow,
+    /if: >-\n {6}github\.event_name == 'workflow_dispatch' \|\|\n {6}\(github\.event\.workflow_run\.conclusion == 'success' &&\n {7}github\.event\.workflow_run\.event == 'push'\)\n {4}environment: staging/,
+  );
+  // A manual run checks the CI check run of its sha before anything else.
+  const guard = workflow.slice(workflow.indexOf("name: Require green CI"));
+  assert.match(guard, /^ {8}if: github\.event_name == 'workflow_dispatch'$/m);
+  assert.match(guard, /check-runs\?check_name=CI/);
+  assert.match(guard, /test "\$conclusion" = success/);
+  assert.ok(workflow.indexOf("name: Require green CI") < workflow.indexOf("actions/checkout@"));
+  assert.match(workflow, /^ {2}checks: read/m);
+  assert.doesNotMatch(
+    workflow,
+    /run: .*(?:npm test|npm run lint|npm run typecheck|deps:check|BICA_BUILT)/,
+  );
+});
+
+test("CI: PRs and pushes to main, job CI, no secrets, cancels superseded runs", () => {
+  assert.match(
+    ci,
+    /^on:\n {2}pull_request:\n {4}branches: \[main\]\n {2}push:\n {4}branches: \[main\]\n/m,
+  );
+  assert.match(
+    ci,
+    /^concurrency:\n {2}group: ci-\$\{\{ github\.ref \}\}\n {2}cancel-in-progress: true$/m,
+  );
+  assert.match(ci, /^permissions:\n {2}contents: read\n/m);
+  assert.match(ci, /^jobs:\n {2}ci:\n(?: {4}#.*\n)* {4}name: CI$/m);
+  assert.doesNotMatch(ci, /secrets\.|environment:|CLOUDFLARE_/);
+  assert.match(ci, /shell: bash -euo pipefail \{0\}/);
+  assert.match(ci, /actions\/checkout@[0-9a-f]{40}/);
+  assert.match(ci, /actions\/setup-node@[0-9a-f]{40}/);
+  const at = (re) => ci.search(re);
+  const order = [
+    /run: npm ci$/m,
+    /run: npm run typecheck$/m,
+    /run: npm run lint$/m,
+    /run: npm test$/m,
+    /run: npm run deps:check$/m,
+    /run: npm run build$/m,
+    /run: npm run build:cf$/m,
+    /run: BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test$/m,
+    /run: npx wrangler deploy --dry-run --env staging --config wrangler\.toml$/m,
+  ].map(at);
+  assert.ok(
+    order.every((i, n) => i > -1 && (n === 0 || i > order[n - 1])),
+    String(order),
+  );
+});
+
+test("Node 22 is pinned: .nvmrc, engines, engine-strict, both workflows", () => {
+  assert.equal(readFileSync(join(root, ".nvmrc"), "utf8").trim(), "22");
+  assert.equal(pkg.engines?.node, ">=22 <23");
+  const lock = JSON.parse(readFileSync(join(root, "package-lock.json"), "utf8"));
+  assert.equal(lock.packages[""].engines?.node, pkg.engines.node);
+  assert.match(readFileSync(join(root, ".npmrc"), "utf8"), /^engine-strict=true$/m);
+  for (const wf of [ci, workflow]) {
+    assert.match(wf, /node-version-file: \.nvmrc/);
+    assert.doesNotMatch(wf, /node-version: /);
+  }
+});
+
+test("tests never assign globalThis.navigator directly (getter-only since Node 21)", () => {
+  const r = spawnSync("git", ["grep", "-n", "globalThis.navigator" + " =", "--", "scripts"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  assert.equal(r.stdout, "", r.stdout);
 });

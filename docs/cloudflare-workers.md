@@ -39,6 +39,8 @@ Set Worker secrets with `wrangler secret put <NAME> --env staging` (never in `wr
 
 `BICA_STAGE=staging` is a plain var in `[env.staging.vars]`. `VITE_*` values (`VITE_AUTH_ENABLED`, `VITE_PUBLIC_HOSTNAME`, `VITE_STUN_URLS`) are build-time: set them in the build environment, not as Worker secrets.
 
+Chat limits (#13), per user: 6 turns per minute (Rate Limiting binding `CHAT_RATE`, `[[env.staging.ratelimits]]`), 20 per 10 min and 200 per day (D1 `chat_usage`; override with `CHAT_LIMIT_PER_10_MIN` / `CHAT_LIMIT_PER_DAY`). Windows are UTC-aligned: the daily cap resets at 00:00 UTC. Without the binding (dev, Vercel, an environment that lacks it) the burst limit is per isolate in memory; without D1 the 10-min and daily caps are too.
+
 Without any secrets, staging serves `/api/health`, the app pages (checked locally with `wrangler dev`: `/`, `/practice`), the precached offline shell, and text-to-speech (Web Speech runs in the browser). With the D1 database created and migrated, plus `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` and `GROK_AUTH_CLIENT_*`, sign-in and progress sync should work; with `XAI_API_KEY`, chat too. Locally that path is checked with `wrangler dev --env staging` on a local D1; it has not run against a real staging D1 yet.
 
 ## D1 database (provisioned by CI)

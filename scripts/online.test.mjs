@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import ts from "typescript";
+import { setNavigator } from "./test-helpers.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 // Compile inside the repo so `react` resolves from node_modules.
@@ -24,7 +25,7 @@ const events = {};
 const probes = [];
 let reachable = true;
 let status = 204;
-globalThis.navigator = { onLine: true };
+setNavigator({ onLine: true });
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 globalThis.window = {
   addEventListener: (t, fn) => (events[t] = fn),

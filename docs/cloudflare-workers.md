@@ -62,13 +62,15 @@ Create the token from the **Edit Cloudflare Workers** template, scoped to the on
 
 - Account › **D1 › Edit** (list, create, migrate). The template doesn't include it; add it.
 - Account › **Workers Scripts › Edit** (deploy, secrets, the workers.dev subdomain toggle).
-- Account › **Account Settings › Read** (wrangler's account lookup).
+- Account › **Account Settings › Read** (wrangler's account lookup). This is probably unnecessary because `CLOUDFLARE_ACCOUNT_ID` is set, so wrangler doesn't need to look the account up. Untested: try dropping it once a real run has succeeded.
+
+The workflow passes the token and account id only to the provision, migrate and deploy steps, never at job level.
 
 Remove what the template adds that bica doesn't use (KV, R2, Pages, and the zone permissions). Staging has no routes, so it needs no zone access. Only a production Worker with routes or a custom domain (#8) would need Zone › **Workers Routes › Edit** and Zone › **Zone › Read** (plus Zone › **DNS › Edit** for custom domains), and that belongs on its own prod token.
 
 The database starts empty. There is no user import: everyone signs in again, and each device re-uploads its offline progress through the sync queue.
 
-The wrangler CLI needs Node 22+. With an older Node, run it as `npx -y node@22 node_modules/wrangler/bin/wrangler.js …`.
+The repo pins Node 22 (`.nvmrc`, `engines` with `engine-strict=true`, so `npm ci` refuses another major). The wrangler CLI needs it too. With an older Node on the PATH, run `npx -y node@22 node_modules/wrangler/bin/wrangler.js …`.
 
 ## Migrations
 
@@ -83,9 +85,15 @@ Local: `npm run dev` opens wrangler's local D1 under `.wrangler/state` and appli
 Only these two paths publish, and both pass `--env staging`:
 
 - locally: `npm run deploy:staging` (`build:cf`, D1 provisioning, the remote D1 migrations, then `wrangler deploy --env staging --config wrangler.ci.toml`), with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` exported
-- CI: push to `main`, or run the workflow by hand (`workflow_dispatch`) (`.github/workflows/deploy-staging.yml`)
+- CI: after the `CI` workflow succeeds for a push to `main` (`workflow_run`), or by hand (`workflow_dispatch`), in `.github/workflows/deploy-staging.yml`
 
-CI (GitHub environment `staging`, 15 minute timeout) runs `npm ci`, `npm test`, `npm run deps:check`, `npm run build:cf`, the built-output tests on the Worker bundle, D1 provisioning, the D1 migrations, `wrangler deploy`, then checks `GET /api/health` on the deployed URL (200, `stage: "staging"`). Every step runs under `bash -euo pipefail`, so any failure stops the job before deploy. It does not run on pull requests. Runs share the fixed concurrency group `deploy-staging` with `cancel-in-progress: false`: two quick pushes run one after the other, and neither is cancelled mid-migration.
+`.github/workflows/ci.yml` (job **`CI`**, the required check) runs on every pull request to `main` and every push to `main`, on the Node version in `.nvmrc` (22) with the npm cache. It runs `npm ci`, typecheck, lint, `npm test`, `npm run deps:check`, `npm run build`, `npm run build:cf`, the built-output tests on the Worker bundle (`BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test`), then `wrangler deploy --dry-run --env staging --config wrangler.toml` (bundling, bindings and assets; no token). It has no secrets and `contents: read`, and a newer push cancels the older run of the same ref.
+
+The staging deploy (GitHub environment `staging`, 15 minute timeout) starts from `workflow_run` when `CI` completes on `main`, and runs only if that run concluded `success`, was a `push` (not a PR), and came from `main` of this repository (not a fork). A manual run is accepted only from `main`. It checks out exactly the CI-tested `head_sha`. A manual `workflow_dispatch` run first checks that the `CI` check run of its sha succeeded and stops otherwise. Then: `npm ci`, `npm run build:cf` (the release build; no test, lint or deps steps, since CI ran them for this sha), D1 provisioning, the D1 migrations, `wrangler deploy`, and `GET /api/health` on the deployed URL (200, `stage: "staging"`). Every step runs under `bash -euo pipefail`, so any failure stops the job before deploy. `workflow_run` always uses the workflow file from the default branch, which keeps the deploy secrets out of anything a pull request can change. A failed deploy doesn't turn the required `CI` check red. Deploys share the fixed concurrency group `deploy-staging` with `cancel-in-progress: false`: two quick merges deploy one after the other, and neither is cancelled mid-migration.
+
+### Branch ruleset on `main` (repo admin, not in the repo)
+
+Settings → Rules → Rulesets → New branch ruleset: target the default branch, enforcement Active. Require a pull request (0 approvals), and require the status check **`CI`** (GitHub Actions) with "require branches to be up to date". Block force pushes, restrict deletions, and leave the bypass list empty (adding "Repository admin" is the optional escape hatch).
 
 `npm run build` is Nitro preset `vercel` plus precache. It has no database: no D1 binding exists outside a Worker, so sign-in and sync need the Worker build. `DEPLOY_TARGET=cloudflare` selects Nitro’s `cloudflare-module` preset (module syntax, `nodejs_compat`). Dev stays on `0.0.0.0:8080` with Nitro off.
 

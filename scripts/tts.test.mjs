@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { after, beforeEach, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import ts from "typescript";
+import { setNavigator } from "./test-helpers.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 // Compile src/lib/tts.ts inside the repo so `react` resolves from node_modules.
@@ -157,7 +158,7 @@ test("no xAI TTS anywhere in the tracked tree", () => {
 });
 
 test("offline: an online-only pt-PT voice counts as none; back online it is used", async () => {
-  globalThis.navigator = { onLine: false };
+  setNavigator({ onLine: false });
   const s = mockSynth([voice("pt-PT", "Online (Natural)", false)]);
   try {
     assert.equal(await tts.loadPtVoice(), null);

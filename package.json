@@ -19,6 +19,9 @@
     "format": "prettier --write .",
     "deps:check": "node scripts/deps-check.mjs"
   },
+  "engines": {
+    "node": ">=22 <23"
+  },
   "dependencies": {
     "@fontsource-variable/figtree": "^5.3.0",
     "@fontsource-variable/fraunces": "^5.3.0",

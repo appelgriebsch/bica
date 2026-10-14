@@ -11,7 +11,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 
 const root = process.cwd();
 const strict = process.argv.includes("--strict");
@@ -93,7 +93,15 @@ function lockfile() {
   }
   const ls = run("npm", ["ls", "--all", "--json"]);
   const tree = JSON.parse(ls.out || "{}");
-  for (const p of tree.problems ?? []) fail("npm ls: " + p);
+  for (const p of tree.problems ?? []) {
+    // ponytail: npm ci installs optional platform builds of an optional peer it skips
+    // (nitro env-runner -> miniflare 4 -> sharp), and npm ls then calls them extraneous.
+    // They are still lockfile entries, so only an extraneous optional entry is allowed.
+    const path = p.match(/^extraneous: \S+ (.+)$/)?.[1];
+    const rel = path && relative(root, path).split(sep).join("/");
+    if (rel && lock.packages?.[rel]?.optional) continue;
+    fail("npm ls: " + p);
+  }
   console.log(`  ${n} locked packages checked`);
 }
 

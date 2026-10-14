@@ -6,18 +6,30 @@
  */
 export const NITRO_PRESET = "vercel";
 
-// ponytail: vercel only. For cloudflare_module, confirm where Nitro 3 beta writes
-// the public dir and worker entry (likely .output/public, .output/server/index.mjs)
-// and how precache.mjs can render the shell under workerd, then add the entry.
+/** `DEPLOY_TARGET=cloudflare` (`npm run build:cf`) selects the module Worker preset. */
+export function activePreset(env = process.env) {
+  return env.DEPLOY_TARGET === "cloudflare" ? "cloudflare-module" : NITRO_PRESET;
+}
+
 const OUTPUTS = {
   vercel: {
     publicDir: ".vercel/output/static",
     serverEntry: ".vercel/output/functions/__server.func/index.mjs",
     serverLibs: ".vercel/output/functions/__server.func/_libs",
+    // serve-build.mjs copies PGLite's runtime files next to the bundle.
+    embeddedDb: true,
+  },
+  // precache.mjs renders the shell by importing this bundle under Node, which works
+  // because the Cloudflare build never boots PGLite (embeddedDbDisabled).
+  "cloudflare-module": {
+    publicDir: ".output/public",
+    serverEntry: ".output/server/index.mjs",
+    serverLibs: ".output/server/_libs",
+    workerEntry: ".output/server/staging-entry.mjs",
   },
 };
 
-export function buildOutput(preset = NITRO_PRESET) {
+export function buildOutput(preset = activePreset()) {
   const out = OUTPUTS[preset];
   if (!out) {
     throw new Error(

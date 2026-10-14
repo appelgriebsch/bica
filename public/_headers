@@ -1,0 +1,6 @@
+# Nitro appends the immutable /assets/* rule at build time.
+/sw.js
+  cache-control: no-cache
+/_shell
+  content-type: text/html; charset=utf-8
+  cache-control: no-cache

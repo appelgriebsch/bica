@@ -34,7 +34,7 @@ import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
-import { ensureDbReady, getPglite } from "../db";
+import { embeddedDbDisabled, ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GROK_PROVIDERS } from "./providers";
 import { pgliteDialect } from "./pglite-dialect";
@@ -46,7 +46,11 @@ import {
 } from "./preview";
 
 // Kick (and share) PGLite bootstrap as soon as the auth server module loads.
-void ensureDbReady();
+// Staging Workers set BICA_STAGE and have no DATABASE_URL — skip PGLite there
+// so importing auth cannot hang the isolate before /api/health answers.
+if (!embeddedDbDisabled()) {
+  void ensureDbReady();
+}
 
 /**
  * Preview secret must outlive module reloads: PGLite (and its session rows) is
@@ -277,7 +281,8 @@ const grokOAuthPlugin = authConfigured
     })
   : null;
 
-export const auth = betterAuth({
+function createAuth() {
+  return betterAuth({
   baseURL,
   // Deployed apps inject BETTER_AUTH_SECRET. Preview: process-stable secret on
   // globalThis so HMR doesn't invalidate PGLite-backed sessions (see above).
@@ -355,6 +360,31 @@ export const auth = betterAuth({
     // last so it runs after every other plugin's hooks.
     tanstackStartCookies(),
   ],
+  });
+}
+
+type Auth = ReturnType<typeof createAuth>;
+
+// Preview / Vercel construct auth at import (unchanged). On the staging Worker,
+// `randomBytes` during that call is illegal in global scope and would stop
+// every route, including /api/health. Build it on first use instead.
+const authState = globalAuthRef as typeof globalAuthRef & { __grokAuth__?: Auth };
+
+function loadAuth(): Auth {
+  authState.__grokAuth__ ??= createAuth();
+  return authState.__grokAuth__;
+}
+
+if (!embeddedDbDisabled()) {
+  loadAuth();
+}
+
+export const auth: Auth = new Proxy({} as Auth, {
+  get(_target, prop) {
+    const instance = loadAuth();
+    const value = Reflect.get(instance, prop) as unknown;
+    return typeof value === "function" ? value.bind(instance) : value;
+  },
 });
 
 export function readSessionToken(): string | null {

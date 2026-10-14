@@ -77,7 +77,8 @@ export function AppErrorComponent({ error }: ErrorComponentProps) {
           ? "A stuck copy of Bica was sitting on this phone. Loading a fresh one."
           : chunkError
             ? "This copy of Bica got stuck. Tap try again."
-            : error.message || "An unexpected error occurred. Try reloading the page."}
+            : (error instanceof Error && error.message) ||
+              "An unexpected error occurred. Try reloading the page."}
       </p>
       {retrying ? null : (
         <button

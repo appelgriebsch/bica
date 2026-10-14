@@ -119,9 +119,9 @@ ON CONFLICT (user_id) DO UPDATE SET
     WHEN coalesce(excluded.last_study_date, '') > coalesce(user_stats.last_study_date, '')
       THEN excluded.last_study_date ELSE user_stats.last_study_date END,
   total_xp = max(user_stats.total_xp, excluded.total_xp),
-  floor = CASE WHEN ?5 IS NULL THEN user_stats.floor ELSE excluded.floor END,
+  floor = CASE WHEN ?5 IS NULL THEN user_stats.floor ELSE max(user_stats.floor, excluded.floor) END,
   updated_at = excluded.updated_at`;
-// ponytail: floor is a setting, so the last snapshot that carries one wins.
+// Floor is the max, as on the client (progress-store mergeRemote); A1 < A2 < B1 < B2 < C1 sorts as text.
 
 // Per card, the client rule (progress-store mergeRemote): more reps wins, then the later due.
 // json_patch only ever receives the incoming cards that win, never a stale one.

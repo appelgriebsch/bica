@@ -75,6 +75,7 @@ test("workflow checks, builds, migrates, then deploys", () => {
     /run: npm test/,
     /run: npm run deps:check/,
     /run: npm run build:cf/,
+    /run: BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test/,
     /run: npx wrangler d1 migrations apply DB --env staging --remote --config wrangler\.toml/,
     /run: npx wrangler deploy/,
   ].map(at);

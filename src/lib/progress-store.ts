@@ -168,15 +168,20 @@ export const useProgress = create<ProgressState>()(
         }
         const localDay = asDayKey(local.lastStudyDate);
         const remoteDay = asDayKey(remote.lastStudyDate);
-        const lastStudyDate =
-          (localDay ?? "") > (remoteDay ?? "") ? localDay : remoteDay;
+        // Same rule as the server (progress-merge STATS_UPSERT): the streak goes with the later
+        // study day, so a broken streak can drop; max only on a tie.
+        const l = localDay ?? "";
+        const r = remoteDay ?? "";
+        const lastStudyDate = l > r ? localDay : remoteDay;
+        const streak =
+          l > r ? local.streak : l < r ? remote.streak : Math.max(local.streak, remote.streak);
         const remoteFloor = remote.floor ?? "A1";
         const floor = rank[local.floor] >= rank[remoteFloor] ? local.floor : remoteFloor;
         set({
           completed,
           cards,
           xp: Math.max(local.xp, remote.xp),
-          streak: Math.max(local.streak, remote.streak),
+          streak,
           lastStudyDate,
           floor,
         });

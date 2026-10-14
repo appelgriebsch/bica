@@ -1,7 +1,7 @@
 -- Lesson progress and per-user stats (ADR 0002). Timestamps are ISO-8601 TEXT;
--- the primary keys already index user_id.
+-- the primary keys already index user_id. Rows go with their user (ON DELETE CASCADE).
 CREATE TABLE lesson_progress (
-  user_id TEXT NOT NULL,
+  user_id TEXT NOT NULL REFERENCES "user" ("id") ON DELETE CASCADE,
   lesson_id TEXT NOT NULL,
   quiz_score INTEGER NOT NULL DEFAULT 0,
   quiz_total INTEGER NOT NULL DEFAULT 0,
@@ -12,7 +12,7 @@ CREATE TABLE lesson_progress (
 );
 
 CREATE TABLE user_stats (
-  user_id TEXT PRIMARY KEY,
+  user_id TEXT PRIMARY KEY REFERENCES "user" ("id") ON DELETE CASCADE,
   streak INTEGER NOT NULL DEFAULT 0,
   last_study_date TEXT,
   total_xp INTEGER NOT NULL DEFAULT 0,

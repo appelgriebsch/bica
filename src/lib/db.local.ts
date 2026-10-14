@@ -55,5 +55,10 @@ export async function openLocalDb(): Promise<D1Database> {
   const proxy = await getPlatformProxy<{ DB: D1Database }>({ persist: true });
   const applied = await applyMigrations(proxy.env.DB);
   if (applied.length) console.info("[db] local D1: applied", applied.join(", "));
+  // Auth off locally uses the shared "dev-user" (verify.server DEV_USER_ID); progress rows
+  // reference user(id), so that user has to exist.
+  await proxy.env.DB.prepare(
+    `INSERT OR IGNORE INTO "user" (id, name, email, emailVerified, createdAt, updatedAt) VALUES ('dev-user', 'Dev user', 'dev-user@localhost', 0, datetime('now'), datetime('now'))`,
+  ).run();
   return proxy.env.DB;
 }

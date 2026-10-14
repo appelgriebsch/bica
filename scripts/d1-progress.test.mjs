@@ -78,8 +78,17 @@ after(async () => {
 
 let uid = 0;
 let user;
-beforeEach(() => {
+/** Progress rows reference user(id) (ON DELETE CASCADE), so every test user exists. */
+const addUser = (id) =>
+  db
+    .prepare(
+      `INSERT OR IGNORE INTO "user" (id, name, email, emailVerified, createdAt, updatedAt) VALUES (?1, ?1, ?1 || '@test', 0, '2026-10-14', '2026-10-14')`,
+    )
+    .bind(id)
+    .run();
+beforeEach(async () => {
   user = `u${++uid}`;
+  await addUser(user);
 });
 
 const L = () => m.lessons.map((l) => l.id);
@@ -120,6 +129,7 @@ test("cards: a stale device never rolls an SRS card back, in either order", asyn
   assert.deepEqual((await load()).cards, newer);
 
   user = `${user}-b`;
+  await addUser(user);
   await save(snap({ cards: stale }));
   await save(snap({ cards: newer }));
   assert.deepEqual((await load()).cards, newer);
@@ -177,14 +187,50 @@ test("saveLesson: the same upsert in one statement", async () => {
   assert.equal(r.xp, 50);
 });
 
-test("floor round-trips; a snapshot without one keeps it", async () => {
+test("floor: the max wins on the server; a snapshot without one keeps it", async () => {
   assert.equal((await load()).floor, "A1");
   await save(snap({ floor: "B2" }));
   assert.equal((await load()).floor, "B2");
   await save(snap());
   assert.equal((await load()).floor, "B2");
-  await save(snap({ floor: "A2" }));
-  assert.equal((await load()).floor, "A2");
+  await save(snap({ floor: "A2" })); // a device still on A2 never lowers it
+  assert.equal((await load()).floor, "B2");
+  await save(snap({ floor: "C1" }));
+  assert.equal((await load()).floor, "C1");
+});
+
+test("floor: the max wins on the client too, both ways", () => {
+  const st = () => m.useProgress.getState();
+  m.useProgress.setState({ floor: "A2" });
+  st().mergeRemote(snap({ floor: "B1" }));
+  assert.equal(st().floor, "B1");
+  st().mergeRemote(snap({ floor: "A1" }));
+  assert.equal(st().floor, "B1");
+});
+
+test("FK: deleting the user cascades to lesson_progress and user_stats", async () => {
+  const [a] = L();
+  await save(
+    snap({ xp: 5, completed: { [a]: row(1, 1, 5) }, cards: { v: card(1, "2026-10-02") } }),
+  );
+  const count = async (t) =>
+    (await db.prepare(`SELECT count(*) AS n FROM ${t} WHERE user_id = ?1`).bind(user).first()).n;
+  assert.deepEqual([await count("lesson_progress"), await count("user_stats")], [1, 1]);
+  await db.prepare(`DELETE FROM "user" WHERE id = ?1`).bind(user).run();
+  assert.deepEqual([await count("lesson_progress"), await count("user_stats")], [0, 0]);
+  await assert.rejects(save(snap({ xp: 1 })), /FOREIGN KEY/i, "no rows for an unknown user");
+});
+
+test("CARDS_MAX: one card over the cap is rejected, the cap itself passes", async () => {
+  assert.ok(Number.isFinite(m.CARDS_MAX) && m.CARDS_MAX > 0 && m.CARDS_MAX < 10_000);
+  const cards = (n) =>
+    Object.fromEntries(Array.from({ length: n }, (_, i) => [`c${i}`, card(1, "2026-10-02")]));
+  await save(snap({ cards: cards(m.CARDS_MAX) }));
+  await assert.rejects(
+    save(snap({ cards: cards(m.CARDS_MAX + 1) })),
+    (e) => e.message === m.INVALID_PROGRESS,
+  );
+  assert.equal(Object.keys((await load()).cards).length, m.CARDS_MAX);
 });
 
 test("bounds: every invalid snapshot is rejected with the stable message and nothing written", async () => {
@@ -355,4 +401,22 @@ test("auth: Better Auth on local D1 through the lazy binding", async () => {
   } finally {
     delete globalThis.__env__;
   }
+});
+
+test("W1: a stale device streak (10 on 10-01) yields to the account (1 on 10-13), client and server", async () => {
+  await save(snap({ streak: 1, lastStudyDate: "2026-10-13" }));
+  m.useProgress.setState({
+    streak: 10,
+    lastStudyDate: "2026-10-01",
+    syncing: false,
+    syncPending: true,
+  });
+  globalThis.__stub.online = true;
+  globalThis.__stub.fetchProgress = () => load();
+  globalThis.__stub.saveProgressSnapshot = (input) => save(input.data);
+  assert.deepEqual(await m.syncProgressWithAccount(), { ok: true });
+  const s = m.useProgress.getState();
+  assert.deepEqual([s.streak, s.lastStudyDate], [1, "2026-10-13"]);
+  const p = await load();
+  assert.deepEqual([p.streak, p.lastStudyDate], [1, "2026-10-13"]);
 });

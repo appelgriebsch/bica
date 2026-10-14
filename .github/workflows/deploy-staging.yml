@@ -26,6 +26,8 @@ jobs:
       - run: npm test
       - run: npm run deps:check
       - run: npm run build:cf
+      # The built-output tests against the Worker bundle just built.
+      - run: BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test
       # Separate from the build: build:cf never touches a database. Applies the
       # pending migrations/*.sql to the staging D1 (tracked in d1_migrations).
       - name: Migrate staging D1

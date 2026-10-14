@@ -74,9 +74,11 @@ function SpeakScene() {
       });
       if (!res.ok) {
         setError(
-          "retryAfter" in res
-            ? `Slow down, try again in ${Math.ceil(res.retryAfter / 60)} min.`
-            : res.error,
+          !("retryAfter" in res)
+            ? res.error
+            : res.retryAfter > 3600
+              ? "Daily chat limit reached. It resets at 00:00 UTC."
+              : `Slow down, try again in ${Math.ceil(res.retryAfter / 60)} min.`,
         );
         return;
       }

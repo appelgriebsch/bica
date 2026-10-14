@@ -50,6 +50,8 @@ export async function chatTurn({
   if (!apiKey) return { ok: false, error: "Practice chat is unavailable right now." };
   const scenario = speakScenarios.find((s) => s.id === data.scenarioId);
   if (!scenario) return { ok: false, error: "Unknown scene." };
+  // Taken before the xAI call on purpose: a turn that then fails upstream still
+  // counts, so retrying a timeout can't bypass the cap (each attempt may bill).
   const verdict = await limit();
   if (!verdict.ok) return { ok: false, error: "rate_limited", retryAfter: verdict.retryAfter };
 

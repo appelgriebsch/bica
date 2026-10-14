@@ -79,6 +79,7 @@ const counters = {
     return m.d1Counter(db);
   },
 };
+const chatOk = (counter) => counter("b", T0, m.DEFAULT_LIMITS);
 const take = (counter, user, now) => m.checkChatLimit(user, now, { burst: open, counter, limits });
 
 for (const [name, make] of Object.entries(counters)) {
@@ -138,6 +139,22 @@ test("burst: memory per minute; the binding is used when present, keyed by user"
   delete globalThis.__env__;
   assert.equal(await m.chatLimiter().burst("zz", T0), true); // memory fallback
   assert.deepEqual(keys, ["a"]);
+});
+
+test("wiring: with the Worker's DB, chatLimiter counts in chat_usage; without it, in memory", async () => {
+  await db.prepare("DELETE FROM chat_usage").run();
+  const rows = async () =>
+    (await db.prepare("SELECT turns FROM chat_usage WHERE user_id = 'b'").all()).results.length;
+  globalThis.__env__ = { DB: db };
+  try {
+    assert.equal(await chatOk(m.chatLimiter().counter), "ok");
+    assert.equal(await rows(), 2); // 10-min and day rows
+  } finally {
+    delete globalThis.__env__;
+  }
+  await db.prepare("DELETE FROM chat_usage").run();
+  assert.equal(await chatOk(m.chatLimiter().counter), "ok");
+  assert.equal(await rows(), 0);
 });
 
 test("limits: configurable via env, bad values ignored", () => {

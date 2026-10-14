@@ -4,8 +4,9 @@
  *   isolates). Without it (dev, Vercel), per isolate in memory.
  * - Turns per 10 min and per day: fixed-window counters in D1 `chat_usage`, across
  *   isolates. Without a database, in memory.
- * A turn refused by a cap is not counted, so a user waiting out the 10-min cap
- * keeps their daily turns.
+ * Windows are epoch-aligned: the day resets at 00:00 UTC. A 10-min refusal
+ * doesn't use daily turns (a day-cap refusal may still count in the 10-min
+ * window; harmless, the day is over).
  */
 import { boundDb, type D1Database } from "@/lib/db";
 

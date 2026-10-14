@@ -3,7 +3,7 @@
  * billed to XAI_API_KEY. Keyed by client IP (`cf-connecting-ip`, IPv6 by /64),
  * never by identity.
  * - Burst: the Rate Limiting binding CHAT_RATE (wrangler.toml, 6 per 60 s,
- *   across isolates). Without it (dev, Vercel), per isolate in memory.
+ *   across isolates). Without it (local / tests), per isolate in memory.
  * - Daily: the Durable Object CHAT_BUDGET (`ChatBudget`, chat-budget.mjs) holds
  *   the global and per-IP day counters, reset at 00:00 UTC. Without the
  *   binding, the same logic runs per isolate in memory.
@@ -67,13 +67,11 @@ export function ipKey(raw: string | null | undefined): string {
 
 /**
  * The client address for the limiter and Turnstile's remoteip: CF-Connecting-IP
- * (set by Cloudflare, not spoofable on Workers), else x-real-ip (Vercel's
- * equivalent) only when CF's header is missing. X-Forwarded-For is client-
- * controlled and never read. Missing → "unknown".
+ * only (set by Cloudflare, not spoofable on Workers). X-Forwarded-For and
+ * x-real-ip are never read (#17; Avery W1 on #38). Missing → "unknown".
  */
 export function clientIp(get: (name: string) => string | null | undefined): string {
-  const pick = (name: string) => get(name)?.trim() || undefined;
-  return pick("cf-connecting-ip") ?? pick("x-real-ip") ?? "unknown";
+  return get("cf-connecting-ip")?.trim() || "unknown";
 }
 
 /** True when the burst limit lets this key through. */
@@ -111,7 +109,7 @@ export const bindingBudget =
   (key, now, l) =>
     ns.get(ns.idFromName("global")).take(key, now, l);
 
-/** The same counters per isolate (no DO binding: dev, Vercel). */
+/** The same counters per isolate (no DO binding: local / tests). */
 export function memoryBudget(): Budget {
   const Local = makeChatBudget(
     class {

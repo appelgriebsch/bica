@@ -13,14 +13,18 @@ const wrangler = readFileSync(join(root, "wrangler.toml"), "utf8");
 const workflow = readFileSync(join(root, ".github/workflows/deploy-staging.yml"), "utf8");
 const ci = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
 
-test("default build stays the Vercel Nitro build", () => {
-  assert.equal(pkg.scripts.build, "vite build && node scripts/precache.mjs");
-  assert.equal(activePreset({}), "vercel");
+test("#17: default build is the Cloudflare Nitro build", () => {
+  const cf =
+    "DEPLOY_TARGET=cloudflare vite build && DEPLOY_TARGET=cloudflare node scripts/precache.mjs && node scripts/write-cf-entry.mjs";
+  assert.equal(pkg.scripts.build, cf);
+  assert.equal(pkg.scripts["build:cf"], cf);
+  assert.equal(activePreset({}), "cloudflare-module");
   assert.equal(activePreset({ DEPLOY_TARGET: "cloudflare" }), "cloudflare-module");
   assert.match(viteConfig, /const nitroPreset = activePreset\(\);/);
   assert.match(viteConfig, /serverDir:\s*"\.\/server"/);
   assert.match(viteConfig, /command === "build"/);
-  assert.match(pkg.scripts["build:cf"], /^DEPLOY_TARGET=cloudflare vite build\b/);
+  assert.doesNotMatch(viteConfig, /vercel/i);
+  assert.doesNotMatch(readFileSync(join(root, "scripts/build-output.mjs"), "utf8"), /vercel/i);
 });
 
 test("deploy scripts always target the staging environment", () => {
@@ -486,23 +490,71 @@ test("#8: prod deploy is manual from main, CI-gated, approval-gated, never cance
   assert.doesNotMatch(workflow, /--env production/);
 });
 
-test("#40: docs: rollback code-only, Vercel fallback, cutover order, env protection, token", () => {
+test("#17: docs: wrangler-only rollback, no Vercel fallback; env protection and token", () => {
   const docs = readFileSync(join(root, "docs/cloudflare-workers.md"), "utf8");
   const sec = (h) => docs.slice(docs.indexOf(h), docs.indexOf("\n### ", docs.indexOf(h) + 1) >>> 0);
   const rb = sec("### Rollback");
   assert.match(rb, /wrangler rollback --env production/);
   assert.match(rb, /code only/);
-  assert.ok(rb.indexOf("wrangler rollback") < rb.indexOf("Detach the Workers custom domain"));
-  assert.ok(rb.indexOf("Detach") < rb.indexOf("Recreate Vercel's CNAME") && rb.indexOf("Recreate") < rb.indexOf("Verify"));
-  const co = sec("### Cutover");
-  assert.ok(co.indexOf("set the three Worker secrets") > -1 && co.indexOf("set the three Worker secrets") < co.indexOf("Remove Vercel's CNAME"));
-  assert.match(co, /Brief outage/);
+  assert.match(rb, /no Vercel fallback/i);
+  assert.doesNotMatch(rb, /CNAME|Detach|Recreate/);
   assert.match(docs, /must have \*\*both\*\*/);
   assert.match(docs, /\*\*`main` only\*\*/);
   assert.match(docs, /Required reviewers: Andreas/);
   const tok = sec("### Prod API token");
   assert.match(tok, /developers\.cloudflare\.com\/api\/resources\/workers\/subresources\/domains/);
   assert.match(tok, /no DNS Edit and no SSL and Certificates/);
+});
+
+// Allowed only in docs/cloudflare-workers.md: the explicit "no Vercel" notes.
+function vercelLeftovers(out) {
+  return out
+    .split("\n")
+    .filter(
+      (l) =>
+        l &&
+        !(
+          l.startsWith("docs/cloudflare-workers.md:") &&
+          (l.includes("There is no Vercel build (#17).") || l.includes("There is no Vercel fallback (#17):"))
+        ),
+    );
+}
+
+test("#17: no Vercel leftovers in src, scripts, package.json, workflows or config", () => {
+  const r = spawnSync(
+    "git",
+    [
+      "grep",
+      "-nIi",
+      "vercel",
+      "--",
+      "src",
+      "scripts",
+      "server",
+      ".github",
+      "package.json",
+      "vite.config.ts",
+      "eslint.config.mjs",
+      "wrangler.toml",
+      ".gitignore",
+      "docs/cloudflare-workers.md",
+      ":!scripts/cloudflare-config.test.mjs",
+      ":!scripts/chat.test.mjs",
+    ],
+    { cwd: root, encoding: "utf8" },
+  );
+  const leftovers = vercelLeftovers(r.stdout || "");
+  assert.equal(leftovers.join("\n"), "", leftovers.join("\n"));
+  // mutants: the allowlist applies only to the Workers docs
+  assert.deepEqual(vercelLeftovers("src/lib/x.ts:1:// Vercel fallback path (#17)"), ["src/lib/x.ts:1:// Vercel fallback path (#17)"]);
+  assert.deepEqual(vercelLeftovers("scripts/a.mjs:2:// There is no Vercel build"), ["scripts/a.mjs:2:// There is no Vercel build"]);
+  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:There is no Vercel fallback (#17): x"), []);
+  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:Deploy to Vercel"), ["docs/cloudflare-workers.md:9:Deploy to Vercel"]);
+  // only the two exact phrases: a looser docs mention still fails
+  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:Vercel fallback is fine (#17)"), ["docs/cloudflare-workers.md:9:Vercel fallback is fine (#17)"]);
+  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:There is no Vercel build (#17)."), []);
+  assert.doesNotMatch(pkg.scripts.build, /vercel/i);
+  assert.ok(!Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).some((n) => /vercel/i.test(n)));
 });
 
 test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails loudly", () => {
@@ -524,6 +576,18 @@ test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails l
   assert.match(step, /timeout-minutes: 6\b/);
   assert.match(prodWorkflow, /\n {4}timeout-minutes: 20\n/);
   assert.doesNotMatch(step, /secrets\.|TOKEN/);
+});
+
+test("#42 W1: build hostname pinned per env and equal to its TURNSTILE_HOSTNAMES", () => {
+  const host = (w) => w.match(/- run: npm run build:cf\n {8}env:\n {10}VITE_PUBLIC_HOSTNAME: (\S+)\n/)?.[1];
+  const tsHost = (env) => wrangler.slice(wrangler.indexOf(`[env.${env}.vars]`)).match(/TURNSTILE_HOSTNAMES = "([^"]+)"/)[1];
+  assert.equal(host(workflow), "bica-staging.appelgriebsch.workers.dev");
+  assert.equal(host(prodWorkflow), "bica.appelgriebsch.org");
+  assert.equal(host(workflow), tsHost("staging"));
+  assert.equal(host(prodWorkflow), tsHost("production"));
+  // the staging smoke URL pattern covers that host
+  assert.match(`https://${host(workflow)}`, /^https:\/\/bica-staging\.[a-z0-9-]+\.workers\.dev$/);
+  assert.match(prodWorkflow, new RegExp(`url=https://${host(prodWorkflow).replace(/\./g, "\\.")}\n`));
 });
 
 test("#8: CI dry-runs the production env without a token", () => {

@@ -196,7 +196,7 @@ revive and live work stay identical.
   running app (see §3).
 - **`screenshots/`** — write agent QA screenshots here (never under `/tmp`).
 - **`vite.config.ts` + `tsconfig.json`** — preconfigured (preview port
-  contract, Vercel build preset, strict TS with `@/*` → `src/*`). Edit if you
+  contract, Cloudflare Workers build preset, strict TS with `@/*` → `src/*`). Edit if you
   must, but keep the port, the build-gated nitro plugin (see §"Build &
   deploy target"), and the Grok PWA plugin (`grokPwaPlugin`). Do **not**
   recreate them from scratch or import a vendored `vite-tanstack-config`
@@ -334,17 +334,18 @@ export const Route = createRootRoute({
 });
 ```
 
-**`twitter:card` is platform chrome, not the og skill.** Every app keeps `{ name: "twitter:card", content: "summary_large_image" }` in the first-scaffold `meta` above. The PWA head middleware stamps the same tag if a published app's root predates it. Do not remove it — X returns `NoCard` without a layout type. Title / `og:title` stay agent-authored.
+**`twitter:card` is platform chrome, not the og skill.** Every app keeps `{ name: "twitter:card", content: "summary_large_image" }` in the first-scaffold `meta` above. The PWA head middleware stamps the same tag if an app's root predates it. Do not remove it — X returns `NoCard` without a layout type. Title / `og:title` stay agent-authored.
 
-Keep `og:image` and `x:game:image` in `head` when you rename the app: update `APP_NAME` (tab title and both share cards). `VITE_PUBLIC_HOSTNAME` is injected on publish — do not invent a `.env` for it. Live preview has no host, so no image tags (text-only unfurl is fine). Hand-author a simple `public/favicon.svg` as part of the first scaffold, and generate a custom `public/og.jpg` card from the app's own art instead of the default `og.grok.me` card for **any app with a face**: games of every kind (DOM board/word games included), whimsical apps, creative tools, and brand-forward pages — only plain utilities (converters, CRUD trackers, admin dashboards) keep the link-card placeholder. **Every app** keeps `{ property: "x:game:image", content: xBanner }` plus `x:game:image:width` / `x:game:image:height` (`1200` / `264`) for the 50:11 X feed card — default `https://og.grok.me/v1/banner.png?host=…&title=…` from the first scaffold. **Games only** also set `{ property: "og:type", content: "x:game" }` in root `meta` (always — not gated on host) and, during the brand pass, use Imagine to write `public/x-banner.jpg` (50:11, 1200×264, left-aligned lockup) then point `xBanner` at `/x-banner.jpg` — never before the file exists, or the URL 404s. Non-games keep the banner placeholder; do not call Imagine for their feed card. Do not invent `x:type` or overload `twitter:card` as the game signal. Cards per the **`og` skill** (`.grok/skills/og/SKILL.md`).
+Keep `og:image` and `x:game:image` in `head` when you rename the app: update `APP_NAME` (tab title and both share cards). `VITE_PUBLIC_HOSTNAME` comes from the Workers deploy workflows (staging / production) — do not invent a `.env` for it. Local preview has no host, so no image tags (text-only unfurl is fine). Hand-author a simple `public/favicon.svg` as part of the first scaffold, and generate a custom `public/og.jpg` card from the app's own art instead of the default `og.grok.me` card for **any app with a face**: games of every kind (DOM board/word games included), whimsical apps, creative tools, and brand-forward pages — only plain utilities (converters, CRUD trackers, admin dashboards) keep the link-card placeholder. **Every app** keeps `{ property: "x:game:image", content: xBanner }` plus `x:game:image:width` / `x:game:image:height` (`1200` / `264`) for the 50:11 X feed card — default `https://og.grok.me/v1/banner.png?host=…&title=…` from the first scaffold. **Games only** also set `{ property: "og:type", content: "x:game" }` in root `meta` (always — not gated on host) and, during the brand pass, use Imagine to write `public/x-banner.jpg` (50:11, 1200×264, left-aligned lockup) then point `xBanner` at `/x-banner.jpg` — never before the file exists, or the URL 404s. Non-games keep the banner placeholder; do not call Imagine for their feed card. Do not invent `x:type` or overload `twitter:card` as the game signal. Cards per the **`og` skill** (`.grok/skills/og/SKILL.md`).
 
 **Platform branding (required — do not remove).** The template injects
 `https://grok.com/grok-app-builder/extensions.js` into every HTML document via the
 PWA head middleware (`scripts/grok-pwa-*`, `server/middleware/grok-pwa.ts`).
 Do not put this script in `__root.tsx`. The script overlays a fixed
 "Created with Grok / Remix" pill and does **not** reserve layout space.
-Visibility is live `GetRemixEligibility` using `VITE_PROJECT_ID` (injected
-on publish). Local preview with no project id shows nothing.
+Visibility is live `GetRemixEligibility` using `VITE_PROJECT_ID` (a build-time
+var; the Workers deploy workflows don't set it). Without a project id
+nothing shows.
 
 **Preview host bridge (required — do not remove).** The template ships
 `src/components/preview-host-bridge.tsx` (+ `src/lib/preview-host-bridge.ts`).
@@ -471,14 +472,14 @@ does not apply to this app.
 
 ### Build & deploy target
 
-You never trigger the deploy yourself, **but the app you build is eventually
-deployed to Vercel** by the platform — so your output must **build cleanly under
-Vercel's process**. `npm run build` must succeed and emit valid output, and code
-that works under `npm run dev` but breaks a production / SSR build is a bug:
-watch for dev-only deps, server-only Node APIs run at import time, runtime
-filesystem writes, and hard-coded ports / hosts / secrets. Before treating the
-app as done, confirm `npm run build` and `npm run typecheck` pass — that's what
-Vercel runs.
+You never trigger the deploy yourself, **but this app deploys only to
+Cloudflare Workers** via `.github/workflows/deploy-staging.yml` and
+`deploy-production.yml`. There is **no grok.me publish path**. Build cleanly
+under `npm run build` / `build:cf`: `npm run build` must succeed and emit valid
+Worker output, and code that works under `npm run dev` but breaks a production /
+SSR build is a bug: watch for dev-only deps, server-only Node APIs run at import
+time, runtime filesystem writes, and hard-coded ports / hosts / secrets. Before
+treating the app as done, confirm `npm run build` and `npm run typecheck` pass.
 
 **A passing `npm run build` does not mean the deployed app renders.** After
 building, serve the built output and load it in a browser (§3). The most common
@@ -491,9 +492,9 @@ renders.
 
 The workspace **ships a ready `vite.config.ts` and `tsconfig.json`** — don't
 recreate them. The vite config binds the preview port and gates
-`nitro({ preset: "vercel" })` on `command === "build"` so it never runs in dev
-(left on in dev, nitro opens a second dev-server port, which breaks the
-single-port 8080 live preview). If you edit it, preserve the port contract,
+`nitro({ preset: "cloudflare-module" })` on `command === "build"` so it never
+runs in dev (left on in dev, nitro opens a second dev-server port, which breaks
+the single-port 8080 live preview). If you edit it, preserve the port contract,
 the build-gated nitro plugin (including its `serverDir: "./server"` option —
 without it the deployed app loses the Home Screen install page), and
 `grokPwaPlugin()`.
@@ -587,7 +588,7 @@ preview — not a design doc, and not a hand-off that needs them to run anything
   `public/x-banner.jpg`**, then point `x:game:image` at it — non-games keep
   the banner placeholder and must not call Imagine for it. See the og skill;
   `twitter:card=summary_large_image` is layout, not the game signal.
-  Applies at build time, publish or not — by default run the whole pass as a
+  Applies at build time, whether or not a Workers deploy follows — by default run the whole pass as a
   background task via the `task` tool (see § Parallel work).
 - **Never** use a generated mock of the UI as a substitute for implementing and
   running the app for the live preview.
@@ -667,7 +668,7 @@ If the shared contract isn’t ready, stay sequential.
    D = right** while moving forward (see `controls` skill self-test). Flip one
    steer/roll sign if inverted; retest.
 6. **Verify the PRODUCTION build, not just dev.** Dev (Vite) can render while
-   the deployed Vercel build is blank. Before declaring done: run
+   the deployed Worker build is blank. Before declaring done: run
    `npm run build`, serve the built output, and load it in the browser the same
    way as step 5. Watch specifically for
    `Failed to load module script … MIME type "text/html"`. Fix the config and

@@ -68,6 +68,8 @@ jobs:
       # The release build. Tests, lint and deps:check ran in CI for this sha.
       # The public Turnstile site key (#35) is committed (src/lib/turnstile-keys.mjs).
       - run: npm run build:cf
+        env:
+          VITE_PUBLIC_HOSTNAME: bica-staging.appelgriebsch.workers.dev
       - name: Deploy bica-staging
         run: npx wrangler deploy --env staging --config wrangler.toml | tee deploy.log
         env:

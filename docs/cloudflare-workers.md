@@ -26,7 +26,7 @@ The handler touches no secrets.
 
 ## Secrets and what works without them
 
-Set Worker secrets with `wrangler secret put <NAME> --env staging` (never in `wrangler.toml`). The server reads them from `process.env`: `nodejs_compat` with this compatibility date populates it from vars and secrets, which is the same path the Vercel build uses. There is no sign-in and no database since #33 ([ADR 0002 addendum](adr/0002-d1-database.md)): progress stays in the browser.
+Set Worker secrets with `wrangler secret put <NAME> --env staging` (never in `wrangler.toml`). The server reads them from `process.env`: `nodejs_compat` with this compatibility date populates it from vars and secrets. There is no sign-in and no database since #33 ([ADR 0002 addendum](adr/0002-d1-database.md)): progress stays in the browser.
 
 | Name                                            | Where                                | Needed for                                                                                                               |
 | ----------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
@@ -37,14 +37,14 @@ Set Worker secrets with `wrangler secret put <NAME> --env staging` (never in `wr
 | `TURNSTILE_HOSTNAMES`                           | Plain var, `[env.staging.vars]` (committed) | Conversas (#35): comma-separated hostnames siteverify may report. Staging: `bica-staging.appelgriebsch.workers.dev` only, never localhost. Empty → every token fails. |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | GitHub `staging` environment secrets | Required. `wrangler deploy` in CI. Token scopes: below.                                                                  |
 
-`BICA_STAGE=staging` is a plain var in `[env.staging.vars]`. `VITE_*` values (`VITE_PUBLIC_HOSTNAME`, `VITE_STUN_URLS`) are build-time: set them in the build environment, not as Worker secrets.
+`BICA_STAGE=staging` is a plain var in `[env.staging.vars]`. `VITE_*` values (`VITE_PUBLIC_HOSTNAME`, `VITE_STUN_URLS`) are build-time: set them in the deploy workflow's build step, not as Worker secrets. Prod sets `VITE_PUBLIC_HOSTNAME=bica.appelgriebsch.org` in `deploy-production.yml`. There is no grok.me publish path (#17).
 
 ## Conversas protection (#35)
 
 Chat has no identity, so `sendChat` is protected anonymously. Order per turn: key/secret present → Turnstile gate → per-IP burst → daily caps → xAI. Nothing before xAI is skipped, and a refused turn never reaches xAI.
 
 - **Turnstile.** The first line of a conversation carries a token from the explicitly rendered widget (action `chat`, reset after every request so tokens are single-use). `sendChat` follows Cloudflare's canonical siteverify: an empty or >2048-char token never reaches siteverify; it POSTs form-encoded `secret`, `response` and `remoteip` (CF-Connecting-IP) with a 10 s timeout; a fetch error or non-OK response fails; it requires `success === true`, `action === "chat"` and a `hostname` in `TURNSTILE_HOSTNAMES`. A replayed token (`timeout-or-duplicate`) is refused. A pass sets `bica_chat`, an HttpOnly, Secure, SameSite=Strict cookie signed with `CHAT_SESSION_SECRET`, valid 30 min and for 10 turns, and bound to the client's IP (a hash of its IPv4 address or IPv6 /64 is inside the signed payload; from another IP it's refused and a new solve is needed). A turn refused by the burst or daily limit neither renews the cookie nor spends one of its turns. Remaining replay bound: from the same IP an older cookie can be replayed until it expires (≤ 30 min), still subject to the limits. Then the server asks for a new token. No token and no valid cookie → **403** `challenge_required`.
-- **Per-IP burst.** The Rate Limiting binding `CHAT_RATE` (6 turns per 60 s), keyed by `CF-Connecting-IP` (IPv6 truncated to /64; `x-real-ip` only when CF's header is missing, `X-Forwarded-For` is never read, missing → `unknown`) → **429** `retry-after: 60`. Without the binding (dev, Vercel) the same limit runs per isolate in memory.
+- **Per-IP burst.** The Rate Limiting binding `CHAT_RATE` (6 turns per 60 s), keyed by `CF-Connecting-IP` only (IPv6 truncated to /64; `X-Forwarded-For` and `x-real-ip` are never read, missing → `unknown`) → **429** `retry-after: 60`. Without the binding (local / tests) the same limit runs per isolate in memory.
 - **Daily caps.** The Durable Object `ChatBudget` (binding `CHAT_BUDGET`, one global instance, SQLite-backed, migration tag `v1-chat-budget`) holds a global counter (`CHAT_DAILY_GLOBAL`, default 2000, the hard cost ceiling) and per-IP counters (`CHAT_DAILY_PER_IP`, default 60). Both reset at 00:00 UTC → **429** with `retry-after` to midnight. The DO serializes every take, so the global cap holds under concurrent requests. Without the binding the same logic runs per isolate in memory. Override the defaults with plain vars in `[env.<name>.vars]` (positive integers).
 - The CSP allows exactly one third-party origin for this, `https://challenges.cloudflare.com`, in `script-src`, `frame-src` and `connect-src`.
 - Keeps #13's 20 s xAI timeout and input caps (16 messages, 2000 chars each, 8000 total).
@@ -97,7 +97,7 @@ The staging deploy (GitHub environment `staging`, 15 minute timeout) starts from
 
 Settings → Rules → Rulesets → New branch ruleset: target the default branch, enforcement Active. Require a pull request (0 approvals), and require the status check **`CI`** (GitHub Actions) with "require branches to be up to date". Block force pushes, restrict deletions, and leave the bypass list empty (adding "Repository admin" is the optional escape hatch).
 
-`npm run build` is Nitro preset `vercel` plus precache. `DEPLOY_TARGET=cloudflare` selects Nitro’s `cloudflare-module` preset (module syntax, `nodejs_compat`). Dev stays on `0.0.0.0:8080` with Nitro off.
+`npm run build` / `build:cf` is Nitro preset `cloudflare-module` (module syntax, `nodejs_compat`) plus precache and the Worker entry. Dev stays on `0.0.0.0:8080` with Nitro off. There is no Vercel build (#17).
 
 There is no `deploy` script. Top-level `wrangler deploy` (no `--env`) is not wired. The top-level Wrangler config sets `workers_dev = false`, has no routes, and does not set `BICA_STAGE`, so an accidental publish has no public hostname and health fails closed.
 
@@ -169,26 +169,13 @@ Harden it: give it an expiry (TTL, e.g. 90 days, and rotate). Client IP filterin
 
 ### Cutover
 
-1. Freeze. Rehearse on staging (or a second temporary hostname): lessons, offline/PWA, export/import, Conversas.
-2. **Before touching DNS:** add `bica.appelgriebsch.org` to the Turnstile widget and set the three Worker secrets (`TURNSTILE_SECRET_KEY`, `CHAT_SESSION_SECRET`, `XAI_API_KEY`) for `--env production`. Otherwise Conversas fails closed right after cutover.
-3. Lower the TTL of the `bica.appelgriebsch.org` record and wait out the old TTL.
-4. Remove Vercel's CNAME (a custom domain can't attach while a CNAME holds the name), then immediately run the workflow and approve it. The deploy creates the record and certificate. **Brief outage:** from removing the CNAME until the deploy finishes and the certificate is issued (expect a few minutes).
-5. Check the smoke steps passed, then monitor for 24 h.
-6. Keep Vercel idle for 14 days, then decommission it (and its old Postgres database).
-7. Bump the service worker cache version with the deploy.
-
-Progress lives on the device under the origin. The hostname stays the same, so localStorage is kept. **If the prod hostname ever changes, users must export on the old origin and import on the new one (#34).**
+Done in #8 / #40: DNS for `bica.appelgriebsch.org` now points at the Workers custom domain. Progress stayed on the device under the same origin, so localStorage was kept. **If the prod hostname ever changes, users must export on the old origin and import on the new one (#34).**
 
 ### Rollback
 
-1. **First choice: `npx wrangler rollback --env production`** (pick a version with `npx wrangler deployments list --env production`). It rolls back **code only**: vars, secrets and bindings stay as they are now. If the bad change was a secret or var, fix that with `wrangler secret put` instead.
-2. **Fallback to Vercel** (Vercel stays idle for 14 days for this):
-   1. Detach the Workers custom domain: dashboard › Workers & Pages › `bica-production` › Settings › Domains & Routes › remove `bica.appelgriebsch.org`. This removes the Worker's DNS record.
-   2. Recreate Vercel's CNAME for `bica.appelgriebsch.org` (as it was before cutover).
-   3. Verify: `dig bica.appelgriebsch.org` shows the Vercel target, and `curl -sI https://bica.appelgriebsch.org/` is served by Vercel (`server: Vercel`).
-   4. Delete the leftover Advanced Certificate (SSL/TLS › Edge Certificates); Cloudflare doesn't remove it on detach.
+`npx wrangler rollback --env production` (pick a version with `npx wrangler deployments list --env production`). It rolls back **code only**: vars, secrets and bindings stay as they are now. If the bad change was a secret or var, fix that with `wrangler secret put` instead. Lossless for progress (it lives on devices).
 
-Both are lossless for progress (it lives on devices). Vercel still shows its old sign-in UI until decommissioned. A later redeploy re-attaches the custom domain, so delete Vercel's CNAME first again.
+There is no Vercel fallback (#17): a DNS flip back to another platform is not a supported path.
 
 ## Deferred
 

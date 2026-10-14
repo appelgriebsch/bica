@@ -55,9 +55,10 @@ function placeholderCardColor(site = {}) {
 }
 
 /**
- * "wild-race.grok.me" → "Wild Race". Only published app hosts encode the
+ * "wild-race.grok.me" → "Wild Race". Legacy helper for hosts that encode the
  * display name in the first label. Preview / guest hosts are image origins
  * only — slugifying them produced internal names like "Hds Abc 3000 Xy".
+ * Bica itself is not published on *.grok.me (Workers only, #17).
  */
 export function appNameFromHost(hostHeader) {
   const host = String(hostHeader ?? "")
@@ -81,16 +82,6 @@ export function appNameFromHost(hostHeader) {
   );
 }
 
-/** True for Vercel system domains. Envoy rewrites origin Host to these; they SSO-protect `/og.jpg`. */
-function isVercelSystemHost(host) {
-  return (
-    host === "vercel.app" ||
-    host.endsWith(".vercel.app") ||
-    host === "vercel.com" ||
-    host.endsWith(".vercel.com")
-  );
-}
-
 /** Hostname suitable for absolute og:image URLs. Preview guests (X-Forwarded-Host) are allowed. */
 export function publicAppHost(hostHeader) {
   const host = String(hostHeader ?? "")
@@ -100,15 +91,13 @@ export function publicAppHost(hostHeader) {
     .toLowerCase();
   if (!host || !/^[a-z0-9.-]+$/.test(host) || !host.includes(".")) return "";
   if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) return "";
-  if (isVercelSystemHost(host)) return "";
   return host;
 }
 
 /**
- * Published apps always use `VITE_PUBLIC_HOSTNAME` (the grok.me host the
- * deployer injects). Live preview has no such env, so fall back to the
- * request host / X-Forwarded-Host. Never prefer request Host on a published
- * app — Envoy rewrites it to `*.vercel.app`.
+ * Deployed Workers builds set `VITE_PUBLIC_HOSTNAME` in the staging /
+ * production workflows. Local preview has no such env, so fall back to the
+ * request host / X-Forwarded-Host.
  */
 export function resolvePublicHost(hostHeader) {
   return (
@@ -263,11 +252,11 @@ export function ogCardPublicPath(cwd = process.cwd()) {
 
 function detectCustomOgCard(cwd = process.cwd(), site = {}) {
   if (ogCardPublicPath(cwd)) return true;
-  // Vercel runtime has no public/: trust a bake that already saw the file.
+  // Worker / Nitro runtime may lack a workspace public/: trust a bake that already saw the file.
   return siteHasCustomCard(site) || Boolean(String(site.image ?? "").trim());
 }
 
-/** Snapshot for Vite/Nitro to bake into the server bundle (Vercel has no workspace FS). */
+/** Snapshot for Vite/Nitro to bake into the server bundle (no workspace FS at runtime). */
 export function snapshotOgIdentity(cwd = process.cwd()) {
   const site = { ...readOgSite(cwd) };
   const disk = ogCardPublicPath(cwd);
@@ -321,7 +310,7 @@ export function siteHasCustomCard(site = {}) {
 
 /**
  * Preview: public/og.jpg|png on disk.
- * Vercel: the bake (`card=custom` / `image`) because the function cannot stat public/.
+ * Deployed: the bake (`card=custom` / `image`) because the Worker cannot stat public/.
  * Otherwise empty — caller emits the og.grok.me placeholder.
  */
 export function resolveOgCardAsset(site = {}, cwd = process.cwd()) {
@@ -406,8 +395,8 @@ export function normalizeHeadContext(ctx = {}) {
   const cwd = ctx.cwd ?? process.cwd();
   // Middleware passes a baked `site`. Still consult the workspace so a
   // public/og.jpg generated after that snapshot (or missed by a wrong cwd)
-  // wins over the og.grok.me placeholder. Vercel has no public/ to read, so
-  // a correct bake is unchanged.
+  // wins over the og.grok.me placeholder. At runtime there is no public/ to
+  // read, so a correct bake is unchanged.
   const site = applyCustomCardFromFs(
     ctx.site !== undefined ? ctx.site : snapshotOgIdentity(cwd).site,
     cwd,

@@ -12,7 +12,7 @@ import { clientIp } from "@/lib/chat-limit";
 
 export function chatRequest(): ChatRequest {
   return {
-    // CF-Connecting-IP first; X-Forwarded-For is never read (chat-limit.ts).
+    // CF-Connecting-IP only; X-Forwarded-For / x-real-ip never read (#17).
     ip: clientIp((name) => getRequestHeader(name)),
     cookie: getCookie(CHAT_COOKIE),
     setCookie: (value) =>

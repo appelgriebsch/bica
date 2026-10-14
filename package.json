@@ -10,7 +10,7 @@
     "dev": "vite dev --host 0.0.0.0 --port 8080",
     "build": "vite build && node scripts/precache.mjs",
     "build:cf": "DEPLOY_TARGET=cloudflare vite build && DEPLOY_TARGET=cloudflare node scripts/precache.mjs && node scripts/write-cf-entry.mjs",
-    "deploy:staging": "npm run build:cf && wrangler d1 migrations apply DB --env staging --remote --config wrangler.toml && wrangler deploy --env staging --config wrangler.toml",
+    "deploy:staging": "npm run build:cf && node scripts/ci-d1-provision.mjs && wrangler d1 migrations apply DB --env staging --remote --config wrangler.ci.toml && wrangler deploy --env staging --config wrangler.ci.toml",
     "build:dev": "vite build --mode development",
     "preview": "vite preview --host 0.0.0.0 --port 8080",
     "typecheck": "tsc --noEmit",

@@ -39,12 +39,13 @@ workers_dev = true
 [env.staging.vars]
 BICA_STAGE = "staging"
 
-# Replace database_id with the id printed by `wrangler d1 create bica-staging`
-# (docs/cloudflare-workers.md). The all-zero placeholder is not a real database.
+# database_id is a marker, never a real id: scripts/ci-d1-provision.mjs finds or
+# creates bica-staging and writes the id into the gitignored wrangler.ci.toml,
+# which migrate and deploy use (docs/cloudflare-workers.md).
 [[env.staging.d1_databases]]
 binding = "DB"
 database_name = "bica-staging"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "${BICA_STAGING_D1_ID}"
 migrations_dir = "migrations"
 
 # Production D1 is #8's call; when it lands it gets its own block, e.g.

@@ -2,20 +2,30 @@ name: Deploy staging
 
 on:
   push:
-    branches: [staging]
+    branches: [main]
+  workflow_dispatch:
 
+# One fixed group, never cancelled: pushes queue up instead of interrupting a
+# running migration or deploy.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: deploy-staging
+  cancel-in-progress: false
 
 permissions:
   contents: read
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: staging
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -28,15 +38,23 @@ jobs:
       - run: npm run build:cf
       # The built-output tests against the Worker bundle just built.
       - run: BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test
-      # Separate from the build: build:cf never touches a database. Applies the
-      # pending migrations/*.sql to the staging D1 (tracked in d1_migrations).
+      # Finds or creates bica-staging and writes its id into wrangler.ci.toml
+      # (gitignored). Fails fast when a Cloudflare secret is empty.
+      - name: Provision staging D1
+        id: d1
+        run: node scripts/ci-d1-provision.mjs
+      # Applies pending migrations/*.sql (tracked in d1_migrations) before deploy.
       - name: Migrate staging D1
-        run: npx wrangler d1 migrations apply DB --env staging --remote --config wrangler.toml
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler d1 migrations apply DB --env staging --remote --config wrangler.ci.toml
       - name: Deploy bica-staging
-        run: npx wrangler deploy --env staging --config wrangler.toml
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy --env staging --config wrangler.ci.toml | tee deploy.log
+      - name: Smoke /api/health
+        run: |
+          url=$(grep -oE 'https://bica-staging\.[a-z0-9-]+\.workers\.dev' deploy.log | head -n 1)
+          test -n "$url" || { echo "no workers.dev URL in the deploy output"; exit 1; }
+          for i in 1 2 3 4 5 6; do
+            body=$(curl -fsS "$url/api/health") && break
+            sleep 5
+          done
+          echo "$body"
+          test "$(jq -r .stage <<<"$body")" = staging

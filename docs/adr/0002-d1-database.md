@@ -27,4 +27,4 @@ Staging now runs on Cloudflare Workers (ADR 0001). The schema is small: the four
 - Backups are D1 Time Travel (point-in-time restore, 30 days on paid, 7 on free), not Neon branches.
 - `conversations` is dropped.
 - The default Vercel build has no database. Its server functions report "Could not reach the account.", so sign-in and sync need a Worker. Production hosting is #8.
-- Staging needs a one-time `wrangler d1 create bica-staging` and its id in `wrangler.toml` (see `docs/cloudflare-workers.md`). The deploy workflow applies migrations with the Cloudflare token before `wrangler deploy`.
+- CI finds or creates the `bica-staging` database on every staging deploy (`scripts/ci-d1-provision.mjs`, #21) and injects its id into a generated, gitignored `wrangler.ci.toml`, so no id is committed. The deploy workflow applies migrations with the Cloudflare token before `wrangler deploy`.

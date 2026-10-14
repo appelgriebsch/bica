@@ -25,17 +25,17 @@ test("default build stays the Vercel Nitro build", () => {
 test("deploy scripts always target the staging environment", () => {
   assert.match(
     pkg.scripts["deploy:staging"],
-    /wrangler deploy --env staging --config wrangler\.toml/,
+    /wrangler deploy --env staging --config wrangler\.ci\.toml/,
   );
   assert.equal(pkg.scripts.deploy, undefined);
-  assert.doesNotMatch(workflow, /branches:\s*\[main\]/);
-  assert.match(workflow, /branches:\s*\[staging\]/);
+  assert.match(workflow, /^on:\n {2}push:\n {4}branches: \[main\]\n {2}workflow_dispatch:\n/m);
   assert.match(workflow, /timeout-minutes:\s*15\b/);
   assert.match(workflow, /environment:\s*staging/);
   assert.match(workflow, /actions\/checkout@[0-9a-f]{40}/);
   assert.match(workflow, /actions\/setup-node@[0-9a-f]{40}/);
   assert.doesNotMatch(workflow, /uses:\s*actions\/(?:checkout|setup-node)@v4\b/);
-  assert.match(workflow, /wrangler deploy --env staging --config wrangler\.toml/);
+  assert.doesNotMatch(workflow, /--config wrangler\.toml/);
+  assert.doesNotMatch(workflow, /cloudflare\/wrangler-action/);
   assert.doesNotMatch(workflow, /pull_request/);
 });
 
@@ -68,7 +68,16 @@ test("build:cf precaches the Cloudflare output and never migrates", () => {
   assert.match(wrangler, new RegExp(`directory = "${cf.publicDir}"`));
 });
 
-test("workflow checks, builds, migrates, then deploys", () => {
+test("one fixed concurrency group that never cancels a running deploy", () => {
+  assert.match(
+    workflow,
+    /^concurrency:\n {2}group: deploy-staging\n {2}cancel-in-progress: false$/m,
+  );
+  assert.doesNotMatch(workflow, /cancel-in-progress: true/);
+  assert.match(workflow, /shell: bash -euo pipefail \{0\}/);
+});
+
+test("workflow checks, builds, provisions, migrates, deploys, then smokes", () => {
   const at = (re) => workflow.search(re);
   const order = [
     /run: npm ci/,
@@ -76,8 +85,10 @@ test("workflow checks, builds, migrates, then deploys", () => {
     /run: npm run deps:check/,
     /run: npm run build:cf/,
     /run: BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test/,
-    /run: npx wrangler d1 migrations apply DB --env staging --remote --config wrangler\.toml/,
-    /run: npx wrangler deploy/,
+    /run: node scripts\/ci-d1-provision\.mjs/,
+    /run: npx wrangler d1 migrations apply DB --env staging --remote --config wrangler\.ci\.toml/,
+    /run: npx wrangler deploy --env staging --config wrangler\.ci\.toml/,
+    /curl -fsS "\$url\/api\/health"/,
   ].map(at);
   assert.ok(
     order.every((i, n) => i > -1 && (n === 0 || i > order[n - 1])),
@@ -87,7 +98,11 @@ test("workflow checks, builds, migrates, then deploys", () => {
   const migrate = pkg.scripts["deploy:staging"].indexOf(
     "wrangler d1 migrations apply DB --env staging --remote",
   );
-  assert.ok(migrate > 0 && migrate < pkg.scripts["deploy:staging"].indexOf("wrangler deploy"));
+  const local = pkg.scripts["deploy:staging"];
+  const provision = local.indexOf("node scripts/ci-d1-provision.mjs");
+  assert.ok(provision > 0 && provision < migrate && migrate < local.indexOf("wrangler deploy"));
+  assert.match(local, /migrations apply DB --env staging --remote --config wrangler\.ci\.toml/);
+  assert.match(workflow, /test "\$\(jq -r \.stage <<<"\$body"\)" = staging/);
 });
 
 test("D1: local and staging bindings named DB read migrations/", () => {
@@ -101,6 +116,13 @@ test("D1: local and staging bindings named DB read migrations/", () => {
   }
   assert.match(d1("[[env.staging.d1_databases]]"), /^database_name = "bica-staging"$/m);
   assert.doesNotMatch(wrangler, /^\[+env\.production/m);
+});
+
+test("no real D1 id committed; the generated config is gitignored", () => {
+  assert.doesNotMatch(wrangler, /[0-9a-f]{8}-[0-9a-f]{4}-/i);
+  assert.match(wrangler, /^database_id = "\$\{BICA_STAGING_D1_ID\}"$/m);
+  const ignore = readFileSync(join(root, ".gitignore"), "utf8");
+  assert.match(ignore, /^wrangler\.ci\.toml$/m);
 });
 
 test("no Postgres, Neon, Hyperdrive or DATABASE_URL left outside the ADRs", () => {

@@ -244,7 +244,7 @@ function FilterChip({
       )}
     >
       {label}
-      <span className={cn("ml-2 tabular-nums", on ? "text-accent-fg/70" : "text-subtle")}>
+      <span className={cn("ml-2 tabular-nums", on ? "text-accent-fg/80" : "text-subtle")}>
         {count}
       </span>
     </button>

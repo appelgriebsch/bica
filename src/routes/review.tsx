@@ -5,7 +5,6 @@ import { SpeakButton } from "@/components/speak-button";
 import { Button } from "@/components/ui/button";
 import { dueVocab, levels, vocabFromCompleted, type CatalogVocab } from "@/data/curriculum";
 import type { CefrLevel } from "@/data/types";
-import { saveProgressSnapshot } from "@/lib/progress-server";
 import { useProgress } from "@/lib/progress-store";
 import { REVIEW_SESSION_CAP } from "@/lib/srs";
 import { speakPt } from "@/lib/tts";
@@ -91,10 +90,6 @@ function ReviewPage() {
   function finishSession(knewCount: number) {
     touchStudy(4 + knewCount);
     setPhase("done");
-    const changes = useProgress.getState().changes;
-    void saveProgressSnapshot({ data: useProgress.getState().snapshot() })
-      .then(() => useProgress.getState().markSynced(changes))
-      .catch(() => undefined);
   }
 
   function advance(knew: boolean, current: QueueCard) {

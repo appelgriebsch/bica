@@ -12,7 +12,7 @@ import {
   nonceFromCsp,
 } from "../src/lib/security-headers.mjs";
 
-test("static headers: HSTS without preload, DENY, referrer, nosniff, COOP for the popup", () => {
+test("static headers: HSTS without preload, DENY, referrer, nosniff, COOP same-origin (no sign-in popup, #33)", () => {
   assert.equal(
     STATIC_SECURITY_HEADERS["strict-transport-security"],
     "max-age=31536000; includeSubDomains",
@@ -20,7 +20,7 @@ test("static headers: HSTS without preload, DENY, referrer, nosniff, COOP for th
   assert.equal(STATIC_SECURITY_HEADERS["x-frame-options"], "DENY");
   assert.equal(STATIC_SECURITY_HEADERS["referrer-policy"], "strict-origin-when-cross-origin");
   assert.equal(STATIC_SECURITY_HEADERS["x-content-type-options"], "nosniff");
-  assert.equal(STATIC_SECURITY_HEADERS["cross-origin-opener-policy"], "same-origin-allow-popups");
+  assert.equal(STATIC_SECURITY_HEADERS["cross-origin-opener-policy"], "same-origin");
   assert.match(STATIC_SECURITY_HEADERS["permissions-policy"], /camera=\(\)/);
 });
 
@@ -32,7 +32,8 @@ test("CSP: nonce scripts with strict-dynamic, no unsafe-inline scripts, locked f
   assert.equal(directives["script-src"], "'self' 'nonce-N0nce' 'strict-dynamic'");
   assert.equal(directives["worker-src"], "'self'");
   assert.equal(directives["frame-ancestors"], "'none'");
-  assert.equal(directives["form-action"], "'self' https://auth.grok.me");
+  assert.equal(directives["form-action"], "'self'");
+  assert.doesNotMatch(csp, /auth\.grok\.me/); // #33: no auth broker
   assert.equal(directives["connect-src"], "'self'");
   assert.equal(directives["object-src"], "'none'");
   assert.equal(directives["report-uri"], "/api/csp-report");

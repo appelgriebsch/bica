@@ -7,7 +7,6 @@ import { SpeakButton } from "@/components/speak-button";
 import { Button } from "@/components/ui/button";
 import { getGrammar, grammarDrills } from "@/data/curriculum";
 import type { GrammarDrill } from "@/data/types";
-import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { persistCompletion } from "@/lib/record-progress";
 
 export const Route = createFileRoute("/grammar/$id")({ component: GrammarPage });
@@ -29,14 +28,13 @@ function GrammarPage() {
 }
 
 function GrammarPlayer({ drill }: { drill: GrammarDrill }) {
-  const user = useCurrentUser();
   const [phase, setPhase] = useState<"intro" | "quiz" | "done">("intro");
   const [correct, setCorrect] = useState(0);
   const next = grammarDrills[grammarDrills.findIndex((d) => d.id === drill.id) + 1];
 
-  async function finish(n: number) {
+  function finish(n: number) {
     setCorrect(n);
-    await persistCompletion(drill.id, n, drill.quiz.length, Boolean(user));
+    persistCompletion(drill.id, n, drill.quiz.length);
     setPhase("done");
   }
 
@@ -74,7 +72,7 @@ function GrammarPlayer({ drill }: { drill: GrammarDrill }) {
             </Button>
           </DoneCard>
         ) : phase === "quiz" ? (
-          <QuizBlock questions={drill.quiz} onFinished={(n) => void finish(n)} />
+          <QuizBlock questions={drill.quiz} onFinished={(n) => finish(n)} />
         ) : (
           <article>
             <p className="text-xs font-medium uppercase tracking-wider text-accent">

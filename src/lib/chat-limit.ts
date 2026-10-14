@@ -1,15 +1,13 @@
 /**
- * Per-user chat limits (#13); every turn is billed to XAI_API_KEY.
+ * Chat limits (#13); every turn is billed to XAI_API_KEY.
  * - Burst: the Rate Limiting binding CHAT_RATE (wrangler.toml, per minute, across
  *   isolates). Without it (dev, Vercel), per isolate in memory.
- * - Turns per 10 min and per day: fixed-window counters in D1 `chat_usage`, across
- *   isolates. Without a database, in memory.
+ * - Turns per 10 min and per day: per isolate in memory. The D1 `chat_usage`
+ *   counter went with D1 (#33); #35 replaces it with a Durable Object.
  * Windows are epoch-aligned: the day resets at 00:00 UTC. A 10-min refusal
  * doesn't use daily turns (a day-cap refusal may still count in the 10-min
  * window; harmless, the day is over).
  */
-import { boundDb, type D1Database } from "@/lib/db";
-
 export type Limits = { perMinute: number; per10Min: number; perDay: number };
 export type Verdict = { ok: true } | { ok: false; retryAfter: number };
 
@@ -40,40 +38,7 @@ export type Burst = (userId: string, now: number) => Promise<boolean>;
 
 const keys = (now: number) => [`10m:${start(now, TEN)}`, `day:${start(now, DAY)}`];
 
-/**
- * One batch (one transaction): drop stale windows, count the day only if the
- * 10-min window has room (the SELECT's WHERE gates insert and update alike: no
- * row selected, no conflict), then count the 10-min window.
- */
-export function d1Counter(db: D1Database): Counter {
-  return async (userId, now, l) => {
-    const [ten, day] = keys(now);
-    const tenTurns = `coalesce((SELECT turns FROM chat_usage WHERE user_id = ?1 AND window = ?4), 0)`;
-    const [, dayRes, tenRes] = await db.batch([
-      db
-        .prepare("DELETE FROM chat_usage WHERE user_id = ?1 AND window NOT IN (?2, ?3)")
-        .bind(userId, ten, day),
-      db
-        .prepare(
-          `INSERT INTO chat_usage (user_id, window, turns) SELECT ?1, ?2, 1 WHERE ${tenTurns} < ?5
-           ON CONFLICT (user_id, window) DO UPDATE SET turns = turns + 1
-           WHERE chat_usage.turns < ?3 RETURNING turns`,
-        )
-        .bind(userId, day, l.perDay, ten, l.per10Min),
-      db
-        .prepare(
-          `INSERT INTO chat_usage (user_id, window, turns) VALUES (?1, ?2, 1)
-           ON CONFLICT (user_id, window) DO UPDATE SET turns = turns + 1
-           WHERE chat_usage.turns < ?3 RETURNING turns`,
-        )
-        .bind(userId, ten, l.per10Min),
-    ]);
-    if (dayRes.results.length) return "ok";
-    return tenRes.results.length ? "day" : "10m";
-  };
-}
-
-/** Same rules as d1Counter, per isolate. */
+/** Fixed 10-min and day windows, per isolate. */
 export function memoryCounter(): Counter {
   const users = new Map<string, Map<string, number>>();
   return async (userId, now, l) => {
@@ -127,14 +92,13 @@ export async function checkChatLimit(
 const g = globalThis as typeof globalThis & { __env__?: { CHAT_RATE?: RateLimitBinding } };
 let memory: { burst: Burst; counter: Counter } | undefined;
 
-/** The binding and D1 when this request has them, else this isolate's memory. */
+/** The CHAT_RATE binding when this request has it, else this isolate's memory. */
 export function chatLimiter() {
   memory ??= { burst: memoryBurst(DEFAULT_LIMITS.perMinute), counter: memoryCounter() };
   const rl = g.__env__?.CHAT_RATE;
-  const db = boundDb();
   return {
     burst: rl ? bindingBurst(rl) : memory.burst,
-    counter: db ? d1Counter(db) : memory.counter,
+    counter: memory.counter,
     limits: limitsFromEnv(),
   };
 }

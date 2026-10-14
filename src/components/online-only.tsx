@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
  * Marks a control as needing internet (Cloud, online and offline) and gates it
  * offline: muted, `aria-disabled` but focusable, and a tap explains why and
  * offers the alternative. Wraps exactly one element (button or link):
- *   <OnlineOnly feature="sync" label="Refresh from account"><Button>…</Button></OnlineOnly>
+ *   <OnlineOnly feature="conversas" label="Send"><Button>…</Button></OnlineOnly>
  * `placement="corner"` puts the marker top-right (cards); default is inline before the label.
  * `gate={false}`: marker only — for entry points whose content is bundled and opens offline
  * (scene cards); the online-only part inside them is gated on its own.

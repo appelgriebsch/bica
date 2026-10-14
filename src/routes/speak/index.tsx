@@ -1,26 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { speakScenarios } from "@/data/curriculum";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { CHAT_ENABLED, CHAT_UNAVAILABLE } from "@/lib/chat-availability";
 import { cn } from "@/lib/utils";
 import { OnlineOnly } from "@/components/online-only";
 
 export const Route = createFileRoute("/speak/")({ component: SpeakIndex });
 
 function SpeakIndex() {
-  const { user, isPending } = useCurrentUserState();
-
   return (
     <AppShell>
       <h1 className="font-display text-3xl font-medium tracking-tight">Speak</h1>
       <p className="mt-2 text-muted">
         Short scenes with a native of Portugal — not Brazil. Stay in character.
-        Make mistakes. Recasts come for free. Sign in first; the partner is live.
+        Make mistakes. Recasts come for free. The partner is live.
       </p>
 
-      {!isPending && !user && (
-        <p className="mt-4 rounded-[var(--radius-md)] bg-soft px-3 py-2 text-sm text-accent">
-          Sign in to start a conversation — it uses a live tutor behind the scenes.
+      {!CHAT_ENABLED && (
+        <p role="status" className="mt-4 rounded-[var(--radius-md)] bg-soft px-3 py-2 text-sm text-accent">
+          {CHAT_UNAVAILABLE} You can still read the scenes.
         </p>
       )}
 

@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GrammarRouteImport } from './routes/grammar'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as MeRouteImport } from './routes/me'
 import { Route as PathRouteImport } from './routes/path'
 import { Route as PracticeRouteImport } from './routes/practice'
@@ -30,7 +29,6 @@ import { Route as SpeakIndexRouteImport } from './routes/speak/index'
 import { Route as SpeakIdRouteImport } from './routes/speak/$id'
 import { Route as VerbsIndexRouteImport } from './routes/verbs/index'
 import { Route as VerbsIdRouteImport } from './routes/verbs/$id'
-import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,11 +38,6 @@ const IndexRoute = IndexRouteImport.update({
 const GrammarRoute = GrammarRouteImport.update({
   id: '/grammar',
   path: '/grammar',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MeRoute = MeRouteImport.update({
@@ -137,16 +130,10 @@ const VerbsIdRoute = VerbsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => VerbsRoute,
 } as any)
-const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
-  id: '/api/auth/$',
-  path: '/api/auth/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/grammar': typeof GrammarRouteWithChildren
-  '/login': typeof LoginRoute
   '/me': typeof MeRoute
   '/path': typeof PathRoute
   '/practice': typeof PracticeRoute
@@ -165,11 +152,9 @@ export interface FileRoutesByFullPath {
   '/grammar/': typeof GrammarIndexRoute
   '/speak/': typeof SpeakIndexRoute
   '/verbs/': typeof VerbsIndexRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/login': typeof LoginRoute
   '/me': typeof MeRoute
   '/path': typeof PathRoute
   '/practice': typeof PracticeRoute
@@ -186,13 +171,11 @@ export interface FileRoutesByTo {
   '/grammar': typeof GrammarIndexRoute
   '/speak': typeof SpeakIndexRoute
   '/verbs': typeof VerbsIndexRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/grammar': typeof GrammarRouteWithChildren
-  '/login': typeof LoginRoute
   '/me': typeof MeRoute
   '/path': typeof PathRoute
   '/practice': typeof PracticeRoute
@@ -211,14 +194,12 @@ export interface FileRoutesById {
   '/grammar/': typeof GrammarIndexRoute
   '/speak/': typeof SpeakIndexRoute
   '/verbs/': typeof VerbsIndexRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/grammar'
-    | '/login'
     | '/me'
     | '/path'
     | '/practice'
@@ -237,11 +218,9 @@ export interface FileRouteTypes {
     | '/grammar/'
     | '/speak/'
     | '/verbs/'
-    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/login'
     | '/me'
     | '/path'
     | '/practice'
@@ -258,12 +237,10 @@ export interface FileRouteTypes {
     | '/grammar'
     | '/speak'
     | '/verbs'
-    | '/api/auth/$'
   id:
     | '__root__'
     | '/'
     | '/grammar'
-    | '/login'
     | '/me'
     | '/path'
     | '/practice'
@@ -282,13 +259,11 @@ export interface FileRouteTypes {
     | '/grammar/'
     | '/speak/'
     | '/verbs/'
-    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   GrammarRoute: typeof GrammarRouteWithChildren
-  LoginRoute: typeof LoginRoute
   MeRoute: typeof MeRoute
   PathRoute: typeof PathRoute
   PracticeRoute: typeof PracticeRoute
@@ -301,7 +276,6 @@ export interface RootRouteChildren {
   LessonIdRoute: typeof LessonIdRoute
   ListenIdRoute: typeof ListenIdRoute
   ReadIdRoute: typeof ReadIdRoute
-  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -318,13 +292,6 @@ declare module '@tanstack/react-router' {
       path: '/grammar'
       fullPath: '/grammar'
       preLoaderRoute: typeof GrammarRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/me': {
@@ -453,13 +420,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VerbsIdRouteImport
       parentRoute: typeof VerbsRoute
     }
-    '/api/auth/$': {
-      id: '/api/auth/$'
-      path: '/api/auth/$'
-      fullPath: '/api/auth/$'
-      preLoaderRoute: typeof ApiAuthSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -503,7 +463,6 @@ const VerbsRouteWithChildren = VerbsRoute._addFileChildren(VerbsRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   GrammarRoute: GrammarRouteWithChildren,
-  LoginRoute: LoginRoute,
   MeRoute: MeRoute,
   PathRoute: PathRoute,
   PracticeRoute: PracticeRoute,
@@ -516,7 +475,6 @@ const rootRouteChildren: RootRouteChildren = {
   LessonIdRoute: LessonIdRoute,
   ListenIdRoute: ListenIdRoute,
   ReadIdRoute: ReadIdRoute,
-  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

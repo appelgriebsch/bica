@@ -7,7 +7,6 @@ import { VerbCard } from "@/components/verb-table";
 import { Button } from "@/components/ui/button";
 import { getVerbDesk, verbDesks } from "@/data/curriculum";
 import type { VerbDesk } from "@/data/types";
-import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { persistCompletion } from "@/lib/record-progress";
 
 export const Route = createFileRoute("/verbs/$id")({ component: VerbPage });
@@ -29,14 +28,13 @@ function VerbPage() {
 }
 
 function VerbPlayer({ desk }: { desk: VerbDesk }) {
-  const user = useCurrentUser();
   const [phase, setPhase] = useState<"intro" | "quiz" | "done">("intro");
   const [correct, setCorrect] = useState(0);
   const next = verbDesks[verbDesks.findIndex((d) => d.id === desk.id) + 1];
 
-  async function finish(n: number) {
+  function finish(n: number) {
     setCorrect(n);
-    await persistCompletion(desk.id, n, desk.quiz.length, Boolean(user));
+    persistCompletion(desk.id, n, desk.quiz.length);
     setPhase("done");
   }
 
@@ -74,7 +72,7 @@ function VerbPlayer({ desk }: { desk: VerbDesk }) {
             </Button>
           </DoneCard>
         ) : phase === "quiz" ? (
-          <QuizBlock questions={desk.quiz} onFinished={(n) => void finish(n)} />
+          <QuizBlock questions={desk.quiz} onFinished={(n) => finish(n)} />
         ) : (
           <article>
             <p className="text-xs font-medium uppercase tracking-wider text-accent">

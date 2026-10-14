@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { SpeakButton } from "@/components/speak-button";
 import { speakScenarios } from "@/data/curriculum";
 import { sendChat } from "@/lib/chat-server";
-import { RedirectToSignIn } from "@/lib/auth/gates";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { CHAT_ENABLED, CHAT_UNAVAILABLE } from "@/lib/chat-availability";
 import { sceneImageFor } from "@/lib/scene-image";
 import { cn } from "@/lib/utils";
 import { OnlineOnly } from "@/components/online-only";
@@ -23,7 +22,6 @@ function SpeakScene() {
     () => speakScenarios.find((s) => s.id === id),
     [id],
   );
-  const { user, isPending } = useCurrentUserState();
   const online = useOnline();
   const [turns, setTurns] = useState<Turn[]>(() =>
     scenario
@@ -39,15 +37,6 @@ function SpeakScene() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (isPending) {
-    return (
-      <AppShell hideNav>
-        <div className="h-40 animate-pulse rounded-[var(--radius-lg)] bg-surface-2" />
-      </AppShell>
-    );
-  }
-  // Offline the session can't be checked; the scene (bundled) still opens read-only.
-  if (!user && online) return <RedirectToSignIn />;
   if (!scenario) {
     return (
       <AppShell>
@@ -59,7 +48,7 @@ function SpeakScene() {
 
   async function onSend() {
     const text = draft.trim();
-    if (!text || busy || !scenario || !online || !user) return;
+    if (!text || busy || !scenario || !online || !CHAT_ENABLED) return;
     const nextTurns: Turn[] = [...turns, { role: "user", content: text }];
     setTurns(nextTurns);
     setDraft("");
@@ -152,6 +141,11 @@ function SpeakScene() {
         )}
       </ol>
 
+      {!CHAT_ENABLED && (
+        <p role="status" className="mt-3 rounded-[var(--radius-md)] bg-soft px-3 py-2 text-sm text-accent">
+          {CHAT_UNAVAILABLE} The scene stays here to read; Palavras and Rádio work as usual.
+        </p>
+      )}
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}
       {!online && (
         <p className="mt-3 text-sm text-muted">
@@ -175,10 +169,11 @@ function SpeakScene() {
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Write in Portuguese…"
           maxLength={500}
+          disabled={!CHAT_ENABLED}
           className="h-12 min-h-12 flex-1 rounded-[var(--radius-md)] border border-border bg-surface px-3 text-base text-fg outline-none ring-accent placeholder:text-subtle focus:ring-2"
         />
         <OnlineOnly feature="conversas" label="Send">
-          <Button type="submit" size="icon" disabled={busy || (online && !draft.trim())}>
+          <Button type="submit" size="icon" disabled={!CHAT_ENABLED || busy || (online && !draft.trim())}>
             <Send />
           </Button>
         </OnlineOnly>

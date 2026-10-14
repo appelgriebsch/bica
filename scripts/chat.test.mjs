@@ -1,15 +1,14 @@
 /**
- * #13 chat limits, timeout and caps: the limiter (in memory and against a local
- * D1 via getPlatformProxy), the binding wiring, chatTurn with a mocked fetch,
- * and the input validator. TS sources bundled with rolldown.
+ * #13 chat limits, timeout and caps: the in-memory limiter, the binding wiring,
+ * chatTurn with a mocked fetch, the input validator, and #33's CHAT_ENABLED
+ * gate on sendChat. TS sources bundled with rolldown.
  */
 import assert from "node:assert/strict";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { after, before, test } from "node:test";
+import { after, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "rolldown";
-import { getPlatformProxy } from "wrangler";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const tmp = mkdtempSync(join(root, ".chat-test-"));
@@ -19,7 +18,7 @@ const bundle = await build({
   write: false,
   platform: "node",
   resolve: { alias: { "@": join(root, "src") } },
-  external: ["zod", "wrangler"],
+  external: ["zod"],
   transform: { define: { "import.meta.env.DEV": "false" } },
   plugins: [
     {
@@ -28,7 +27,7 @@ const bundle = await build({
       load: (id) =>
         id === "\0entry"
           ? `export * from "@/lib/chat-limit"; export * from "@/lib/chat-core";
-             export { applyMigrations } from "@/lib/db.local";`
+             export * from "@/lib/chat-availability";`
           : null,
     },
     {
@@ -45,41 +44,15 @@ const file = join(tmp, "entry.mjs");
 writeFileSync(file, bundle.output[0].code);
 const m = await import(pathToFileURL(file).href);
 
-const migrations = Object.fromEntries(
-  readdirSync(join(root, "migrations"))
-    .filter((f) => f.endsWith(".sql"))
-    .map((f) => [`/migrations/${f}`, readFileSync(join(root, "migrations", f), "utf8")]),
-);
-let proxy, db;
-before(async () => {
-  proxy = await getPlatformProxy({ persist: false });
-  db = proxy.env.DB;
-  await m.applyMigrations(db, migrations);
-  for (const u of ["a", "b"])
-    await db
-      .prepare(
-        `INSERT INTO "user" (id, name, email, emailVerified, createdAt, updatedAt) VALUES (?1, ?1, ?1 || '@t', 0, 'x', 'x')`,
-      )
-      .bind(u)
-      .run();
-});
-after(async () => {
+after(() => {
   delete globalThis.__env__;
-  await proxy?.dispose();
   rmSync(tmp, { recursive: true, force: true });
 });
 
 const T0 = Date.UTC(2026, 9, 14, 10, 0, 0); // a 10-min window start
 const limits = { perMinute: 1000, per10Min: 3, perDay: 5 };
 const open = async () => true;
-const counters = {
-  memory: () => m.memoryCounter(),
-  d1: async () => {
-    await db.prepare("DELETE FROM chat_usage").run();
-    return m.d1Counter(db);
-  },
-};
-const chatOk = (counter) => counter("b", T0, m.DEFAULT_LIMITS);
+const counters = { memory: () => m.memoryCounter() };
 const take = (counter, user, now) => m.checkChatLimit(user, now, { burst: open, counter, limits });
 
 for (const [name, make] of Object.entries(counters)) {
@@ -103,17 +76,6 @@ for (const [name, make] of Object.entries(counters)) {
   });
 }
 
-test("limit (d1): at most two rows per user; counted across handles (isolates)", async () => {
-  await db.prepare("DELETE FROM chat_usage").run();
-  await take(m.d1Counter(db), "a", T0);
-  await take(m.d1Counter(db), "a", T0 + 1);
-  await take(m.d1Counter(db), "a", T0 + 2);
-  assert.equal((await take(m.d1Counter(db), "a", T0 + 3)).ok, false); // a new counter, same DB
-  await take(m.d1Counter(db), "a", T0 + 24 * 3600_000);
-  const rows = await db.prepare("SELECT window FROM chat_usage WHERE user_id = 'a'").all();
-  assert.equal(rows.results.length, 2);
-});
-
 test("burst: memory per minute; the binding is used when present, keyed by user", async () => {
   const b = m.memoryBurst(2);
   assert.deepEqual(
@@ -130,7 +92,6 @@ test("burst: memory per minute; the binding is used when present, keyed by user"
 
   const keys = [];
   globalThis.__env__ = {
-    DB: db,
     CHAT_RATE: { limit: async ({ key }) => (keys.push(key), { success: false }) },
   };
   const l = m.chatLimiter();
@@ -141,20 +102,13 @@ test("burst: memory per minute; the binding is used when present, keyed by user"
   assert.deepEqual(keys, ["a"]);
 });
 
-test("wiring: with the Worker's DB, chatLimiter counts in chat_usage; without it, in memory", async () => {
-  await db.prepare("DELETE FROM chat_usage").run();
-  const rows = async () =>
-    (await db.prepare("SELECT turns FROM chat_usage WHERE user_id = 'b'").all()).results.length;
-  globalThis.__env__ = { DB: db };
-  try {
-    assert.equal(await chatOk(m.chatLimiter().counter), "ok");
-    assert.equal(await rows(), 2); // 10-min and day rows
-  } finally {
-    delete globalThis.__env__;
-  }
-  await db.prepare("DELETE FROM chat_usage").run();
-  assert.equal(await chatOk(m.chatLimiter().counter), "ok");
-  assert.equal(await rows(), 0);
+test("wiring: no D1 since #33; the 10-min and day caps count in memory", async () => {
+  assert.equal(m.d1Counter, undefined);
+  const c = m.chatLimiter().counter;
+  assert.equal(c, m.chatLimiter().counter); // one per isolate, shared across calls
+  const l = { ...m.DEFAULT_LIMITS, per10Min: 1 };
+  assert.equal(await c("wiring", T0, l), "ok");
+  assert.equal(await c("wiring", T0 + 1, l), "10m");
 });
 
 test("limits: configurable via env, bad values ignored", () => {
@@ -202,11 +156,19 @@ test("chatTurn: a hung upstream returns BUSY within the timeout", async () => {
     new Promise((_, reject) =>
       init?.signal?.addEventListener("abort", () => reject(init.signal.reason)),
     );
-  const within = (p) =>
-    Promise.race([
-      p,
-      new Promise((r) => setTimeout(() => r("still hanging after 2 s"), 2000).unref()),
-    ]);
+  // A ref'd guard timer: AbortSignal.timeout doesn't keep the event loop alive, and
+  // without the old D1 proxy nothing else does (#33). Cleared once p settles.
+  const within = async (p) => {
+    let t;
+    try {
+      return await Promise.race([
+        p,
+        new Promise((r) => (t = setTimeout(() => r("still hanging after 2 s"), 2000))),
+      ]);
+    } finally {
+      clearTimeout(t);
+    }
+  };
   assert.deepEqual(await within(turn(hung, { timeoutMs: 100 })), { ok: false, error: m.BUSY });
   // headers arrive, the body hangs
   const slowBody = async (_url, init) =>
@@ -247,4 +209,50 @@ test("validator: known scene, at most 16 messages, 8000 chars in total", () => {
   assert.ok(v({ messages: [msg(2000), msg(2000), msg(2000), msg(2000)] }));
   assert.ok(!v({ messages: [msg(2000), msg(2000), msg(2000), msg(2000), msg(1)] }));
   assert.ok(!v({ messages: [msg(2001)] }));
+});
+
+// #33: no sign-in, so Conversas is off behind a server-side flag until #35.
+test("#33: CHAT_ENABLED is false, and sendChat runs the gated handler without auth", () => {
+  assert.equal(m.CHAT_ENABLED, false);
+  const server = readFileSync(join(root, "src/lib/chat-server.ts"), "utf8");
+  assert.match(server, /\.handler\(\(\{ data \}\) => sendChatHandler\(data\)\)/);
+  assert.match(server, /\.middleware\(\[serverFnErrors\]\)/);
+  assert.doesNotMatch(server, /authMiddleware|lib\/auth/);
+  const core = readFileSync(join(root, "src/lib/chat-core.ts"), "utf8");
+  assert.match(core, /enabled: CHAT_ENABLED,/);
+  // A code constant, not an env var: no deploy setting can open chat.
+  const flag = readFileSync(join(root, "src/lib/chat-availability.ts"), "utf8");
+  assert.match(flag, /^export const CHAT_ENABLED: boolean = false;$/m);
+  assert.doesNotMatch(flag, /process\.env|import\.meta\.env/);
+});
+
+test("#33: sendChat is rejected while the flag is off: no key, limiter or xAI touched", async () => {
+  const realFetch = globalThis.fetch;
+  process.env.XAI_API_KEY = "sk-test";
+  globalThis.fetch = () => assert.fail("xAI called while chat is disabled");
+  globalThis.__env__ = { CHAT_RATE: { limit: () => assert.fail("limiter reached") } };
+  try {
+    assert.deepEqual(await m.sendChatHandler(data, T0), {
+      ok: false,
+      error: m.CHAT_UNAVAILABLE,
+    });
+    assert.match(m.CHAT_UNAVAILABLE, /temporarily unavailable/);
+  } finally {
+    globalThis.fetch = realFetch;
+    delete process.env.XAI_API_KEY;
+    delete globalThis.__env__;
+  }
+});
+
+test("#33: chatTurn with enabled: false refuses first, even with a key and an open limit", async () => {
+  const r = await turn(() => assert.fail("xAI called"), {
+    enabled: false,
+    limit: () => assert.fail("limit taken"),
+  });
+  assert.deepEqual(r, { ok: false, error: m.CHAT_UNAVAILABLE });
+  // enabled defaults to true so chatTurn's own tests still reach xAI
+  assert.deepEqual(await turn(async () => json({ choices: [{ message: { content: "Olá" } }] })), {
+    ok: true,
+    text: "Olá",
+  });
 });

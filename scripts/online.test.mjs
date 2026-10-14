@@ -122,7 +122,9 @@ test("online state: events, HEAD probe, debounce, request-failure flip", async (
 
 test("registry is complete and every gated control uses a registered feature", () => {
   const reg = features.ONLINE_FEATURES;
-  for (const id of ["conversas", "signIn", "sync", "multiplayer"]) assert.ok(reg[id], id);
+  for (const id of ["conversas", "multiplayer"]) assert.ok(reg[id], id);
+  // #33: no sign-in or sync, so neither is an online feature any more.
+  for (const id of ["signIn", "sync"]) assert.equal(reg[id], undefined, id);
   for (const [key, f] of Object.entries(reg)) {
     assert.equal(f.id, key);
     for (const field of ["name", "reason"]) {
@@ -136,6 +138,5 @@ test("registry is complete and every gated control uses a registered feature", (
     .split("\n")
     .map((s) => s.slice(9, -1));
   for (const id of used) assert.ok(reg[id], `feature="${id}" is registered`);
-  for (const id of ["conversas", "signIn", "sync"])
-    assert.ok(used.includes(id), `${id} has a gated entry point`);
+  assert.ok(used.includes("conversas"), "conversas has a gated entry point");
 });

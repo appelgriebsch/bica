@@ -1,13 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { BookOpen, Headphones, House, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { useProgress } from "@/lib/progress-store";
 import { cn } from "@/lib/utils";
-import { ProgressSync } from "@/components/progress-sync";
 import { AzulejoMark } from "@/components/azulejo-mark";
 import { OfflineChip } from "@/components/offline-status";
-import { OnlineOnly } from "@/components/online-only";
 
 const nav = [
   { to: "/", label: "Today", icon: House, match: (p: string) => p === "/" },
@@ -25,7 +22,7 @@ const nav = [
       p.startsWith("/grammar") ||
       p.startsWith("/verbs"),
   },
-  { to: "/me", label: "You", icon: UserRound, match: (p: string) => p === "/me" || p === "/login" },
+  { to: "/me", label: "You", icon: UserRound, match: (p: string) => p === "/me" },
 ] as const;
 
 export function AppShell({
@@ -37,11 +34,9 @@ export function AppShell({
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const streak = useProgress((s) => s.streak);
-  const { user, isPending } = useCurrentUserState();
 
   return (
     <div className="min-h-dvh overflow-x-clip bg-bg text-fg">
-      <ProgressSync />
       <header className="sticky top-0 z-30 border-b border-border/80 bg-bg/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-2xl items-center justify-between gap-3 px-4">
           <Link to="/" className="flex items-center gap-2 no-underline">
@@ -69,36 +64,6 @@ export function AppShell({
             <OfflineChip />
             {streak > 0 && (
               <p className="text-xs font-medium tabular-nums text-muted">{streak}d</p>
-            )}
-            {isPending ? (
-              <div className="size-8 animate-pulse rounded-full bg-surface-2" />
-            ) : user ? (
-              <Link
-                to="/me"
-                title={user.displayName ?? "You"}
-                className="size-8 overflow-hidden rounded-full bg-surface-2"
-              >
-                {user.profileImageUrl ? (
-                  <img
-                    src={user.profileImageUrl}
-                    alt=""
-                    className="size-8 object-cover"
-                  />
-                ) : (
-                  <span className="grid size-8 place-items-center text-xs font-medium">
-                    {(user.displayName ?? "U").charAt(0).toUpperCase()}
-                  </span>
-                )}
-              </Link>
-            ) : (
-              <OnlineOnly feature="signIn" label="Sign in">
-                <Link
-                  to="/login"
-                  className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent no-underline hover:underline"
-                >
-                  Sign in
-                </Link>
-              </OnlineOnly>
             )}
           </div>
         </div>

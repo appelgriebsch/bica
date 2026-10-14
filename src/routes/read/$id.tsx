@@ -7,7 +7,6 @@ import { SpeakButton } from "@/components/speak-button";
 import { Button } from "@/components/ui/button";
 import { getReading, readingPieces } from "@/data/curriculum";
 import type { ReadingPiece } from "@/data/types";
-import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { persistCompletion } from "@/lib/record-progress";
 
 export const Route = createFileRoute("/read/$id")({ component: ReadPage });
@@ -29,15 +28,14 @@ function ReadPage() {
 }
 
 function ReadPlayer({ piece }: { piece: ReadingPiece }) {
-  const user = useCurrentUser();
   const [open, setOpen] = useState<Record<number, boolean>>({});
   const [phase, setPhase] = useState<"read" | "quiz" | "done">("read");
   const [correct, setCorrect] = useState(0);
   const next = readingPieces[readingPieces.findIndex((p) => p.id === piece.id) + 1];
 
-  async function finish(n: number) {
+  function finish(n: number) {
     setCorrect(n);
-    await persistCompletion(piece.id, n, piece.quiz.length, Boolean(user));
+    persistCompletion(piece.id, n, piece.quiz.length);
     setPhase("done");
   }
 
@@ -77,7 +75,7 @@ function ReadPlayer({ piece }: { piece: ReadingPiece }) {
         ) : phase === "quiz" ? (
           <QuizBlock
             questions={piece.quiz}
-            onFinished={(n) => void finish(n)}
+            onFinished={(n) => finish(n)}
           />
         ) : (
           <article>

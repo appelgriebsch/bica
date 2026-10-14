@@ -75,24 +75,24 @@ async function dispatch(sw, path, { mode = "cors", accept = "*/*", destination =
   return res;
 }
 
-test("offline navigation to /login gets the shell", async () => {
+test("offline navigation to /me gets the shell", async () => {
   const sw = loadSw({ cached: { "/_shell": SHELL_HTML } });
-  const res = await dispatch(sw, "/login", { mode: "navigate", accept: "text/html" });
+  const res = await dispatch(sw, "/me", { mode: "navigate", accept: "text/html" });
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-type"), "text/html; charset=utf-8");
   assert.equal(await res.text(), SHELL_HTML);
 });
 
-test("offline non-navigate fetch of /login with Accept: text/html gets the shell", async () => {
+test("offline non-navigate fetch of /me with Accept: text/html gets the shell", async () => {
   const sw = loadSw({ cached: { "/_shell": SHELL_HTML } });
-  const res = await dispatch(sw, "/login", { accept: "text/html,*/*;q=0.8" });
+  const res = await dispatch(sw, "/me", { accept: "text/html,*/*;q=0.8" });
   assert.equal(res.status, 200);
   assert.equal(await res.text(), SHELL_HTML);
 });
 
 test("offline HTML fetch without a cached shell is a 503 page, not undefined", async () => {
   const sw = loadSw();
-  const res = await dispatch(sw, "/login", { accept: "text/html" });
+  const res = await dispatch(sw, "/me", { accept: "text/html" });
   assert.equal(res.status, 503);
 });
 
@@ -126,8 +126,8 @@ test("online: precached hit comes from cache, a page from the network", async ()
   const sw = loadSw({ online: true, cached: { "/assets/app.js": "cached-js" } });
   const js = await dispatch(sw, "/assets/app.js", { destination: "script" });
   assert.equal(await js.text(), "cached-js");
-  const page = await dispatch(sw, "/login", { accept: "text/html" });
-  assert.equal(await page.text(), "net:/login");
+  const page = await dispatch(sw, "/me", { accept: "text/html" });
+  assert.equal(await page.text(), "net:/me");
 });
 
 test("network-only and unknown scripts are left to the browser", async () => {
@@ -137,7 +137,7 @@ test("network-only and unknown scripts are left to the browser", async () => {
 });
 
 test("an HTML fetch of an app route is network-first, not a stale runtime-cache hit", async () => {
-  const sw = loadSw({ online: true, runtimeSeed: { "/login": "stale" } });
-  const res = await dispatch(sw, "/login", { accept: "text/html" });
-  assert.equal(await res.text(), "net:/login");
+  const sw = loadSw({ online: true, runtimeSeed: { "/me": "stale" } });
+  const res = await dispatch(sw, "/me", { accept: "text/html" });
+  assert.equal(await res.text(), "net:/me");
 });

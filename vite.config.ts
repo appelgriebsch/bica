@@ -25,6 +25,11 @@ export default defineConfig(({ command }) => ({
     strictPort: true,
   },
   resolve: { tsconfigPaths: true },
+  // #35: the public Turnstile site key is a build var (not VITE_-prefixed, per
+  // the ticket). Unset → src/lib/turnstile.ts uses Cloudflare's test key.
+  define: {
+    "import.meta.env.TURNSTILE_SITE_KEY": JSON.stringify(process.env.TURNSTILE_SITE_KEY ?? ""),
+  },
   plugins: [
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.
     grokPwaPlugin({ appName: APP_NAME }),

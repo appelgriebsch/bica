@@ -66,7 +66,14 @@ jobs:
           cache: npm
       - run: npm ci
       # The release build. Tests, lint and deps:check ran in CI for this sha.
-      - run: npm run build:cf
+      # TURNSTILE_SITE_KEY (#35) is public and baked into the client; it's a
+      # GitHub `staging` environment variable, not a secret. Unset, the build
+      # uses Cloudflare's test key and the real secret rejects every token.
+      - run: |
+          [ -n "$TURNSTILE_SITE_KEY" ] || echo "::warning::vars.TURNSTILE_SITE_KEY is unset: Conversas will refuse every turn (403)"
+          npm run build:cf
+        env:
+          TURNSTILE_SITE_KEY: ${{ vars.TURNSTILE_SITE_KEY }}
       - name: Deploy bica-staging
         run: npx wrangler deploy --env staging --config wrangler.toml | tee deploy.log
         env:
@@ -107,6 +114,8 @@ jobs:
                 done
                 # Report-Only until CSP_ENFORCE is set; either header must carry a nonce.
                 grep -qiE "^content-security-policy(-report-only)?:.*'nonce-" <<<"$headers" || { echo "$method $path: no nonce CSP"; return 1; }
+                # #35: Turnstile's frame is allowed.
+                grep -qiE "^content-security-policy(-report-only)?:.*frame-src https://challenges\.cloudflare\.com" <<<"$headers" || { echo "$method $path: CSP lacks Turnstile frame-src"; return 1; }
               done
             done
           }

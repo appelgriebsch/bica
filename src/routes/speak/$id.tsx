@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Send } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { SpeakButton } from "@/components/speak-button";
 import { speakScenarios } from "@/data/curriculum";
 import { sendChat } from "@/lib/chat-server";
-import { CHAT_ENABLED, CHAT_UNAVAILABLE } from "@/lib/chat-availability";
+import { chatErrorMessage } from "@/lib/chat-messages";
+import { createTurnstile } from "@/lib/turnstile";
 import { sceneImageFor } from "@/lib/scene-image";
 import { cn } from "@/lib/utils";
 import { OnlineOnly } from "@/components/online-only";
@@ -36,6 +37,9 @@ function SpeakScene() {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // #35: the Turnstile widget (invisible unless Cloudflare wants an interaction).
+  const challengeEl = useRef<HTMLDivElement>(null);
+  const turnstile = useRef<ReturnType<typeof createTurnstile> | null>(null);
 
   if (!scenario) {
     return (
@@ -48,27 +52,26 @@ function SpeakScene() {
 
   async function onSend() {
     const text = draft.trim();
-    if (!text || busy || !scenario || !online || !CHAT_ENABLED) return;
+    if (!text || busy || !scenario || !online) return;
     const nextTurns: Turn[] = [...turns, { role: "user", content: text }];
     setTurns(nextTurns);
     setDraft("");
     setBusy(true);
     setError(null);
+    const token = () => {
+      turnstile.current ??= createTurnstile(challengeEl.current!);
+      return turnstile.current.token();
+    };
+    const send = (turnstileToken?: string) =>
+      sendChat({ data: { scenarioId: scenario.id, messages: nextTurns, turnstileToken } });
     try {
-      const res = await sendChat({
-        data: {
-          scenarioId: scenario.id,
-          messages: nextTurns,
-        },
-      });
+      // The first line of a conversation always carries a token; later ones
+      // ride the session cookie until the server asks again (403).
+      const first = nextTurns.filter((t) => t.role === "user").length === 1;
+      let res = await send(first ? await token() : undefined);
+      if (!res.ok && res.error === "challenge_required" && !first) res = await send(await token());
       if (!res.ok) {
-        setError(
-          !("retryAfter" in res)
-            ? res.error
-            : res.retryAfter > 3600
-              ? "Daily chat limit reached. It resets at 00:00 UTC."
-              : `Slow down, try again in ${Math.ceil(res.retryAfter / 60)} min.`,
-        );
+        setError(chatErrorMessage(res));
         return;
       }
       setTurns((t) => [...t, { role: "assistant", content: res.text }]);
@@ -141,11 +144,7 @@ function SpeakScene() {
         )}
       </ol>
 
-      {!CHAT_ENABLED && (
-        <p role="status" className="mt-3 rounded-[var(--radius-md)] bg-soft px-3 py-2 text-sm text-accent">
-          {CHAT_UNAVAILABLE} The scene stays here to read; Palavras and Rádio work as usual.
-        </p>
-      )}
+      <div ref={challengeEl} className="mt-3 empty:hidden" />
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}
       {!online && (
         <p className="mt-3 text-sm text-muted">
@@ -169,11 +168,10 @@ function SpeakScene() {
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Write in Portuguese…"
           maxLength={500}
-          disabled={!CHAT_ENABLED}
           className="h-12 min-h-12 flex-1 rounded-[var(--radius-md)] border border-border bg-surface px-3 text-base text-fg outline-none ring-accent placeholder:text-subtle focus:ring-2"
         />
         <OnlineOnly feature="conversas" label="Send">
-          <Button type="submit" size="icon" disabled={!CHAT_ENABLED || busy || (online && !draft.trim())}>
+          <Button type="submit" size="icon" disabled={busy || (online && !draft.trim())}>
             <Send />
           </Button>
         </OnlineOnly>

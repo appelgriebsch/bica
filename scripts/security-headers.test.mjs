@@ -29,12 +29,20 @@ test("CSP: nonce scripts with strict-dynamic, no unsafe-inline scripts, locked f
   const directives = Object.fromEntries(
     csp.split("; ").map((d) => [d.split(" ")[0], d.split(" ").slice(1).join(" ")]),
   );
-  assert.equal(directives["script-src"], "'self' 'nonce-N0nce' 'strict-dynamic'");
+  assert.equal(
+    directives["script-src"],
+    "'self' 'nonce-N0nce' 'strict-dynamic' https://challenges.cloudflare.com",
+  );
   assert.equal(directives["worker-src"], "'self'");
   assert.equal(directives["frame-ancestors"], "'none'");
   assert.equal(directives["form-action"], "'self'");
   assert.doesNotMatch(csp, /auth\.grok\.me/); // #33: no auth broker
-  assert.equal(directives["connect-src"], "'self'");
+  // #35: Turnstile is the only third-party origin, in exactly these three directives.
+  assert.equal(directives["connect-src"], "'self' https://challenges.cloudflare.com");
+  assert.equal(directives["frame-src"], "https://challenges.cloudflare.com");
+  assert.equal(directives["default-src"], "'self'");
+  const thirdParty = csp.match(/https:\/\/[^\s;]+/g).filter((u) => u !== "https://og.grok.me");
+  assert.deepEqual(thirdParty, Array(3).fill("https://challenges.cloudflare.com"));
   assert.equal(directives["object-src"], "'none'");
   assert.equal(directives["report-uri"], "/api/csp-report");
   assert.equal(directives["report-to"], "csp-endpoint");

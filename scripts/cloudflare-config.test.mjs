@@ -89,7 +89,7 @@ test("workflow checks, builds, deploys, then smokes", () => {
     /name: Require green CI \(manual runs\)/,
     /ref: \$\{\{ github\.event\.workflow_run\.head_sha \|\| github\.sha \}\}/,
     /run: npm ci/,
-    /run: npm run build:cf/,
+    /\n {10}npm run build:cf\n/,
     /run: npx wrangler deploy --env staging --config wrangler\.toml \| tee deploy\.log/,
     /curl -fsS --max-time 10 "\$url\/api\/health"/,
   ].map(at);
@@ -361,4 +361,49 @@ test("manual-run guard takes the newest CI check run, and a pending one blocks",
   // another app's check named CI doesn't count; no run at all is "missing"
   assert.equal(jq([done("failure", 1), done("success", 3, "someone-else")]), "failure");
   assert.equal(jq([]), "missing");
+});
+
+test("#35: CHAT_RATE and the ChatBudget DO binding for staging, one sqlite migration", () => {
+  const staging = wrangler.slice(wrangler.indexOf("[env.staging]"));
+  assert.match(staging, /\[\[env\.staging\.ratelimits\]\]\nname = "CHAT_RATE"\nnamespace_id = "\d+"\nsimple = \{ limit = 6, period = 60 \}/);
+  assert.match(staging, /\[\[env\.staging\.durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/);
+  const top = wrangler.slice(0, wrangler.indexOf("[env.staging]"));
+  assert.match(top, /\[\[durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/);
+  assert.match(top, /\[\[migrations\]\]\ntag = "v1-chat-budget"\nnew_sqlite_classes = \["ChatBudget"\]/);
+  assert.equal(wrangler.match(/\[\[migrations\]\]/g).length, 1);
+  assert.doesNotMatch(wrangler, /new_classes|script_name/);
+  // Production is #8: no [env.production] here, but the docs carry its blocks.
+  assert.doesNotMatch(wrangler, /\[env\.production/);
+  const docs = readFileSync(join(root, "docs/cloudflare-workers.md"), "utf8");
+  assert.match(docs, /\[\[env\.production\.ratelimits\]\]\nname = "CHAT_RATE"/);
+  assert.match(docs, /\[\[env\.production\.durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/);
+  for (const name of ["TURNSTILE_SECRET_KEY", "CHAT_SESSION_SECRET", "TURNSTILE_SITE_KEY", "XAI_API_KEY", "CHAT_DAILY_GLOBAL", "CHAT_DAILY_PER_IP"]) {
+    assert.ok(docs.includes(name), name);
+  }
+});
+
+test("#35: the Worker entry exports ChatBudget from a copy of chat-budget.mjs", async () => {
+  const { entrySource, BUDGET_MODULE } = await import("./write-cf-entry.mjs");
+  const src = entrySource(".output/server/index.mjs");
+  assert.match(src, /^import \{ DurableObject \} from "cloudflare:workers";$/m);
+  assert.match(src, new RegExp(`^import \\{ makeChatBudget \\} from "\\./${BUDGET_MODULE}";$`, "m"));
+  assert.match(src, /^export \{ default \} from "\.\/index\.mjs";$/m);
+  assert.match(src, /^export const ChatBudget = makeChatBudget\(DurableObject\);$/m);
+  // only the handler and the DO class are exported
+  assert.deepEqual(src.match(/^export .*$/gm).length, 2);
+  const script = readFileSync(join(root, "scripts/write-cf-entry.mjs"), "utf8");
+  assert.match(
+    script.replace(/\s+/g, " "),
+    /copyFileSync\( ?join\(process\.cwd\(\), "src\/lib\/chat-budget\.mjs"\), join\(dirname\(entry\), BUDGET_MODULE\),? ?\)/,
+  );
+});
+
+test("#35: the staging build gets TURNSTILE_SITE_KEY from vars, and the smoke checks Turnstile's frame-src", () => {
+  const build = workflow.slice(workflow.indexOf("npm run build:cf") - 200, workflow.indexOf("- name: Deploy bica-staging"));
+  assert.match(build, /TURNSTILE_SITE_KEY: \$\{\{ vars\.TURNSTILE_SITE_KEY \}\}/);
+  assert.doesNotMatch(workflow, /secrets\.TURNSTILE|TURNSTILE_SECRET_KEY/); // a Worker secret, never in CI
+  assert.match(build, /::warning::vars\.TURNSTILE_SITE_KEY is unset/);
+  const step = workflow.slice(workflow.indexOf("- name: Smoke security headers"));
+  assert.match(step, /frame-src https:\/\/challenges\\\.cloudflare\\\.com/);
+  assert.match(viteConfig, /"import\.meta\.env\.TURNSTILE_SITE_KEY": JSON\.stringify\(process\.env\.TURNSTILE_SITE_KEY \?\? ""\)/);
 });

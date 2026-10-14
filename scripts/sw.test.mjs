@@ -141,3 +141,29 @@ test("an HTML fetch of an app route is network-first, not a stale runtime-cache 
   const res = await dispatch(sw, "/me", { accept: "text/html" });
   assert.equal(await res.text(), "net:/me");
 });
+
+test("#35: Turnstile (cross-origin) and the sendChat POST are never cached or answered by the SW", async () => {
+  const sw = loadSw({ online: false });
+  for (const [url, destination, accept] of [
+    ["https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit", "script", "*/*"],
+    [
+      "https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/turnstile/if/ov2/av0/rcv/x",
+      "iframe",
+      "text/html",
+    ],
+  ]) {
+    const req = new Request(url, { headers: { accept } });
+    Object.defineProperty(req, "mode", {
+      value: destination === "iframe" ? "navigate" : "no-cors",
+    });
+    Object.defineProperty(req, "destination", { value: destination });
+    let responded;
+    sw.listeners.fetch({ request: req, respondWith: (p) => (responded = p) });
+    assert.equal(responded, undefined, url);
+  }
+  const post = new Request(ORIGIN + "/_serverFn/x", { method: "POST", body: "{}" });
+  let responded;
+  sw.listeners.fetch({ request: post, respondWith: (p) => (responded = p) });
+  assert.equal(responded, undefined);
+  assert.doesNotMatch(SOURCE, /challenges\.cloudflare\.com/);
+});

@@ -24,6 +24,20 @@ not_found_handling = "none"
 [observability]
 enabled = true
 
+# #35: the daily chat budget (global + per-IP counters) lives in one Durable
+# Object. The class is exported by the generated entry (write-cf-entry.mjs).
+# Migrations are top-level and apply to every environment; never edit or
+# reorder an applied tag, only append.
+[[migrations]]
+tag = "v1-chat-budget"
+new_sqlite_classes = ["ChatBudget"]
+
+# Bound at top level too so local `wrangler dev` (the BICA_BUILT tests) runs
+# the real Durable Object; bindings aren't inherited, staging repeats it.
+[[durable_objects.bindings]]
+name = "CHAT_BUDGET"
+class_name = "ChatBudget"
+
 [[rules]]
 type = "ESModule"
 globs = ["**/*.mjs", "**/*.js"]
@@ -34,10 +48,15 @@ workers_dev = true
 [env.staging.vars]
 BICA_STAGE = "staging"
 
-# Chat burst limit (#13), across isolates. Cloudflare allows only period = 10
-# or 60; the 10-min and daily caps are in memory (chat-limit.ts) until #35.
-# limit must match DEFAULT_LIMITS.perMinute. Production gets its own via #8.
+# Chat burst limit (#13, keyed by client IP since #35), across isolates.
+# Cloudflare allows only period = 10 or 60. limit must match
+# DEFAULT_LIMITS.perMinute. Production gets its own block via #8.
 [[env.staging.ratelimits]]
 name = "CHAT_RATE"
 namespace_id = "1301"
 simple = { limit = 6, period = 60 }
+
+# Daily chat budget (#35). Production repeats this block in #8.
+[[env.staging.durable_objects.bindings]]
+name = "CHAT_BUDGET"
+class_name = "ChatBudget"

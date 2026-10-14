@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { speakScenarios } from "@/data/curriculum";
-import { CHAT_ENABLED, CHAT_UNAVAILABLE } from "@/lib/chat-availability";
 import { cn } from "@/lib/utils";
 import { OnlineOnly } from "@/components/online-only";
 
@@ -15,12 +14,6 @@ function SpeakIndex() {
         Short scenes with a native of Portugal — not Brazil. Stay in character.
         Make mistakes. Recasts come for free. The partner is live.
       </p>
-
-      {!CHAT_ENABLED && (
-        <p role="status" className="mt-4 rounded-[var(--radius-md)] bg-soft px-3 py-2 text-sm text-accent">
-          {CHAT_UNAVAILABLE} You can still read the scenes.
-        </p>
-      )}
 
       <ul className="mt-6 grid gap-3">
         {speakScenarios.map((s) => (

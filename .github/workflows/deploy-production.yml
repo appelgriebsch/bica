@@ -74,20 +74,33 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      # The custom domain can lag a few seconds behind `wrangler deploy`.
+      # The custom domain can lag behind `wrangler deploy`: DNS may not resolve
+      # yet (exit code 6) and / can answer 500 while it warms up (run
+      # 38581413999). Both checks retry for ~60 s (12 x 5 s, 10 s per request);
+      # a failed request inside the && chain never trips `set -e`.
       - name: Smoke /api/health and /
-        timeout-minutes: 3
+        timeout-minutes: 6
         run: |
           url=https://bica.appelgriebsch.org
           for i in $(seq 1 12); do
             body=$(curl -fsS --max-time 10 "$url/api/health") \
-              && [ "$(jq -r .stage <<<"$body")" = production ] && break
+              && [ "$(jq -r .stage <<<"$body" 2>/dev/null)" = production ] && break
+            echo "health attempt $i: not ready"
             body=""
-            sleep 5
+            [ "$i" -lt 12 ] && sleep 5
           done
           [ -n "$body" ] || { echo "::error::/api/health never answered stage=production at $url"; exit 1; }
           echo "$body"
           test "$(jq -r .ok <<<"$body")" = true
-          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$url/")
-          [ "$code" = 200 ] || { echo "::error::GET / returned $code"; exit 1; }
-          echo "GET / 200"
+          for i in $(seq 1 12); do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$url/" || true)
+            [ "$code" = 200 ] && { echo "GET / 200 (attempt $i)"; exit 0; }
+            echo "GET / attempt $i: ${code:-no response}"
+            [ "$i" -lt 12 ] && sleep 5
+          done
+          # Still failing: show status, headers and the first 2 KB of the body.
+          curl -sS -D /tmp/headers -o /tmp/body --max-time 10 "$url/" || true
+          echo "--- headers"; cat /tmp/headers 2>/dev/null || true
+          echo "--- body (truncated)"; head -c 2048 /tmp/body 2>/dev/null || true; echo
+          echo "::error::GET / never returned 200 at $url (last: ${code:-no response})"
+          exit 1

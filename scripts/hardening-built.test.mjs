@@ -176,7 +176,29 @@ test("manifest is named Bica on a workers.dev host", { skip }, async () => {
   const manifest = await res.json();
   assert.equal(manifest.name, "Bica");
   assert.equal(manifest.short_name, "Bica");
+  assert.equal(manifest.background_color, "#f3eee6");
+  assert.equal(manifest.theme_color, "#1E4D73");
   assert.equal(res.headers.get("x-content-type-options"), "nosniff");
+});
+
+test("GET / serves both theme-color metas and no black one", { skip }, async () => {
+  const html = await (await get("/")).text();
+  const tags = html.match(/<meta\b[^>]*\bname="theme-color"[^>]*>/g) ?? [];
+  assert.equal(tags.length, 2);
+  assert.ok(
+    tags.some(
+      (tag) =>
+        tag.includes('content="#1E4D73"') && tag.includes('media="(prefers-color-scheme: light)"'),
+    ),
+  );
+  assert.ok(
+    tags.some(
+      (tag) =>
+        tag.includes('content="#141922"') && tag.includes('media="(prefers-color-scheme: dark)"'),
+    ),
+  );
+  assert.ok(tags.every((tag) => tag.includes("media=")));
+  assert.doesNotMatch(html, /content="#000000"/);
 });
 
 test("#33: /login and /api/auth/* are 404 (GET and POST); / has no Sign in", { skip }, async () => {

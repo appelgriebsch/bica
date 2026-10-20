@@ -1,4 +1,5 @@
 export declare const DEFAULT_APP_NAME: string;
+export { BICA_BACKGROUND, BICA_THEME, BICA_THEME_DARK } from "./bica-theme.mjs";
 export declare const OG_SERVICE_URL_DEFAULT: string;
 export declare const OG_SITE_REL_PATH: string;
 export declare function escapeHtml(value: unknown): string;

@@ -11,6 +11,7 @@ import { PtVoiceNotice } from "@/components/pt-voice-notice";
 import { OfflineStatus } from "@/components/offline-status";
 import { Toaster } from "sonner";
 import { APP_NAME } from "@/lib/app-name.mjs";
+import { BICA_THEME, BICA_THEME_DARK } from "../../scripts/bica-theme.mjs";
 import appCss from "../styles.css?url";
 
 const host = import.meta.env.VITE_PUBLIC_HOSTNAME;
@@ -31,16 +32,6 @@ export const Route = createRootRoute({
           "European Portuguese in sips — byte-sized lessons from A1 to C1, with quizzes and café conversations.",
       },
       { name: "apple-mobile-web-app-title", content: APP_NAME },
-      {
-        name: "theme-color",
-        content: "#1E4D73",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        name: "theme-color",
-        content: "#141922",
-        media: "(prefers-color-scheme: dark)",
-      },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
       { property: "og:title", content: APP_NAME },
@@ -92,6 +83,8 @@ function RootDocument() {
     <html lang="en" className="antialiased" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <meta name="theme-color" content={BICA_THEME} media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content={BICA_THEME_DARK} media="(prefers-color-scheme: dark)" />
       </head>
       <body>
         <script

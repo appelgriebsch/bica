@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   appNameFromHost,
   createHeadInjector,
+  grokPwaHeadTags,
   grokXCreatorHeadTags,
   injectGrokPwaHead,
   isDocumentPath,
@@ -246,7 +247,22 @@ test("renders the manifest with the per-app name", () => {
     },
     { src: "/icon-180.png", sizes: "180x180", type: "image/png" },
   ]);
-  assert.equal(manifest.theme_color, "#000000");
+  assert.equal(manifest.background_color, "#f3eee6");
+  assert.equal(manifest.theme_color, "#1E4D73");
+});
+
+test("theme-color fallback is the light/dark pair, and a present pair is left alone", () => {
+  const tags = grokPwaHeadTags()
+    .map(([, tag]) => tag)
+    .join("");
+  assert.doesNotMatch(tags, /#000000/);
+  assert.match(tags, /content="#1E4D73" media="\(prefers-color-scheme: light\)"/);
+  assert.match(tags, /content="#141922" media="\(prefers-color-scheme: dark\)"/);
+  const pair =
+    '<html><head><meta name="theme-color" content="#1E4D73" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#141922" media="(prefers-color-scheme: dark)"></head></html>';
+  const out = injectGrokPwaHead(pair, bareSite);
+  assert.equal(out.match(/name="theme-color"/g).length, 2);
+  assert.doesNotMatch(out, /content="#000000"/);
 });
 
 test("head, manifest and install page use Bica icons, never the grok placeholder", () => {

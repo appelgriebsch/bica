@@ -1,10 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
 import { OnlineOnly } from "@/components/online-only";
+import { Button } from "@/components/ui/button";
 
 const REPO = "https://github.com/appelgriebsch/bica";
 const linkClass = "font-medium text-accent no-underline hover:underline";
+// ponytail: hidden until export/import ships; flip when #34 lands.
+const SHOW_EXPORT_IMPORT = false;
 
 export const Route = createFileRoute("/about")({ component: AboutPage });
 
@@ -30,15 +34,24 @@ function GitHubLink({ href, label, children }: { href: string; label: string; ch
 function AboutPage() {
   return (
     <AppShell>
-      <h1 className="font-display text-3xl font-medium tracking-tight">About</h1>
+      <div className="flex items-center gap-3">
+        <Button asChild variant="ghost" size="icon" aria-label="Back to You">
+          <Link to="/me">
+            <ArrowLeft />
+          </Link>
+        </Button>
+        <h1 className="font-display text-3xl font-medium tracking-tight">About</h1>
+      </div>
 
       <Band title="App">
         <p>Bica, European Portuguese, offline-first. Progress stays on this device.</p>
-        <p>
-          <Link to="/me" className={linkClass}>
-            Export and import
-          </Link>
-        </p>
+        {SHOW_EXPORT_IMPORT && (
+          <p>
+            <Link to="/me" className={linkClass}>
+              Export and import
+            </Link>
+          </p>
+        )}
       </Band>
 
       <Band title="Version">

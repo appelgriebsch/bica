@@ -34,6 +34,7 @@ npm run typecheck
 npm run lint
 npm test            # node --test scripts/*.test.mjs
 npm run deps:check
+npm run licenses:check
 npm run build
 npm run build:cf
 ```

@@ -18,7 +18,8 @@
     "test": "node --test scripts/*.test.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "deps:check": "node scripts/deps-check.mjs"
+    "deps:check": "node scripts/deps-check.mjs",
+    "licenses:check": "license-checker-rseidelsohn --production --summary --onlyAllow \"MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;OFL-1.1;MPL-2.0;0BSD;BlueOak-1.0.0;CC0-1.0;Python-2.0;MIT OR Apache-2.0;CC-BY-4.0;Unlicense;MIT AND ISC\""
   },
   "engines": {
     "node": ">=22 <23"
@@ -85,6 +86,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
+    "license-checker-rseidelsohn": "4.4.2",
     "lightningcss": "^1.28.0",
     "nitro": "3.0.260610-beta",
     "playwright": "^1.62.0",

@@ -94,6 +94,12 @@ function MePage() {
           </ul>
         )}
       </section>
+
+      <p className="mt-8 text-center text-sm">
+        <Link to="/about" className="font-medium text-accent no-underline hover:underline">
+          About
+        </Link>
+      </p>
     </AppShell>
   );
 }

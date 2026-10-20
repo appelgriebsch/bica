@@ -5,7 +5,7 @@ Direct dependencies are the lockfile resolution of `package.json`.
 `h3` and `nf3` are transitives of Nitro; `@electric-sql/pglite` is a transitive of Nitro's `db0`. `better-auth` and its transitives (`better-call`, `jose`, `kysely`, `pg`, `pg-connection-string`) left the lockfile with sign-in (#33).
 The app no longer imports `pg`, `kysely`, or PGLite since the D1 move (#19), and `@types/pg` is gone from the lockfile.
 `numpy` and `pillow` are imported by `.grok/skills/**/*.py` and are not pinned.
-CVE cells marked `none found` are OSV lookups for that exact version on 2026-10-13 (all 69 pinned npm rows).
+CVE cells marked `none found` are OSV lookups for that exact version on 2026-10-13. `license-checker-rseidelsohn` was not queried.
 Cells marked `not checked` were not queried.
 
 | Name                          | Version         | License           | Critical update | CVEs                                                                                                                                                                                                                                                                                      |
@@ -57,6 +57,7 @@ Cells marked `not checked` were not queried.
 | eslint-plugin-react-refresh   | 0.4.26          | MIT               | not checked     | none found                                                                                                                                                                                                                                                                                |
 | globals                       | 15.15.0         | MIT               | not checked     | none found                                                                                                                                                                                                                                                                                |
 | h3                            | 2.0.1-rc.22     | MIT               |                 | none found                                                                                                                                                                                                                                                                                |
+| license-checker-rseidelsohn   | 4.4.2           | BSD-3-Clause      | not checked     | not checked                                                                                                                                                                                                                                                                               |
 | lightningcss                  | 1.33.0          | MPL-2.0           | not checked     | none found                                                                                                                                                                                                                                                                                |
 | lucide-react                  | 0.510.0         | ISC               |                 | none found                                                                                                                                                                                                                                                                                |
 | nf3                           | 0.3.17          | MIT               |                 | none found                                                                                                                                                                                                                                                                                |
@@ -82,6 +83,61 @@ Cells marked `not checked` were not queried.
 | wrangler                      | 4.150.0         | MIT OR Apache-2.0 |                 | none found for wrangler 4.150.0 or the miniflare 5.20261006.2-beta, undici 7.29.1 and sharp 0.35.5 it installs. The lockfile also records optional peers miniflare 4.20260730.0, undici 7.28.0 (15 GHSA advisories) and sharp 0.35.2 (2 GHSA advisories); `npm ci` does not install them. |
 | zod                           | 4.6.7           | MIT               |                 | none found                                                                                                                                                                                                                                                                                |
 | zustand                       | 5.0.15          | MIT               |                 | none found                                                                                                                                                                                                                                                                                |
+
+## Assets
+
+Checked against the xAI legal pages on 2026-10-14. Credit the publisher as SpaceXAI LLC (xAI). Bica does not use xAI or Grok logos and does not claim endorsement.
+
+### Images
+
+These 21 files are AI-generated illustrations. **Created with Grok.**
+
+The [Brand Guidelines](https://x.ai/legal/brand-guidelines) (dated 2025-02-14), Content Attribution, require one of these phrases, legible and noticeable, wherever Grok-generated material is published: "Written with Grok" / "Created with Grok". The [Consumer Terms of Service](https://x.ai/legal/terms-of-service) (updated 2026-10-12) §4 require that attribution, and an AI-generated disclosure when Output is published. Do not remove a Grok watermark where one exists.
+
+- `public/og.jpg`
+- `public/scenes/balcony.jpg`
+- `public/scenes/books.jpg`
+- `public/scenes/cafe.jpg`
+- `public/scenes/dinner.jpg`
+- `public/scenes/doorway.jpg`
+- `public/scenes/farmacia.jpg`
+- `public/scenes/kitchen-radio.jpg`
+- `public/scenes/market.jpg`
+- `public/scenes/miradouro.jpg`
+- `public/scenes/office.jpg`
+- `public/scenes/padaria.jpg`
+- `public/scenes/pastelaria.jpg`
+- `public/scenes/phone.jpg`
+- `public/scenes/radio.jpg`
+- `public/scenes/stairwell.jpg`
+- `public/scenes/street.jpg`
+- `public/scenes/tasca.jpg`
+- `public/scenes/terrace.jpg`
+- `public/scenes/ticket.jpg`
+- `public/scenes/tram.jpg`
+
+### Fonts, icons, and the app mark
+
+- Figtree and Fraunces (`@fontsource-variable/figtree`, `@fontsource-variable/fraunces`) are OFL-1.1, bundled and self-hosted.
+- Icons are `lucide-react` (ISC).
+- `public/favicon.svg`, `public/icon-180.png`, `public/icon-192.png`, `public/icon-512.png`, `public/icon-maskable-512.png`, and `src/components/azulejo-mark.tsx` are original project artwork (MIT). The SVG is drawn in code (a Lisbon azulejo florão). The PNGs are rasterizations of that mark. They are not Grok Imagine images.
+
+### Course text, speech, and Conversas
+
+- Lesson, verb, grammar, reading, and radio texts in `src/data/*.ts` are original course content under the repo MIT license. No corpus or third-party word list was copied. Station names in `src/data/radio.ts` (Antena 1, Antena 2, TSF, Rádio Municipal, Carris) are references only.
+- `src/lib/tts.ts` ships no voices. Speech uses the Web Speech API and a European Portuguese voice provided by the device. No license row.
+- Conversas calls the xAI API (`XAI_API_KEY`). That is a service, not an asset. Replies are AI-generated, written with Grok.
+- `numpy` (BSD-3-Clause) and `pillow` (MIT-CMU) are imported only by `.grok/skills/**/*.py` and are listed in the table above. They are not pinned.
+
+### Notable licenses
+
+`lightningcss` is MPL-2.0 (file-level copyleft, build-time only). `class-variance-authority`, `typescript`, and `playwright` are Apache-2.0; keep each package's NOTICE with that package. `wrangler` is `MIT OR Apache-2.0`.
+
+`npm run licenses:check` fails CI when a production dependency uses a license outside the allow-list. Three production licenses are allowed beyond the permissive SPDX set, each named here:
+
+- `CC-BY-4.0`: `caniuse-lite` (via browserslist). Attribution-only browser data. This section is the attribution.
+- `Unlicense`: `isbot` (via `@tanstack/react-router`). Public-domain dedication.
+- `MIT AND ISC`: `victory-vendor` (via `recharts`). Both MIT and ISC are already allowed; the checker matches the whole SPDX expression, so the conjunction is listed too.
 
 ## Keeping this current
 

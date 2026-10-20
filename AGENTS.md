@@ -202,7 +202,7 @@ revive and live work stay identical.
   recreate them from scratch or import a vendored `vite-tanstack-config`
   preset — the template already ships a self-contained config.
 - **`public/__grok/`, `server/`, and `scripts/grok-pwa-*`** — platform Add to
-  Home Screen chrome (template icon, install page + assets, the Vite plugin,
+  Home Screen chrome (install page + assets, the Vite plugin,
   and the Nitro middleware that serves it on deployed apps). Do not delete or
   overwrite any of them. `?install=1&platform=ios` shows the install tutorial,
   not app UI; if you add your own server routes, put them in `src/routes/`,
@@ -313,7 +313,7 @@ export const Route = createRootRoute({
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
+      { rel: "apple-touch-icon", href: "/icon-180.png", sizes: "180x180" },
     ],
   }),
   component: () => (

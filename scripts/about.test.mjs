@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { resolveBuildSha } from "./build-sha.mjs";
 import { buildOutput } from "./build-output.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -37,9 +37,13 @@ test("THIRD-PARTY.md names scenes, og.jpg, and the app mark", () => {
   ];
   assert.ok(icons.length >= 4, String(icons.length));
   assert.deepEqual(
-    paths.filter((p) => !md.includes(p)),
+    paths.filter((p) => !md.includes(`\`${p}\``)),
     [],
   );
+  const section = (heading) => md.split(heading)[1]?.split("\n### ")[0] ?? "";
+  assert.match(section("### Images"), /Created with Grok/);
+  assert.match(section("### App icon and mark"), /Created with Grok/);
+  assert.match(about, /app icon:[\s\S]{0,80}Created with Grok/);
 });
 
 test(
@@ -58,7 +62,17 @@ test(
           text: readFileSync(abs, "utf8"),
         };
       });
-    const sha = resolveBuildSha();
+    let sha;
+    try {
+      sha = execFileSync("git", ["rev-parse", "HEAD"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+        .trim()
+        .slice(0, 7);
+    } catch {
+      sha = (process.env.GITHUB_SHA ?? "").trim().slice(0, 7);
+    }
     const quoted = [`"${sha}"`, `'${sha}'`, "`" + sha + "`"];
     assert.equal(
       js.some((f) => f.text.includes("__BICA_BUILD_SHA__")),

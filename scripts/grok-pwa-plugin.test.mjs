@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
@@ -14,6 +14,7 @@ import {
   stripInstallParams,
 } from "./grok-pwa-shared.mjs";
 import { renderInstallPage } from "./grok-pwa-plugin.mjs";
+import { buildOutput } from "./build-output.mjs";
 import { APP_NAME } from "../src/lib/app-name.mjs";
 
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -21,7 +22,8 @@ const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 test("injects before </head>", () => {
   const out = injectGrokPwaHead("<html><head><title>x</title></head><body></body></html>");
   assert.match(out, /rel="manifest"/);
-  assert.match(out, /apple-touch-icon/);
+  assert.match(out, /rel="apple-touch-icon" href="\/icon-180\.png" sizes="180x180"/);
+  assert.doesNotMatch(out, /__grok\/icon/);
   assert.match(out, /grok-app-builder\/extensions\.js/);
   assert.ok(out.indexOf("manifest") < out.indexOf("</head>"));
 });
@@ -233,9 +235,66 @@ test("renders the manifest with the per-app name", () => {
   const manifest = JSON.parse(renderWebManifest("wild-race.grok.me"));
   assert.equal(manifest.name, "Wild Race");
   assert.equal(manifest.short_name, "Wild Race");
-  assert.equal(manifest.icons[0].src, "/__grok/icon-180.png");
+  assert.deepEqual(manifest.icons, [
+    { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    {
+      src: "/icon-maskable-512.png",
+      sizes: "512x512",
+      type: "image/png",
+      purpose: "maskable",
+    },
+    { src: "/icon-180.png", sizes: "180x180", type: "image/png" },
+  ]);
   assert.equal(manifest.theme_color, "#000000");
 });
+
+test("head, manifest and install page use Bica icons, never the grok placeholder", () => {
+  assert.equal(existsSync(join(TEMPLATE_ROOT, "public/__grok/icon-180.png")), false);
+  const shared = readFileSync(join(TEMPLATE_ROOT, "scripts/grok-pwa-shared.mjs"), "utf8");
+  const install = readFileSync(join(TEMPLATE_ROOT, "scripts/install-page.html"), "utf8");
+  const root = readFileSync(join(TEMPLATE_ROOT, "src/routes/__root.tsx"), "utf8");
+  for (const text of [shared, install, root]) assert.doesNotMatch(text, /__grok\/icon/);
+  assert.match(install, /rel="apple-touch-icon" href="\/icon-180\.png"/);
+  const present =
+    '<html><head><link rel="apple-touch-icon" href="/icon-180.png" sizes="180x180"></head></html>';
+  const out = injectGrokPwaHead(present, bareSite);
+  assert.equal(out.match(/rel="apple-touch-icon"/g).length, 1);
+  assert.doesNotMatch(out, /__grok\/icon/);
+});
+
+test(
+  "built manifest and html reference only Bica icons",
+  { skip: !process.env.BICA_BUILT && "set BICA_BUILT=1 after npm run build" },
+  () => {
+    const { publicDir, serverEntry } = buildOutput();
+    const roots = [join(TEMPLATE_ROOT, publicDir), join(TEMPLATE_ROOT, dirname(serverEntry))];
+    let manifest = "";
+    const pages = [];
+    for (const dir of roots) {
+      for (const f of readdirSync(dir, { recursive: true, withFileTypes: true })) {
+        if (!f.isFile()) continue;
+        const abs = join(f.parentPath, f.name);
+        assert.equal(abs.endsWith(`${sep}__grok${sep}icon-180.png`), false, abs);
+        if (!/\.(m?js|html|css|json|webmanifest)$/.test(f.name) && f.name !== "_shell") continue;
+        const text = readFileSync(abs, "utf8");
+        const rel = relative(TEMPLATE_ROOT, abs);
+        assert.equal(text.includes("/__grok/icon"), false, rel);
+        if (/purpose:\s*"maskable"/.test(text)) manifest = text;
+        if (f.name === "_shell" || f.name.endsWith(".html")) pages.push([rel, text]);
+      }
+    }
+    assert.match(manifest, /\/icon-192\.png/);
+    assert.match(manifest, /\/icon-512\.png/);
+    assert.match(manifest, /\/icon-maskable-512\.png/);
+    assert.ok(pages.length > 0, "built html");
+    for (const [rel, page] of pages) {
+      assert.equal(page.match(/rel="apple-touch-icon"/g)?.length ?? 0, 1, rel);
+      assert.match(page, /href="\/icon-180\.png"/);
+      assert.match(page, /href="\/favicon\.svg"/);
+    }
+  },
+);
 
 test("#28: the configured app name wins on workers.dev and custom hosts", () => {
   assert.equal(APP_NAME, "Bica");
@@ -285,6 +344,5 @@ test("nitro middleware and its bundled assets exist", () => {
   const middleware = readFileSync(join(TEMPLATE_ROOT, "server/middleware/grok-pwa.ts"), "utf8");
   assert.match(middleware, /install-page\.html\?raw/);
   readFileSync(join(TEMPLATE_ROOT, "scripts/install-page.html"));
-  readFileSync(join(TEMPLATE_ROOT, "public/__grok/icon-180.png"));
   readFileSync(join(TEMPLATE_ROOT, "public/__grok/install/styles.css"));
 });

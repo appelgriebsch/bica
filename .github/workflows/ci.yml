@@ -36,6 +36,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run deps:check
+      - run: npm run licenses:check
       - run: npm run build
       - run: npm run build:cf
       # The built-output tests against the Worker bundle just built.

@@ -17,6 +17,14 @@ export const ONLINE_FEATURES = {
     },
     alternative: { to: "/review", label: { en: "Practise Palavras", pt: "Praticar Palavras" } },
   },
+  github: {
+    id: "github",
+    name: { en: "GitHub", pt: "GitHub" },
+    reason: {
+      en: "This link opens GitHub and needs internet.",
+      pt: "Esta ligação abre o GitHub e precisa de internet.",
+    },
+  },
   // No UI and no /api/rtc route yet (src/lib/multiplayer/p2p.ts): registered so it gets marked once it ships.
   multiplayer: {
     id: "multiplayer",

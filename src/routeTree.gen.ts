@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as GrammarRouteImport } from './routes/grammar'
 import { Route as MeRouteImport } from './routes/me'
 import { Route as PathRouteImport } from './routes/path'
@@ -33,6 +34,11 @@ import { Route as VerbsIdRouteImport } from './routes/verbs/$id'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GrammarRoute = GrammarRouteImport.update({
@@ -133,6 +139,7 @@ const VerbsIdRoute = VerbsIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/grammar': typeof GrammarRouteWithChildren
   '/me': typeof MeRoute
   '/path': typeof PathRoute
@@ -155,6 +162,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/me': typeof MeRoute
   '/path': typeof PathRoute
   '/practice': typeof PracticeRoute
@@ -175,6 +183,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/grammar': typeof GrammarRouteWithChildren
   '/me': typeof MeRoute
   '/path': typeof PathRoute
@@ -199,6 +208,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
     | '/grammar'
     | '/me'
     | '/path'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
     | '/me'
     | '/path'
     | '/practice'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/about'
     | '/grammar'
     | '/me'
     | '/path'
@@ -263,6 +275,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
   GrammarRoute: typeof GrammarRouteWithChildren
   MeRoute: typeof MeRoute
   PathRoute: typeof PathRoute
@@ -285,6 +298,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/grammar': {
@@ -462,6 +482,7 @@ const VerbsRouteWithChildren = VerbsRoute._addFileChildren(VerbsRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
   GrammarRoute: GrammarRouteWithChildren,
   MeRoute: MeRoute,
   PathRoute: PathRoute,

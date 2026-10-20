@@ -261,6 +261,7 @@ test("CI: PRs and pushes to main, job CI, no secrets, cancels superseded runs", 
   const at = (re) => ci.search(re);
   const order = [
     /run: npm ci$/m,
+    /run: npm audit --omit=dev --audit-level=high$/m,
     /run: npm run typecheck$/m,
     /run: npm run lint$/m,
     /run: npm test$/m,
@@ -275,6 +276,11 @@ test("CI: PRs and pushes to main, job CI, no secrets, cancels superseded runs", 
     order.every((i, n) => i > -1 && (n === 0 || i > order[n - 1])),
     String(order),
   );
+});
+
+test("CI audits production dependencies immediately after npm ci", () => {
+  assert.match(ci, /^jobs:\n {2}ci:\n(?: {4}#.*\n)* {4}name: CI$/m);
+  assert.match(ci, / {6}- run: npm ci\n {6}- run: npm audit --omit=dev --audit-level=high\n/);
 });
 
 test("Node 22 is pinned: .nvmrc, engines, engine-strict, both workflows", () => {

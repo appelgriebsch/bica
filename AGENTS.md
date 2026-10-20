@@ -285,7 +285,8 @@ export const Route = createRootRoute({
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: APP_NAME },
       { name: "apple-mobile-web-app-title", content: APP_NAME },
-      { name: "theme-color", content: "#000000" },
+      // Not a head() meta: HeadContent dedupes theme-color by name. Literal pair
+      // after <HeadContent />: #1E4D73 (light), #141922 (dark).
       { name: "twitter:card", content: "summary_large_image" },
       // Games only: { property: "og:type", content: "x:game" } — X uses this to
       // present the share card as a game (see .grok/skills/og/SKILL.md). Always

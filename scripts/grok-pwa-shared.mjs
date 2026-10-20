@@ -5,7 +5,9 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { BICA_BACKGROUND, BICA_THEME, BICA_THEME_DARK } from "./bica-theme.mjs";
 
+export { BICA_BACKGROUND, BICA_THEME, BICA_THEME_DARK };
 export const DEFAULT_APP_NAME = "Grok App";
 export const OG_SERVICE_URL_DEFAULT = "https://og.grok.me";
 export const OG_SITE_REL_PATH = "src/lib/og/site.json";
@@ -158,8 +160,8 @@ export function renderWebManifest(hostHeader, appName) {
       start_url: "/",
       scope: "/",
       display: "standalone",
-      background_color: "#000000",
-      theme_color: "#000000",
+      background_color: BICA_BACKGROUND,
+      theme_color: BICA_THEME,
       icons: [
         { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
         { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
@@ -191,7 +193,10 @@ export function grokPwaHeadTags(appName = DEFAULT_APP_NAME) {
       "apple-mobile-web-app-status-bar-style",
       '<meta name="apple-mobile-web-app-status-bar-style" content="black">',
     ],
-    ["theme-color", '<meta name="theme-color" content="#000000">'],
+    [
+      "theme-color",
+      `<meta name="theme-color" content="${BICA_THEME}" media="(prefers-color-scheme: light)"><meta name="theme-color" content="${BICA_THEME_DARK}" media="(prefers-color-scheme: dark)">`,
+    ],
   ];
 }
 

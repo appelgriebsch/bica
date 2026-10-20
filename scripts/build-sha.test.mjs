@@ -2,24 +2,28 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { resolveBuildSha } from "./build-sha.mjs";
 
-test("GITHUB_SHA wins and is truncated to 7", () => {
-  let called = false;
-  const sha = resolveBuildSha({ GITHUB_SHA: "abcdef1234567890" }, () => {
-    called = true;
-    return "ignored";
-  });
-  assert.equal(sha, "abcdef1");
-  assert.equal(called, false);
-});
-
-test("git fallback is truncated to 7", () => {
+test("git wins over GITHUB_SHA and is truncated to 7", () => {
   assert.equal(
-    resolveBuildSha({}, () => "0123456789abcdef\n"),
+    resolveBuildSha({ GITHUB_SHA: "abcdef1234567890" }, () => "0123456789abcdef\n"),
     "0123456",
   );
 });
 
-test("dev when git throws or is empty, and never throws", () => {
+test("GITHUB_SHA fallback when git throws or is empty, truncated to 7", () => {
+  const full = { GITHUB_SHA: "abcdef1234567890" };
+  assert.equal(
+    resolveBuildSha(full, () => {
+      throw new Error("no git");
+    }),
+    "abcdef1",
+  );
+  assert.equal(
+    resolveBuildSha(full, () => ""),
+    "abcdef1",
+  );
+});
+
+test("dev when both missing, and never throws", () => {
   assert.equal(
     resolveBuildSha({}, () => {
       throw new Error("no git");
@@ -31,7 +35,7 @@ test("dev when git throws or is empty, and never throws", () => {
     "dev",
   );
   assert.equal(
-    resolveBuildSha({ GITHUB_SHA: "  " }, () => ""),
+    resolveBuildSha({ GITHUB_SHA: "  " }, () => "  "),
     "dev",
   );
 });

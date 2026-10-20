@@ -5,7 +5,7 @@ Direct dependencies are the lockfile resolution of `package.json`.
 `h3` and `nf3` are transitives of Nitro; `@electric-sql/pglite` is a transitive of Nitro's `db0`. `better-auth` and its transitives (`better-call`, `jose`, `kysely`, `pg`, `pg-connection-string`) left the lockfile with sign-in (#33).
 The app no longer imports `pg`, `kysely`, or PGLite since the D1 move (#19), and `@types/pg` is gone from the lockfile.
 `numpy` and `pillow` are imported by `.grok/skills/**/*.py` and are not pinned.
-CVE cells marked `none found` are OSV lookups for that exact version on 2026-10-13. `license-checker-rseidelsohn` was not queried.
+CVE cells marked `none found` are OSV lookups for that exact version on 2026-10-13. `license-checker-rseidelsohn` 4.4.2 and its transitives were looked up on 2026-10-20.
 Cells marked `not checked` were not queried.
 
 | Name                          | Version         | License           | Critical update | CVEs                                                                                                                                                                                                                                                                                      |
@@ -57,7 +57,7 @@ Cells marked `not checked` were not queried.
 | eslint-plugin-react-refresh   | 0.4.26          | MIT               | not checked     | none found                                                                                                                                                                                                                                                                                |
 | globals                       | 15.15.0         | MIT               | not checked     | none found                                                                                                                                                                                                                                                                                |
 | h3                            | 2.0.1-rc.22     | MIT               |                 | none found                                                                                                                                                                                                                                                                                |
-| license-checker-rseidelsohn   | 4.4.2           | BSD-3-Clause      | not checked     | not checked                                                                                                                                                                                                                                                                               |
+| license-checker-rseidelsohn   | 4.4.2           | BSD-3-Clause      |                 | none found                                                                                                                                                                                                                                                                                |
 | lightningcss                  | 1.33.0          | MPL-2.0           | not checked     | none found                                                                                                                                                                                                                                                                                |
 | lucide-react                  | 0.510.0         | ISC               |                 | none found                                                                                                                                                                                                                                                                                |
 | nf3                           | 0.3.17          | MIT               |                 | none found                                                                                                                                                                                                                                                                                |
@@ -116,11 +116,21 @@ The [Brand Guidelines](https://x.ai/legal/brand-guidelines) (dated 2025-02-14), 
 - `public/scenes/ticket.jpg`
 - `public/scenes/tram.jpg`
 
-### Fonts, icons, and the app mark
+### App icon and mark
+
+These files are **Created with Grok** (AI-generated). The mark is drawn as SVG code by Grok Build (the Grok app builder) and the PNGs are rasterizations of it. They are not claimed as human-made.
+
+- `public/favicon.svg`
+- `public/icon-180.png`
+- `public/icon-192.png`
+- `public/icon-512.png`
+- `public/icon-maskable-512.png`
+- `src/components/azulejo-mark.tsx`
+
+### Fonts and icons
 
 - Figtree and Fraunces (`@fontsource-variable/figtree`, `@fontsource-variable/fraunces`) are OFL-1.1, bundled and self-hosted.
 - Icons are `lucide-react` (ISC).
-- `public/favicon.svg`, `public/icon-180.png`, `public/icon-192.png`, `public/icon-512.png`, `public/icon-maskable-512.png`, and `src/components/azulejo-mark.tsx` are original project artwork (MIT). The SVG is drawn in code (a Lisbon azulejo florão). The PNGs are rasterizations of that mark. They are not Grok Imagine images.
 
 ### Course text, speech, and Conversas
 
@@ -133,20 +143,21 @@ The [Brand Guidelines](https://x.ai/legal/brand-guidelines) (dated 2025-02-14), 
 
 `lightningcss` is MPL-2.0 (file-level copyleft, build-time only). `class-variance-authority`, `typescript`, and `playwright` are Apache-2.0; keep each package's NOTICE with that package. `wrangler` is `MIT OR Apache-2.0`.
 
-`npm run licenses:check` fails CI when a production dependency uses a license outside the allow-list. Three production licenses are allowed beyond the permissive SPDX set, each named here:
+`npm run licenses:check` fails CI when a production dependency uses a license outside the allow-list. Two production licenses are allowed beyond the permissive SPDX set, each named here:
 
-- `CC-BY-4.0`: `caniuse-lite` (via browserslist). Attribution-only browser data. This section is the attribution.
+- `CC-BY-4.0`: `caniuse-lite` is build-time only (reaches the tree via `@tanstack/router-plugin` > `@babel/core` > `browserslist`; not in `.output`). caniuse data by Alexis Deveria, CC BY 4.0, https://creativecommons.org/licenses/by/4.0/
 - `Unlicense`: `isbot` (via `@tanstack/react-router`). Public-domain dedication.
-- `MIT AND ISC`: `victory-vendor` (via `recharts`). Both MIT and ISC are already allowed; the checker matches the whole SPDX expression, so the conjunction is listed too.
+
+`victory-vendor` (via `recharts`) is `MIT AND ISC`. Both identifiers are already allowed, so the conjunction is not on the allow-list.
 
 ## Keeping this current
 
-There is no CI, so run `npm run deps:check` before a release or after touching dependencies.
-It runs `scripts/deps-check.mjs` and exits non-zero on problems:
+`.github/workflows/ci.yml` runs `npm run deps:check` and `npm run licenses:check` on every pull request and every push to `main`.
+`npm run deps:check` runs `scripts/deps-check.mjs` and exits non-zero on problems:
 
 1. `npm outdated`: lists each update as patch, minor, major or prerelease. In-range patch and minor updates are a warning; `--strict` makes them a failure.
 2. Lockfile: v2 or later, every entry has `integrity` and resolves from `registry.npmjs.org`, the root entry matches `package.json`, and `npm ls --all` is clean.
-3. GitHub Actions: every `uses:` under `.github/workflows` must be pinned to a 40-character commit SHA with a `# vX.Y.Z` comment. There are no workflows yet.
+3. GitHub Actions: every `uses:` under `.github/workflows` must be pinned to a 40-character commit SHA with a `# vX.Y.Z` comment.
 4. This file: every direct dependency and listed transitive matches its locked version.
 
 The outdated step needs network access.

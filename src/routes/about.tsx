@@ -50,15 +50,15 @@ function AboutPage() {
         <GitHubLink href={`${REPO}/blob/main/LICENSE`} label="LICENSE">
           LICENSE
         </GitHubLink>
-        <GitHubLink href={`${REPO}/blob/main/THIRD-PARTY.md`} label="Third-party notices">
+        <GitHubLink href={`${REPO}/blob/main/THIRD-PARTY.md`} label="THIRD-PARTY.md">
           THIRD-PARTY.md
         </GitHubLink>
       </Band>
 
       <Band title="Credits">
         <p>
-          Illustrations: <span className="font-medium text-fg">Created with Grok</span>{" "}
-          (AI-generated).
+          Illustrations and app icon:{" "}
+          <span className="font-medium text-fg">Created with Grok</span> (AI-generated).
         </p>
         <p>Fonts: Figtree and Fraunces (OFL-1.1).</p>
         <p>Icons: Lucide (ISC).</p>

@@ -21,13 +21,25 @@ test("me links to about", () => {
   assert.match(me, /to="\/about"/);
 });
 
-test("THIRD-PARTY.md names every scene image and og.jpg", () => {
+test("THIRD-PARTY.md names scenes, og.jpg, and the app mark", () => {
   const md = readFileSync(join(root, "THIRD-PARTY.md"), "utf8");
   const scenes = readdirSync(join(root, "public/scenes")).filter((f) => f.endsWith(".jpg"));
   assert.ok(scenes.length >= 20, String(scenes.length));
-  const missing = scenes.filter((file) => !md.includes(`public/scenes/${file}`));
-  assert.deepEqual(missing, []);
-  assert.ok(md.includes("public/og.jpg"));
+  const icons = readdirSync(join(root, "public"))
+    .filter((f) => f.startsWith("icon-") && f.endsWith(".png"))
+    .map((f) => `public/${f}`);
+  const paths = [
+    "public/og.jpg",
+    "public/favicon.svg",
+    "src/components/azulejo-mark.tsx",
+    ...scenes.map((f) => `public/scenes/${f}`),
+    ...icons,
+  ];
+  assert.ok(icons.length >= 4, String(icons.length));
+  assert.deepEqual(
+    paths.filter((p) => !md.includes(p)),
+    [],
+  );
 });
 
 test(

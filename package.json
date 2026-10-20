@@ -19,7 +19,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "deps:check": "node scripts/deps-check.mjs",
-    "licenses:check": "license-checker-rseidelsohn --production --summary --onlyAllow \"MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;OFL-1.1;MPL-2.0;0BSD;BlueOak-1.0.0;CC0-1.0;Python-2.0;MIT OR Apache-2.0;CC-BY-4.0;Unlicense;MIT AND ISC\""
+    "licenses:check": "license-checker-rseidelsohn --production --summary --onlyAllow \"MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;OFL-1.1;MPL-2.0;0BSD;BlueOak-1.0.0;CC0-1.0;Python-2.0;MIT OR Apache-2.0;CC-BY-4.0;Unlicense\""
   },
   "engines": {
     "node": ">=22 <23"

@@ -6,10 +6,11 @@ on:
   push:
     branches: [main]
 
-# Test-only, so cancelling a superseded run is safe.
+# A newer push cancels an older PR run, but runs on main are never cancelled
+# (each main push's CI run drives the staging deploy via workflow_run).
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # No secrets here: this runs on pull requests.
 permissions:

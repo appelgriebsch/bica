@@ -305,10 +305,10 @@ test("#62: document share tags survive and stay on this stage's host", { skip },
     assert.equal(one("x:game:image:height"), "264", host);
     assert.equal(one("og:type"), "website", host);
     for (const [key, values] of meta) {
-      if (/^(?:og:|twitter:|x:game:)/.test(key)) assert.equal(values.length, 1, `${host} ${key}`);
-    }
-    for (const [key, values] of meta) {
       if (!/^(?:og:|twitter:|x:game:)/.test(key)) continue;
+      // ponytail: a legitimately repeated OGP key (a second og:image, og:locale:alternate)
+      // fails here on purpose; allowing one would need an allow-list.
+      assert.equal(values.length, 1, `${host} ${key}`);
       for (const content of values) assert.equal(content.includes(other), false, `${host} ${key}`);
     }
   }

@@ -713,6 +713,18 @@ test("#42 W1: PUBLIC_HOSTNAME equals TURNSTILE_HOSTNAMES; the build takes no pub
   assert.equal(grep.stdout, "");
 });
 
+test("#61: CI build:cf sets PUBLIC_HOSTNAME in a step env, nowhere else in ci.yml", () => {
+  const step = ci.match(
+    /- run: npm run build:cf\n {8}env:\n(?: {10}#[^\n]*\n)* {10}PUBLIC_HOSTNAME: (\S+)\n/,
+  );
+  assert.ok(step, "step-level env directly under build:cf");
+  assert.ok(
+    ["bica.appelgriebsch.org", "bica-staging.appelgriebsch.workers.dev"].includes(step[1]),
+    step[1],
+  );
+  assert.equal(ci.match(/PUBLIC_HOSTNAME/g).length, 1);
+});
+
 test("#8: CI dry-runs the production env without a token", () => {
   assert.match(ci, /run: npx wrangler deploy --dry-run --env production --config wrangler\.toml/);
 });

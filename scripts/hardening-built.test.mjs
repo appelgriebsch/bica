@@ -264,6 +264,53 @@ test(
   },
 );
 
+function shareMeta(html) {
+  const byKey = new Map();
+  for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
+    const key = tag.match(/\b(?:property|name)\s*=\s*["']([^"']+)["']/i)?.[1]?.toLowerCase();
+    if (!key) continue;
+    const content = tag.match(/\bcontent\s*=\s*["']([^"']*)["']/i)?.[1] ?? "";
+    const list = byKey.get(key);
+    if (list) list.push(content);
+    else byKey.set(key, [content]);
+  }
+  return byKey;
+}
+
+test("#62: document share tags survive and stay on this stage's host", { skip }, async () => {
+  for (const [origin, host, other] of [
+    [base, HOST, PROD_HOST],
+    [prodBase, PROD_HOST, HOST],
+  ]) {
+    const page = await httpGet(`${origin}/`, { host, accept: "text/html" });
+    assert.equal(page.status, 200, host);
+    const meta = shareMeta(page.body);
+    const one = (key) => {
+      const values = meta.get(key) ?? [];
+      assert.equal(values.length, 1, `${host} ${key}`);
+      return values[0];
+    };
+    assert.equal(one("twitter:card"), "summary_large_image", host);
+    assert.equal(one("twitter:title"), "Bica", host);
+    const image = one("twitter:image");
+    assert.equal(image, `https://${host}/og.jpg`, host);
+    assert.equal(one("og:image"), image, host);
+    assert.ok(
+      one("x:game:image")
+        .replaceAll("&amp;", "&")
+        .startsWith(`https://og.grok.me/v1/banner.png?host=${host}`),
+      host,
+    );
+    assert.equal(one("x:game:image:width"), "1200", host);
+    assert.equal(one("x:game:image:height"), "264", host);
+    assert.equal(one("og:type"), "website", host);
+    for (const [key, values] of meta) {
+      if (!/^(?:og:|twitter:|x:game:)/.test(key)) continue;
+      for (const content of values) assert.equal(content.includes(other), false, `${host} ${key}`);
+    }
+  }
+});
+
 test("#51 W-1: the precached shell bakes no public host", { skip }, () => {
   const shell = readFileSync(join(root, buildOutput().publicDir, "_shell"), "utf8");
   assert.equal(shell.includes('property="og:image"'), false);

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { execFile, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
-import { existsSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { activePreset, buildOutput } from "./build-output.mjs";
@@ -21,6 +22,16 @@ function job(name) {
   const from = start + 1;
   const rel = deploy.slice(from).search(/^ {2}\S/m);
   return deploy.slice(start, rel < 0 ? undefined : from + rel);
+}
+
+function step(jobName, stepName) {
+  const text = job(jobName);
+  const marker = `- name: ${stepName}\n`;
+  const start = text.indexOf(marker);
+  assert.ok(start >= 0, `${jobName} / ${stepName}`);
+  const rest = text.slice(start + marker.length);
+  const rel = rest.search(/\n {6}- /);
+  return text.slice(start, rel < 0 ? undefined : start + marker.length + rel);
 }
 
 test("#17: default build is the Cloudflare Nitro build", () => {
@@ -252,7 +263,10 @@ test("deploy runs only after green CI for a push to main, on exactly that sha", 
   assert.match(build, /\[ "\$EVENT_NAME" = workflow_dispatch \]/);
   assert.match(build, /check-runs\?check_name=CI/);
   assert.match(build, /test "\$conclusion" = success/);
-  assert.ok(build.indexOf("check-runs?check_name=CI") < build.indexOf("actions/checkout@"));
+  assert.ok(
+    build.indexOf("check-runs?check_name=CI") <
+      build.indexOf("ref: ${{ steps.resolve.outputs.sha }}"),
+  );
   assert.match(build, /checks: read/);
   assert.doesNotMatch(
     deploy,
@@ -342,6 +356,10 @@ test("#52: Cloudflare secrets only in wrangler steps of staging and production",
     }
   }
   assert.deepEqual(names, ["Deploy bica-staging", "Record live version", "Deploy bica-production"]);
+  assert.doesNotMatch(deploy, /^ {4}env:/m);
+  const secretLines = deploy.split("\n").filter((l) => l.includes("secrets."));
+  assert.ok(secretLines.length > 0);
+  for (const line of secretLines) assert.match(line, /^ {10}CLOUDFLARE_/, line);
 });
 
 test("health check curl has a per-request timeout", () => {
@@ -577,10 +595,11 @@ test("#52: tip of main is checked before each deploy and again after wrangler in
     const at = text.indexOf('wrangler.js" deploy --env');
     assert.ok(at > 0, name);
     assert.ok(
-      text.indexOf("git fetch --no-tags origin main") < text.indexOf("Install pinned wrangler"),
+      text.indexOf("git fetch --no-tags origin main") <
+        text.indexOf("Install wrangler from the lockfile"),
     );
     const stepAt = text.indexOf("- name: Deploy bica-");
-    assert.ok(text.indexOf("Install pinned wrangler") < stepAt && stepAt < at, name);
+    assert.ok(text.indexOf("Install wrangler from the lockfile") < stepAt && stepAt < at, name);
     assert.match(text.slice(stepAt, at), /git fetch --no-tags origin main/);
     assert.match(text.slice(stepAt, at), /git rev-parse origin\/main/);
   }
@@ -599,24 +618,33 @@ test("#52: one bica-worker artifact, 30 days, digest checked in every job", () =
   }
   assert.match(job("staging"), /DIGEST: \$\{\{ needs\.build\.outputs\.digest \}\}/);
   assert.match(job("production"), /DIGEST: \$\{\{ needs\.build\.outputs\.digest \}\}/);
-  assert.match(job("staging"), /\[ "\$digest" = "\$DIGEST" \]/);
-  assert.match(job("production"), /\[ "\$digest" = "\$DIGEST" \]/);
+  assert.match(job("staging"), /\[ "\$digest" != "\$DIGEST" \]/);
+  assert.match(job("production"), /\[ "\$digest" != "\$DIGEST" \]/);
 });
 
-test("#52: wrangler is pinned outside the checkout; no npx wrangler deploy", () => {
+test("#52: wrangler comes from the lockfile; no npx wrangler deploy", () => {
   for (const name of ["staging", "production"]) {
+    const text = job(name);
+    assert.match(text, /npm ci --ignore-scripts --no-audit --no-fund/);
     assert.match(
-      job(name),
+      text,
       /require\('\.\/package-lock\.json'\)\.packages\['node_modules\/wrangler'\]\.version/,
     );
-    assert.match(job(name), /npm install --prefix "\$RUNNER_TEMP\/wrangler"/);
+    assert.match(text, /node "\$GITHUB_WORKSPACE\/node_modules\/wrangler\/bin\/wrangler\.js"/);
   }
+  assert.doesNotMatch(deploy, /wrangler@/);
+  assert.doesNotMatch(deploy, /npm install --prefix/);
+  assert.doesNotMatch(deploy, /\$RUNNER_TEMP\/wrangler/);
   assert.doesNotMatch(deploy, /npx wrangler deploy\b/);
 });
 
 test("#52: artifact_run_id is an env var and never interpolated into a script", () => {
   assert.match(job("build"), /ARTIFACT_RUN_ID: \$\{\{ inputs\.artifact_run_id \}\}/);
-  assert.match(job("build"), /\^\[0-9\]\{1,20\}\$/);
+  assert.match(job("build"), /bash scripts\/resolve-redeploy\.sh/);
+  assert.match(
+    readFileSync(join(root, "scripts/resolve-redeploy.sh"), "utf8"),
+    /\^\[0-9\]\{1,20\}\$/,
+  );
   const runs = deploy.split(/\n {6}run: \|\n/).slice(1);
   for (const block of runs) assert.doesNotMatch(block.split(/\n {6}\S/)[0], /\$\{\{ inputs\./);
   for (const line of deploy.split("\n")) {
@@ -638,6 +666,8 @@ test("#60: smoke-health.sh keeps the last body and reports it", () => {
   assert.match(smokeHealth, /attempts=\$\{SMOKE_ATTEMPTS:-12\}/);
   assert.match(smokeHealth, /pause=\$\{SMOKE_SLEEP:-5\}/);
   assert.match(smokeHealth, /curl -fsS --max-time 10/);
+  assert.match(smokeHealth, /^set -euo pipefail$/m);
+  assert.match(smokeHealth, /test "\$\(jq -r \.ok <<<"\$body"\)" = true$/m);
 });
 
 test(
@@ -727,8 +757,19 @@ test("#17: docs: wrangler-only rollback, no Vercel fallback; env protection and 
   const sec = (h) => docs.slice(docs.indexOf(h), docs.indexOf("\n### ", docs.indexOf(h) + 1) >>> 0);
   const rb = sec("### Rollback");
   assert.match(rb, /wrangler rollback --env production/);
-  assert.match(rb, /code only/);
+  assert.match(rb, /not only code/);
+  assert.match(rb, /Data in Durable Objects is not rolled back/);
+  assert.match(rb, /v1-chat-budget/);
+  assert.match(rb, /versions view <id> --env production/);
+  assert.match(rb, /git diff <sha> main -- wrangler\.toml/);
+  assert.match(rb, /Only Worker secrets stay as they are now/);
+  assert.doesNotMatch(rb, /code only/);
   assert.match(rb, /no Vercel fallback/i);
+  const adr = readFileSync(join(root, "docs/adr/0003-production-workers.md"), "utf8");
+  assert.match(adr, /not only code/);
+  assert.match(adr, /30 days/);
+  assert.doesNotMatch(adr, /code only/);
+  assert.doesNotMatch(readFileSync(join(root, "README.md"), "utf8"), /code only/);
   assert.doesNotMatch(rb, /CNAME|Detach|Recreate/);
   assert.match(docs, /must have \*\*both\*\*/);
   assert.match(docs, /\*\*`main` only\*\*/);
@@ -880,3 +921,163 @@ test("#61: CI build:cf sets PUBLIC_HOSTNAME in a step env, nowhere else in ci.ym
 test("#8: CI dry-runs the production env without a token", () => {
   assert.match(ci, /run: npx wrangler deploy --dry-run --env production --config wrangler\.toml/);
 });
+
+test("#67 W-2: tip and digest guards fail with ::error:: and exit 1", () => {
+  const bodies = (text) =>
+    [...text.matchAll(/if \[ "\$SHA" != "\$tip" \]; then\n([\s\S]*?)\n *fi/g)].map((m) => m[1]);
+  for (const name of ["staging", "production"]) {
+    const tip = step(name, "This SHA is still the tip of main");
+    const dep = step(name, name === "staging" ? "Deploy bica-staging" : "Deploy bica-production");
+    for (const block of [tip, dep]) {
+      const found = bodies(block);
+      assert.equal(found.length, 1, name);
+      const body = found[0];
+      assert.match(body, /echo "::error::[^\n]*"\n\s+exit 1/);
+      assert.doesNotMatch(body, /\|\| true/);
+      assert.doesNotMatch(body, /\btrue\b/);
+    }
+  }
+  for (const name of ["staging", "production"]) {
+    const st = step(name, "Verify artifact digest");
+    assert.doesNotMatch(st, /\|\| true/);
+    for (const cmp of ["DIGEST", "recorded"]) {
+      assert.match(
+        st,
+        new RegExp(
+          `if \\[ "\\$digest" != "\\$${cmp}" \\]; then\\n\\s+echo "::error::artifact digest[^\\n]*expected[^\\n]*got[^\\n]*"\\n\\s+exit 1`,
+        ),
+      );
+    }
+  }
+  const fetched = step("build", "Verify downloaded artifact");
+  assert.doesNotMatch(fetched, /\|\| true/);
+  assert.match(
+    fetched,
+    /if \[ "\$digest" != "\$recorded" \]; then\n\s+echo "::error::artifact digest[^\n]*expected[^\n]*got[^\n]*"\n\s+exit 1/,
+  );
+});
+
+test("#67 W-2: checkouts pin the ref and do not persist credentials", () => {
+  const build = job("build");
+  assert.match(build, /ref: \$\{\{ steps\.resolve\.outputs\.sha \}\}/);
+  assert.match(build, /HEAD_SHA: \$\{\{ github\.event\.workflow_run\.head_sha \}\}/);
+  assert.match(build, /sha=\$HEAD_SHA/);
+  assert.match(job("staging"), /ref: \$\{\{ github\.sha \}\}/);
+  assert.match(job("production"), /ref: \$\{\{ github\.sha \}\}/);
+  const steps =
+    deploy.match(
+      /- (?:if:[^\n]*\n {8})?uses: actions\/checkout@[0-9a-f]{40}[\s\S]*?(?=\n {6}- )/g,
+    ) ?? [];
+  assert.equal(steps.length, (deploy.match(/uses: actions\/checkout@/g) ?? []).length);
+  assert.equal(steps.length, 4);
+  for (const s of steps) assert.match(s, /persist-credentials: false/);
+});
+
+test(
+  "#67 W-2: resolve-redeploy.sh failure behaviour",
+  { skip: spawnSync("bash", ["-c", "command -v jq >/dev/null"]).status !== 0 },
+  () => {
+    const dir = mkdtempSync(join(tmpdir(), "redeploy-"));
+    const log = join(dir, "calls");
+    const outFile = join(dir, "github_output");
+    const gh = join(dir, "gh");
+    writeFileSync(
+      gh,
+      `#!/bin/sh
+printf '%s\\n' "$*" >> ${JSON.stringify(log)}
+[ "\${1:-}" = api ] || exit 1
+case "\${2:-}" in
+  repos/o/r/actions/runs/*/artifacts) cat "\${STUB_ARTIFACTS}" ;;
+  repos/o/r/actions/runs/*) cat "\${STUB_RUN}" ;;
+  repos/o/r/compare/*...main) cat "\${STUB_COMPARE}" ;;
+  *) exit 1 ;;
+esac
+`,
+    );
+    chmodSync(gh, 0o755);
+    const sha = "a".repeat(40);
+    const sha2 = "b".repeat(40);
+    const baseRun = {
+      path: ".github/workflows/deploy.yml",
+      head_branch: "main",
+      repository: { full_name: "o/r" },
+    };
+    const one = (name, expired = false) => ({ artifacts: [{ name, expired }] });
+    const run = (id, files = {}) => {
+      writeFileSync(log, "");
+      writeFileSync(outFile, "");
+      const paths = {};
+      for (const [key, value] of Object.entries(files)) {
+        const p = join(dir, `${key}.json`);
+        writeFileSync(p, JSON.stringify(value));
+        paths[key] = p;
+      }
+      const r = spawnSync("bash", ["scripts/resolve-redeploy.sh"], {
+        cwd: root,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${dir}:${process.env.PATH}`,
+          ARTIFACT_RUN_ID: id,
+          REPOSITORY: "o/r",
+          GITHUB_OUTPUT: outFile,
+          GH_TOKEN: "test",
+          STUB_RUN: paths.run ?? "",
+          STUB_ARTIFACTS: paths.artifacts ?? "",
+          STUB_COMPARE: paths.compare ?? "",
+        },
+      });
+      return {
+        status: r.status,
+        stdout: r.stdout ?? "",
+        stderr: r.stderr ?? "",
+        output: readFileSync(outFile, "utf8"),
+        calls: readFileSync(log, "utf8"),
+      };
+    };
+    const fail = (id, files = {}) => {
+      const r = run(id, files);
+      assert.equal(r.status, 1, `${id}\n${r.stdout}${r.stderr}`);
+      assert.match(r.stdout + r.stderr, /::error::/);
+      return r;
+    };
+    try {
+      const src = readFileSync(join(root, "scripts/resolve-redeploy.sh"), "utf8");
+      assert.doesNotMatch(src, /--jq/);
+      for (const id of ["12a", "$(id)"]) {
+        const r = fail(id);
+        assert.equal(r.calls, "", id);
+      }
+      fail("42", { run: { ...baseRun, path: "nope.yml" } });
+      fail("42", { run: { ...baseRun, head_branch: "dev" } });
+      fail("42", { run: { ...baseRun, repository: { full_name: "e/r" } } });
+      const none = fail("42", { run: baseRun, artifacts: { artifacts: [] } });
+      assert.match(none.stdout, /30 days/);
+      fail("42", {
+        run: baseRun,
+        artifacts: {
+          artifacts: [
+            { name: `bica-worker-${sha}`, expired: false },
+            { name: `bica-worker-${sha2}`, expired: false },
+          ],
+        },
+      });
+      fail("42", { run: baseRun, artifacts: one(`bica-worker-${sha}`, true) });
+      fail("42", { run: baseRun, artifacts: one("not-a-worker") });
+      const good = one(`bica-worker-${sha}`);
+      for (const status of ["behind", "diverged"]) {
+        fail("42", { run: baseRun, artifacts: good, compare: { status } });
+      }
+      for (const status of ["ahead", "identical"]) {
+        const r = run("42", { run: baseRun, artifacts: good, compare: { status } });
+        assert.equal(r.status, 0, r.stdout + r.stderr);
+        assert.match(r.output, /^mode=redeploy$/m);
+        assert.match(r.output, new RegExp(`^sha=${sha}$`, "m"));
+        assert.match(r.output, new RegExp(`^artifact=bica-worker-${sha}$`, "m"));
+        assert.match(r.output, /^run_id=42$/m);
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);

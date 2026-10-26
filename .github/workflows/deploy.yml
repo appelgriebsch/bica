@@ -51,6 +51,12 @@ jobs:
       digest: ${{ steps.pack.outputs.digest || steps.fetch.outputs.digest }}
       mode: ${{ steps.resolve.outputs.mode }}
     steps:
+      # The workflow's own revision, for the script.
+      - if: inputs.artifact_run_id != ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - name: Resolve what to deploy
         id: resolve
         env:
@@ -62,34 +68,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           if [ -n "${ARTIFACT_RUN_ID}" ]; then
-            mode=redeploy
-            if ! [[ "$ARTIFACT_RUN_ID" =~ ^[0-9]{1,20}$ ]]; then
-              echo "::error::artifact_run_id must match ^[0-9]{1,20}$"
-              exit 1
-            fi
-            meta=$(gh api "repos/$REPOSITORY/actions/runs/$ARTIFACT_RUN_ID")
-            path=$(jq -r .path <<<"$meta")
-            branch=$(jq -r .head_branch <<<"$meta")
-            full=$(jq -r .repository.full_name <<<"$meta")
-            if [ "$path" != ".github/workflows/deploy.yml" ] || [ "$branch" != main ] || [ "$full" != "$REPOSITORY" ]; then
-              echo "::error::run $ARTIFACT_RUN_ID is not a Deploy run on main of $REPOSITORY (path=$path branch=$branch repo=$full)"
-              exit 1
-            fi
-            arts=$(gh api "repos/$REPOSITORY/actions/runs/$ARTIFACT_RUN_ID/artifacts")
-            names=$(jq -r '.artifacts[] | select(.expired | not) | .name | select(test("^bica-worker-[0-9a-f]{40}$"))' <<<"$arts")
-            count=$(grep -c . <<<"$names" || true)
-            if [ "$count" != 1 ]; then
-              echo "::error::expected exactly one non-expired bica-worker-<sha> artifact on run $ARTIFACT_RUN_ID (retention is 30 days); found $count"
-              exit 1
-            fi
-            artifact=$names
-            sha=${artifact#bica-worker-}
-            run_id=$ARTIFACT_RUN_ID
-            status=$(gh api "repos/$REPOSITORY/compare/${sha}...main" --jq .status) || status=error
-            if [ "$status" != identical ] && [ "$status" != ahead ]; then
-              echo "::error::$sha is not on main's history (compare status=$status)"
-              exit 1
-            fi
+            bash scripts/resolve-redeploy.sh
           else
             mode=release
             if [ "$EVENT_NAME" = workflow_run ]; then
@@ -111,22 +90,23 @@ jobs:
             fi
             artifact=bica-worker-$sha
             run_id=$GITHUB_RUN_ID
+            if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::sha must match ^[0-9a-f]{40}$, got $sha"
+              exit 1
+            fi
+            {
+              echo "mode=$mode"
+              echo "sha=$sha"
+              echo "artifact=$artifact"
+              echo "run_id=$run_id"
+            } >> "$GITHUB_OUTPUT"
           fi
-          if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::sha must match ^[0-9a-f]{40}$, got $sha"
-            exit 1
-          fi
-          {
-            echo "mode=$mode"
-            echo "sha=$sha"
-            echo "artifact=$artifact"
-            echo "run_id=$run_id"
-          } >> "$GITHUB_OUTPUT"
 
       - if: steps.resolve.outputs.mode == 'release'
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ steps.resolve.outputs.sha }}
+          persist-credentials: false
       - if: steps.resolve.outputs.mode == 'release'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -172,7 +152,10 @@ jobs:
           file="$RUNNER_TEMP/release/bica-worker.tar.gz"
           digest=$(sha256sum "$file" | awk '{print $1}')
           recorded=$(tr -d '[:space:]' < "$file.sha256")
-          [ "$digest" = "$recorded" ]
+          if [ "$digest" != "$recorded" ]; then
+            echo "::error::artifact digest mismatch: expected $recorded got $digest"
+            exit 1
+          fi
           echo "artifact sha256: $digest"
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
@@ -195,6 +178,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.sha }}
+          persist-credentials: false
       - name: This SHA is still the tip of main
         id: tip
         env:
@@ -207,11 +191,12 @@ jobs:
           if [ "$MODE" = redeploy ]; then
             echo "current=redeploy" >> "$GITHUB_OUTPUT"
             echo "Rollback redeploy of $SHA; tip check skipped (already on main's history)."
-          elif [ "$SHA" != "$tip" ]; then
-            echo "current=false" >> "$GITHUB_OUTPUT"
-            echo "Refusing staging deploy. $SHA is not origin/main $tip"
-            exit 1
           else
+            if [ "$SHA" != "$tip" ]; then
+              echo "current=false" >> "$GITHUB_OUTPUT"
+              echo "::error::Refusing staging deploy. $SHA is not origin/main $tip"
+              exit 1
+            fi
             echo "current=true" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -227,8 +212,14 @@ jobs:
           file="$RUNNER_TEMP/release/bica-worker.tar.gz"
           digest=$(sha256sum "$file" | awk '{print $1}')
           recorded=$(tr -d '[:space:]' < "$file.sha256")
-          [ "$digest" = "$DIGEST" ]
-          [ "$digest" = "$recorded" ]
+          if [ "$digest" != "$DIGEST" ]; then
+            echo "::error::artifact digest mismatch: expected $DIGEST got $digest"
+            exit 1
+          fi
+          if [ "$digest" != "$recorded" ]; then
+            echo "::error::artifact digest mismatch: expected $recorded got $digest"
+            exit 1
+          fi
           echo "artifact sha256: $digest"
           mkdir -p "$RUNNER_TEMP/release/worker"
           tar -xzf "$file" -C "$RUNNER_TEMP/release/worker"
@@ -236,11 +227,15 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
-      - name: Install pinned wrangler
+          cache: npm
+      # Lockfile + overrides (#54 undici) and integrity hashes apply.
+      # --ignore-scripts runs no lifecycle scripts on a runner that later holds
+      # the Cloudflare token; wrangler deploys a prebuilt bundle (no_bundle), so it needs none.
+      - name: Install wrangler from the lockfile
         run: |
+          npm ci --ignore-scripts --no-audit --no-fund
           version=$(node -p "require('./package-lock.json').packages['node_modules/wrangler'].version")
-          npm install --prefix "$RUNNER_TEMP/wrangler" --no-fund --no-audit "wrangler@$version"
-          got=$(node "$RUNNER_TEMP/wrangler/node_modules/wrangler/bin/wrangler.js" --version)
+          got=$(node node_modules/wrangler/bin/wrangler.js --version)
           echo "$got"
           case "$got" in
             *"$version"*) ;;
@@ -258,12 +253,12 @@ jobs:
             git fetch --no-tags origin main
             tip=$(git rev-parse origin/main)
             if [ "$SHA" != "$tip" ]; then
-              echo "Refusing staging deploy. $SHA is not origin/main $tip"
+              echo "::error::Refusing staging deploy. $SHA is not origin/main $tip"
               exit 1
             fi
           fi
           cd "$RUNNER_TEMP/release/worker"
-          node "$RUNNER_TEMP/wrangler/node_modules/wrangler/bin/wrangler.js" deploy --env staging --config wrangler.toml | tee "$RUNNER_TEMP/deploy.log"
+          node "$GITHUB_WORKSPACE/node_modules/wrangler/bin/wrangler.js" deploy --env staging --config wrangler.toml | tee "$RUNNER_TEMP/deploy.log"
           echo "uploaded=true" >> "$GITHUB_OUTPUT"
       - name: Smoke /api/health
         env:
@@ -372,6 +367,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.sha }}
+          persist-credentials: false
       - name: This SHA is still the tip of main
         id: tip
         env:
@@ -384,11 +380,12 @@ jobs:
           if [ "$MODE" = redeploy ]; then
             echo "current=redeploy" >> "$GITHUB_OUTPUT"
             echo "Rollback redeploy of $SHA; tip check skipped (already on main's history)."
-          elif [ "$SHA" != "$tip" ]; then
-            echo "current=false" >> "$GITHUB_OUTPUT"
-            echo "Not published. Production unchanged. $SHA is not origin/main $tip"
-            exit 1
           else
+            if [ "$SHA" != "$tip" ]; then
+              echo "current=false" >> "$GITHUB_OUTPUT"
+              echo "::error::Not published. Production unchanged. $SHA is not origin/main $tip"
+              exit 1
+            fi
             echo "current=true" >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -404,8 +401,14 @@ jobs:
           file="$RUNNER_TEMP/release/bica-worker.tar.gz"
           digest=$(sha256sum "$file" | awk '{print $1}')
           recorded=$(tr -d '[:space:]' < "$file.sha256")
-          [ "$digest" = "$DIGEST" ]
-          [ "$digest" = "$recorded" ]
+          if [ "$digest" != "$DIGEST" ]; then
+            echo "::error::artifact digest mismatch: expected $DIGEST got $digest"
+            exit 1
+          fi
+          if [ "$digest" != "$recorded" ]; then
+            echo "::error::artifact digest mismatch: expected $recorded got $digest"
+            exit 1
+          fi
           echo "artifact sha256: $digest"
           mkdir -p "$RUNNER_TEMP/release/worker"
           tar -xzf "$file" -C "$RUNNER_TEMP/release/worker"
@@ -413,11 +416,15 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
-      - name: Install pinned wrangler
+          cache: npm
+      # Lockfile + overrides (#54 undici) and integrity hashes apply.
+      # --ignore-scripts runs no lifecycle scripts on a runner that later holds
+      # the Cloudflare token; wrangler deploys a prebuilt bundle (no_bundle), so it needs none.
+      - name: Install wrangler from the lockfile
         run: |
+          npm ci --ignore-scripts --no-audit --no-fund
           version=$(node -p "require('./package-lock.json').packages['node_modules/wrangler'].version")
-          npm install --prefix "$RUNNER_TEMP/wrangler" --no-fund --no-audit "wrangler@$version"
-          got=$(node "$RUNNER_TEMP/wrangler/node_modules/wrangler/bin/wrangler.js" --version)
+          got=$(node node_modules/wrangler/bin/wrangler.js --version)
           echo "$got"
           case "$got" in
             *"$version"*) ;;
@@ -431,7 +438,7 @@ jobs:
         run: |
           previous=$(
             cd "$RUNNER_TEMP/release/worker" &&
-            node "$RUNNER_TEMP/wrangler/node_modules/wrangler/bin/wrangler.js" deployments list --env production --json |
+            node "$GITHUB_WORKSPACE/node_modules/wrangler/bin/wrangler.js" deployments list --env production --json |
             jq -r 'sort_by(.created_on) | last | .versions[0].version_id // empty'
           ) || true
           echo "previous=${previous:-}" >> "$GITHUB_OUTPUT"
@@ -447,13 +454,13 @@ jobs:
             git fetch --no-tags origin main
             tip=$(git rev-parse origin/main)
             if [ "$SHA" != "$tip" ]; then
-              echo "Not published. Production unchanged."
+              echo "::error::Not published. Production unchanged."
               exit 1
             fi
           fi
           echo "attempted=true" >> "$GITHUB_OUTPUT"
           cd "$RUNNER_TEMP/release/worker"
-          node "$RUNNER_TEMP/wrangler/node_modules/wrangler/bin/wrangler.js" deploy --env production --config wrangler.toml | tee "$RUNNER_TEMP/deploy.log"
+          node "$GITHUB_WORKSPACE/node_modules/wrangler/bin/wrangler.js" deploy --env production --config wrangler.toml | tee "$RUNNER_TEMP/deploy.log"
           echo "uploaded=true" >> "$GITHUB_OUTPUT"
       # The custom domain can lag behind `wrangler deploy`: DNS may not resolve
       # yet (exit code 6) and / can answer 500 while it warms up (run

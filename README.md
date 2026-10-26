@@ -54,7 +54,7 @@ The top level is inert: without `--env` there is no route and no stage, so `/api
 
 `.github/workflows/deploy.yml` builds once after green CI on `main`, deploys that artifact to staging, smoke-checks `/api/health` and the security headers, then after approval in the `production` environment promotes the same artifact.
 
-- **Rollback:** `npx wrangler rollback --env production` (code only, not vars or secrets), or re-run Deploy on `main` with `artifact_run_id`. See [docs/cloudflare-workers.md](docs/cloudflare-workers.md) § Rollback.
+- **Rollback:** `npx wrangler rollback --env production` re-activates an earlier version (code, assets, vars, bindings and compatibility settings; Durable Object data stays). Or re-run Deploy on `main` with `artifact_run_id` (that commit's `wrangler.toml` too; secrets stay). See [docs/cloudflare-workers.md](docs/cloudflare-workers.md) § Rollback.
 
 More: [docs/cloudflare-workers.md](docs/cloudflare-workers.md) and the ADRs in [docs/adr/](docs/adr/).
 

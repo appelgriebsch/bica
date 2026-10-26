@@ -52,9 +52,9 @@ The top level is inert: without `--env` there is no route and no stage, so `/api
 
 ### Deploy
 
-- **Staging:** `.github/workflows/deploy-staging.yml` runs via `workflow_run` after green CI on `main`, then smoke-checks `/api/health` and the security headers.
-- **Production:** `.github/workflows/deploy-production.yml` runs only by hand (`workflow_dispatch`). It gates on green CI for the commit, waits for approval in the `production` environment (required reviewer), deploys, then smoke-checks the site.
-- **Rollback:** `npx wrangler rollback --env production`. It rolls back code only, not vars or secrets. See [docs/cloudflare-workers.md](docs/cloudflare-workers.md) § Rollback.
+`.github/workflows/deploy.yml` builds once after green CI on `main`, deploys that artifact to staging, smoke-checks `/api/health` and the security headers, then after approval in the `production` environment promotes the same artifact.
+
+- **Rollback:** `npx wrangler rollback --env production` (code only, not vars or secrets), or re-run Deploy on `main` with `artifact_run_id`. See [docs/cloudflare-workers.md](docs/cloudflare-workers.md) § Rollback.
 
 More: [docs/cloudflare-workers.md](docs/cloudflare-workers.md) and the ADRs in [docs/adr/](docs/adr/).
 

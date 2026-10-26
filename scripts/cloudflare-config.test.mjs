@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { execFile, spawnSync } from "node:child_process";
+import { createServer } from "node:http";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { activePreset, buildOutput } from "./build-output.mjs";
@@ -10,8 +11,17 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const viteConfig = readFileSync(join(root, "vite.config.ts"), "utf8");
 const wrangler = readFileSync(join(root, "wrangler.toml"), "utf8");
-const workflow = readFileSync(join(root, ".github/workflows/deploy-staging.yml"), "utf8");
+const deploy = readFileSync(join(root, ".github/workflows/deploy.yml"), "utf8");
 const ci = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
+const smokeHealth = readFileSync(join(root, "scripts/smoke-health.sh"), "utf8");
+
+function job(name) {
+  const start = deploy.search(new RegExp(`^  ${name}:$`, "m"));
+  assert.ok(start >= 0, name);
+  const from = start + 1;
+  const rel = deploy.slice(from).search(/^ {2}\S/m);
+  return deploy.slice(start, rel < 0 ? undefined : from + rel);
+}
 
 test("#17: default build is the Cloudflare Nitro build", () => {
   const cf =
@@ -34,19 +44,19 @@ test("deploy scripts always target the staging environment", () => {
   );
   assert.equal(pkg.scripts.deploy, undefined);
   assert.match(
-    workflow,
+    deploy,
     /^on:\n {2}workflow_run:\n {4}workflows: \[CI\]\n {4}types: \[completed\]\n {4}branches: \[main\]\n {2}workflow_dispatch:\n/m,
   );
-  assert.doesNotMatch(workflow, /^ {2}push:/m);
-  assert.match(workflow, /timeout-minutes:\s*15\b/);
-  assert.match(workflow, /environment:\s*staging/);
-  assert.match(workflow, /actions\/checkout@[0-9a-f]{40}/);
-  assert.match(workflow, /actions\/setup-node@[0-9a-f]{40}/);
-  assert.doesNotMatch(workflow, /uses:\s*actions\/(?:checkout|setup-node)@v4\b/);
+  assert.doesNotMatch(deploy, /^ {2}push:/m);
+  assert.match(deploy, /timeout-minutes:\s*15\b/);
+  assert.match(job("staging"), /name: staging/);
+  assert.match(deploy, /actions\/checkout@[0-9a-f]{40}/);
+  assert.match(deploy, /actions\/setup-node@[0-9a-f]{40}/);
+  assert.doesNotMatch(deploy, /uses:\s*actions\/(?:checkout|setup-node)@v4\b/);
   // #33: no generated wrangler.ci.toml any more; the root config ships as is.
-  assert.doesNotMatch(workflow, /wrangler\.ci\.toml/);
-  assert.doesNotMatch(workflow, /cloudflare\/wrangler-action/);
-  assert.doesNotMatch(workflow, /pull_request/);
+  assert.doesNotMatch(deploy, /wrangler\.ci\.toml/);
+  assert.doesNotMatch(deploy, /cloudflare\/wrangler-action/);
+  assert.doesNotMatch(deploy, /pull_request/);
 });
 
 test("root wrangler config: top level inert, staging and production envs", () => {
@@ -80,42 +90,50 @@ test("build:cf precaches the Cloudflare output and never migrates", () => {
   assert.match(wrangler, new RegExp(`directory = "${cf.publicDir}"`));
 });
 
-test("one fixed concurrency group that never cancels a running deploy", () => {
-  assert.match(
-    workflow,
-    /^concurrency:\n {2}group: deploy-staging\n {2}cancel-in-progress: false$/m,
-  );
-  assert.doesNotMatch(workflow, /cancel-in-progress: true/);
-  assert.match(workflow, /shell: bash -euo pipefail \{0\}/);
+test("#52: job-level concurrency never cancels staging or production", () => {
+  for (const [name, group] of [
+    ["staging", "deploy-staging"],
+    ["production", "deploy-production"],
+  ]) {
+    assert.match(
+      job(name),
+      new RegExp(`concurrency:\\n {6}group: ${group}\\n {6}cancel-in-progress: false`),
+    );
+  }
+  assert.doesNotMatch(deploy, /cancel-in-progress: true/);
+  assert.match(deploy, /shell: bash -euo pipefail \{0\}/);
 });
 
-test("workflow checks, builds, deploys, then smokes", () => {
-  const at = (re) => workflow.search(re);
+test("#52: release build, then staging smoke, then production", () => {
+  const at = (re) => deploy.search(re);
   const order = [
-    /name: Require green CI \(manual runs\)/,
-    /ref: \$\{\{ github\.event\.workflow_run\.head_sha \|\| github\.sha \}\}/,
+    /id: resolve/,
+    /check-runs\?check_name=CI/,
     /run: npm ci/,
     /run: npm run build:cf/,
-    /run: npx wrangler deploy --env staging --config wrangler\.toml \| tee deploy\.log/,
-    /curl -fsS --max-time 10 "\$url\/api\/health"/,
+    /retention-days: 30/,
+    /name: Deploy bica-staging/,
+    /bash scripts\/smoke-health\.sh "\$url" staging "\$SHA"/,
+    /name: Deploy bica-production/,
+    /bash scripts\/smoke-health\.sh "\$url" production "\$SHA"/,
   ].map(at);
   assert.ok(
     order.every((i, n) => i > -1 && (n === 0 || i > order[n - 1])),
     String(order),
   );
-  assert.doesNotMatch(workflow, /DATABASE_URL/);
+  assert.doesNotMatch(deploy, /DATABASE_URL/);
   assert.equal(
     pkg.scripts["deploy:staging"],
     "npm run build:cf && wrangler deploy --env staging --config wrangler.toml",
   );
-  assert.match(workflow, /test "\$\(jq -r \.stage <<<"\$body"\)" = staging/);
+  assert.match(smokeHealth, /test "\$\(jq -r \.stage <<<"\$body"\)" = "\$stage"/);
 });
 
 test("#33: no D1 anywhere: no binding, no D1 steps, no provisioning", () => {
   assert.doesNotMatch(wrangler, /d1_databases/);
   assert.doesNotMatch(wrangler, /^binding = "DB"$/m);
   assert.doesNotMatch(wrangler, /BICA_STAGING_D1_ID|migrations_dir/);
-  assert.doesNotMatch(workflow, /\bd1\b|ci-d1-provision|migrations apply|wrangler\.ci\.toml/i);
+  assert.doesNotMatch(deploy, /\bd1\b|ci-d1-provision|migrations apply|wrangler\.ci\.toml/i);
   assert.doesNotMatch(pkg.scripts["deploy:staging"], /d1|migrations|ci-d1-provision/);
   assert.doesNotMatch(ci, /\bd1\b/i);
 });
@@ -182,7 +200,7 @@ test("#28: _headers /* carries every static security header, same values as the 
 });
 
 test("#28: staging smoke checks the security headers and a nonce CSP", () => {
-  const step = workflow.slice(workflow.indexOf("- name: Smoke security headers"));
+  const step = job("staging").slice(job("staging").indexOf("- name: Smoke security headers"));
   assert.match(step, /for path in \/ \/me/);
   for (const h of [
     "strict-transport-security",
@@ -196,9 +214,10 @@ test("#28: staging smoke checks the security headers and a nonce CSP", () => {
 });
 
 test("#31: header smoke retries HEAD+GET on / and /me, then fails loudly", () => {
-  const start = workflow.indexOf("- name: Smoke security headers");
-  const end = workflow.indexOf("\n      - ", start + 1);
-  const step = workflow.slice(start, end === -1 ? undefined : end);
+  const staging = job("staging");
+  const start = staging.indexOf("- name: Smoke security headers");
+  const end = staging.indexOf("\n      - ", start + 1);
+  const step = staging.slice(start, end === -1 ? undefined : end);
   assert.match(step, /\n {8}timeout-minutes: 3\n/);
   assert.match(step, /for path in \/ \/me; do/);
   assert.doesNotMatch(step, /\/login|\/api\/auth/); // #33: both 404 now
@@ -213,19 +232,13 @@ test("#31: header smoke retries HEAD+GET on / and /me, then fails loudly", () =>
 });
 
 test("#31: /api/health smoke fails with ::error:: when health never answers", () => {
-  const start = workflow.indexOf("- name: Smoke /api/health");
-  const step = workflow.slice(start, workflow.indexOf("- name: Smoke security headers"));
-  assert.match(
-    step,
-    /\[ -n "\$\{body:-\}" \] \|\| \{ echo "::error::[^"]*"; exit 1; \}\n {10}echo "\$body"/,
-  );
+  assert.match(smokeHealth, /echo "::error::\/api\/health never answered[^"]*"\n {2}exit 1/);
+  assert.match(smokeHealth, /\necho "\$body"\n/);
 });
 
 test("deploy runs only after green CI for a push to main, on exactly that sha", () => {
-  const guard = workflow.slice(
-    workflow.indexOf("    if: >-"),
-    workflow.indexOf("    environment: staging"),
-  );
+  const build = job("build");
+  const guard = build.slice(build.indexOf("    if: >-"), build.indexOf("    permissions:"));
   for (const cond of [
     "github.event_name == 'workflow_dispatch' &&\n       github.ref == 'refs/heads/main'",
     "github.event_name == 'workflow_run' &&",
@@ -236,15 +249,13 @@ test("deploy runs only after green CI for a push to main, on exactly that sha", 
   ]) {
     assert.ok(guard.includes(cond), `job guard lacks: ${cond}`);
   }
-  // A manual run checks the CI check run of its sha before anything else.
-  const manual = workflow.slice(workflow.indexOf("name: Require green CI"));
-  assert.match(manual, /^ {8}if: github\.event_name == 'workflow_dispatch'$/m);
-  assert.match(manual, /check-runs\?check_name=CI/);
-  assert.match(manual, /test "\$conclusion" = success/);
-  assert.ok(workflow.indexOf("name: Require green CI") < workflow.indexOf("actions/checkout@"));
-  assert.match(workflow, /^ {2}checks: read/m);
+  assert.match(build, /\[ "\$EVENT_NAME" = workflow_dispatch \]/);
+  assert.match(build, /check-runs\?check_name=CI/);
+  assert.match(build, /test "\$conclusion" = success/);
+  assert.ok(build.indexOf("check-runs?check_name=CI") < build.indexOf("actions/checkout@"));
+  assert.match(build, /checks: read/);
   assert.doesNotMatch(
-    workflow,
+    deploy,
     /run: .*(?:npm test|npm run lint|npm run typecheck|deps:check|BICA_BUILT)/,
   );
 });
@@ -296,7 +307,7 @@ test("Node 22 is pinned: .nvmrc, engines, engine-strict, both workflows", () => 
   const lock = JSON.parse(readFileSync(join(root, "package-lock.json"), "utf8"));
   assert.equal(lock.packages[""].engines?.node, pkg.engines.node);
   assert.match(readFileSync(join(root, ".npmrc"), "utf8"), /^engine-strict=true$/m);
-  for (const wf of [ci, workflow]) {
+  for (const wf of [ci, deploy]) {
     assert.match(wf, /node-version-file: \.nvmrc/);
     assert.doesNotMatch(wf, /node-version: /);
   }
@@ -310,34 +321,37 @@ test("tests never assign globalThis.navigator directly (getter-only since Node 2
   assert.equal(r.stdout, "", r.stdout);
 });
 
-test("Cloudflare secrets only in the deploy step", () => {
-  const job = workflow.slice(workflow.indexOf("\njobs:"));
-  assert.doesNotMatch(job.slice(0, job.indexOf("    steps:")), /CLOUDFLARE_/, "job-level env");
-  assert.doesNotMatch(workflow.slice(0, workflow.indexOf("\njobs:")), /CLOUDFLARE_/);
-  const steps = job
-    .slice(job.indexOf("    steps:"))
-    .split(/\n {6}- /)
-    .slice(1);
-  const withSecrets = steps
-    .filter((st) => /CLOUDFLARE_/.test(st))
-    .map((st) => st.match(/name: (.*)/)?.[1]);
-  assert.deepEqual(withSecrets, ["Deploy bica-staging"]);
-  // #33: no auth secrets anywhere in the deploy ([H] keeps the ticket's grep clean).
-  assert.doesNotMatch(workflow, /BETTER_AUT[H]|GROK_AUT[H]|VITE_AUTH_ENABLED/);
-  for (const st of steps.filter((st) => /CLOUDFLARE_/.test(st))) {
-    assert.match(st, /CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}/);
-    assert.match(st, /CLOUDFLARE_ACCOUNT_ID: \$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/);
+test("#52: Cloudflare secrets only in wrangler steps of staging and production", () => {
+  assert.match(deploy, /^permissions: \{\}$/m);
+  assert.doesNotMatch(deploy.slice(0, deploy.indexOf("\njobs:")), /secrets\.|CLOUDFLARE_/);
+  assert.doesNotMatch(job("build"), /secrets\./);
+  assert.doesNotMatch(deploy, /BETTER_AUT[H]|GROK_AUT[H]|VITE_AUTH_ENABLED/);
+  const names = [];
+  for (const name of ["staging", "production"]) {
+    const steps = job(name)
+      .split(/\n {6}- /)
+      .slice(1);
+    for (const st of steps.filter((s) => /secrets\./.test(s))) {
+      names.push(st.match(/name: (.*)/)?.[1]);
+      assert.match(st, /wrangler\.js"/);
+      assert.match(st, /CLOUDFLARE_API_TOKEN: \$\{\{ secrets\.CLOUDFLARE_API_TOKEN \}\}/);
+      assert.match(st, /CLOUDFLARE_ACCOUNT_ID: \$\{\{ secrets\.CLOUDFLARE_ACCOUNT_ID \}\}/);
+      for (const ref of st.match(/secrets\.\w+/g)) {
+        assert.match(ref, /^secrets\.CLOUDFLARE_(API_TOKEN|ACCOUNT_ID)$/);
+      }
+    }
   }
+  assert.deepEqual(names, ["Deploy bica-staging", "Record live version", "Deploy bica-production"]);
 });
 
 test("health check curl has a per-request timeout", () => {
-  const curls = workflow.match(/curl [^\n]*/g) ?? [];
+  const curls = deploy.match(/curl [^\n]*/g) ?? [];
   assert.ok(curls.length > 0);
   for (const c of curls) assert.match(c, /--max-time 10\b/, c);
 });
 
 test("manual-run guard takes the newest CI check run, and a pending one blocks", () => {
-  const filter = workflow.match(/--jq '([^']+)'/)?.[1];
+  const filter = job("build").match(/--jq '([^']+)'/)?.[1];
   assert.ok(filter, "no --jq filter in the manual-run guard");
   const jq = (runs) =>
     spawnSync("jq", ["-r", filter], {
@@ -452,9 +466,9 @@ test("#35: the site key is committed (staging for build:cf, test key otherwise);
     viteConfig,
     /"import\.meta\.env\.TURNSTILE_SITE_KEY": JSON\.stringify\(siteKeyForBuild\(process\.env\)\)/,
   );
-  assert.doesNotMatch(workflow, /TURNSTILE/);
-  assert.doesNotMatch(workflow, /vars\./);
-  const step = workflow.slice(workflow.indexOf("- name: Smoke security headers"));
+  assert.doesNotMatch(deploy, /TURNSTILE/);
+  assert.doesNotMatch(deploy, /vars\./);
+  const step = job("staging").slice(job("staging").indexOf("- name: Smoke security headers"));
   assert.match(step, /frame-src https:\/\/challenges\\\.cloudflare\\\.com/);
 });
 
@@ -481,7 +495,6 @@ test("#35: TURNSTILE_HOSTNAMES for staging is the workers.dev host only, never l
   );
 });
 
-const prodWorkflow = readFileSync(join(root, ".github/workflows/deploy-production.yml"), "utf8");
 const prod = wrangler.slice(wrangler.indexOf("[env.production]"));
 
 test("#8: [env.production] custom domain, stage, CHAT_RATE and DO; no D1, no auth", () => {
@@ -508,66 +521,205 @@ test("#8: [env.production] custom domain, stage, CHAT_RATE and DO; no D1, no aut
   assert.doesNotMatch(wrangler, /d1_databases|hyperdrive|DATABASE_URL|BETTER_AUT[H]|GROK_AUT[H]/);
 });
 
-test("#8: prod deploy is manual from main, CI-gated, approval-gated, never cancelled", () => {
-  assert.match(prodWorkflow, /^on:\n {2}workflow_dispatch:\n\n/m);
-  assert.doesNotMatch(prodWorkflow, /^ {2}(push|pull_request|workflow_run|schedule):/m);
+test("#52: triggers, build guard, and no push or pull_request", () => {
   assert.match(
-    prodWorkflow,
-    /^concurrency:\n {2}group: deploy-production\n {2}cancel-in-progress: false$/m,
+    deploy,
+    /^on:\n {2}workflow_run:\n {4}workflows: \[CI\]\n {4}types: \[completed\]\n {4}branches: \[main\]\n {2}workflow_dispatch:\n {4}inputs:\n {6}artifact_run_id:/m,
   );
-  assert.match(prodWorkflow, /shell: bash -euo pipefail \{0\}/);
-  assert.match(prodWorkflow, /if: github\.ref == 'refs\/heads\/main'/);
-  const gate = prodWorkflow.slice(
-    prodWorkflow.indexOf("  gate:"),
-    prodWorkflow.indexOf("  deploy:"),
+  assert.doesNotMatch(deploy, /^ {2}(push|pull_request|schedule):/m);
+  assert.doesNotMatch(deploy, /pull_request/);
+  const guard = job("build").slice(
+    job("build").indexOf("    if: >-"),
+    job("build").indexOf("    permissions:"),
   );
-  const deploy = prodWorkflow.slice(prodWorkflow.indexOf("  deploy:"));
-  assert.doesNotMatch(gate, /environment|secrets\./);
-  assert.match(deploy, /needs: gate/);
-  // #40 S2: no workflow-level grants; gate reads checks, deploy only contents
-  assert.match(prodWorkflow, /^permissions: \{\}$/m);
-  assert.equal(prodWorkflow.match(/^\s*permissions:/gm).length, 3);
-  assert.match(gate, /\n {4}permissions:\n {6}contents: read\n {6}checks: read\b/);
-  assert.match(deploy, /\n {4}permissions:\n {6}contents: read\n {4}runs-on/);
-  assert.doesNotMatch(prodWorkflow, /: write\b|id-token/);
-  assert.match(gate, /\n {10}SHA: \$\{\{ github\.sha \}\}\n/);
-  assert.equal(prodWorkflow.match(/^ +SHA:/gm).length, 1);
-  assert.doesNotMatch(prodWorkflow, /inputs:/);
-  assert.match(deploy, /environment:\n {6}name: production\n/);
-  assert.match(prodWorkflow, /actions\/checkout@[0-9a-f]{40}/);
-  assert.match(prodWorkflow, /actions\/setup-node@[0-9a-f]{40}/);
-  // same newest-check-run jq as staging
-  const jq = (w) => w.match(/--jq '([^']+)'/)[1];
-  assert.equal(jq(prodWorkflow), jq(workflow));
-  const at = (re) => prodWorkflow.search(re);
-  const order = [
-    /test "\$conclusion" = success/,
-    /ref: \$\{\{ needs\.gate\.outputs\.sha \}\}/,
-    /run: npm ci/,
-    /run: npm run build:cf/,
-    /run: npx wrangler deploy --env production --config wrangler\.toml \| tee deploy\.log/,
-    /curl -fsS --max-time 10 "\$url\/api\/health"/,
-    /"\$url\/"/,
-  ].map(at);
-  assert.ok(
-    order.every((i, n) => i > -1 && (n === 0 || i > order[n - 1])),
-    String(order),
+  for (const cond of [
+    "github.event_name == 'workflow_dispatch' &&",
+    "github.ref == 'refs/heads/main'",
+    "github.event.workflow_run.conclusion == 'success'",
+    "github.event.workflow_run.event == 'push'",
+    "github.event.workflow_run.head_branch == 'main'",
+    "github.event.workflow_run.head_repository.full_name == github.repository",
+  ]) {
+    assert.ok(guard.includes(cond), cond);
+  }
+});
+
+test("#52: every action is pinned to a 40-hex SHA", () => {
+  const uses = deploy.match(/^ *uses:.*$/gm);
+  assert.ok(uses?.length);
+  for (const line of uses) assert.match(line, /@[0-9a-f]{40}\b/);
+});
+
+test("#52: environments are staging, production, and none on build", () => {
+  assert.match(job("staging"), /environment:\n {6}name: staging\n/);
+  assert.match(job("production"), /environment:\n {6}name: production\n/);
+  assert.doesNotMatch(job("build"), /environment:/);
+  assert.doesNotMatch(job("staging"), /--env production/);
+  assert.doesNotMatch(deploy, /: write\b|id-token/);
+  assert.equal(deploy.match(/^\s*permissions:/gm).length, 4);
+});
+
+test("#52: staging needs build; production needs staging and build", () => {
+  assert.match(job("staging"), /\n {4}needs: build\n/);
+  assert.match(job("production"), /\n {4}needs: \[build, staging\]\n/);
+});
+
+test("#52: build:cf only in the release build, with BICA_BUILD_SHA", () => {
+  assert.match(job("build"), /run: npm run build:cf\n/);
+  assert.match(job("build"), /BICA_BUILD_SHA: \$\{\{ steps\.resolve\.outputs\.sha \}\}/);
+  assert.doesNotMatch(job("staging") + job("production"), /npm run build/);
+  assert.doesNotMatch(deploy, /PUBLIC_HOSTNAME|VITE_PUBLIC_HOSTNAME/);
+});
+
+test("#52: tip of main is checked before each deploy and again after wrangler install", () => {
+  for (const name of ["staging", "production"]) {
+    const text = job(name);
+    const at = text.indexOf('wrangler.js" deploy --env');
+    assert.ok(at > 0, name);
+    assert.ok(
+      text.indexOf("git fetch --no-tags origin main") < text.indexOf("Install pinned wrangler"),
+    );
+    const stepAt = text.indexOf("- name: Deploy bica-");
+    assert.ok(text.indexOf("Install pinned wrangler") < stepAt && stepAt < at, name);
+    assert.match(text.slice(stepAt, at), /git fetch --no-tags origin main/);
+    assert.match(text.slice(stepAt, at), /git rev-parse origin\/main/);
+  }
+});
+
+test("#52: one bica-worker artifact, 30 days, digest checked in every job", () => {
+  assert.match(job("build"), /artifact=bica-worker-\$sha/);
+  assert.match(job("build"), /name: \$\{\{ steps\.resolve\.outputs\.artifact \}\}/);
+  assert.match(job("staging"), /name: \$\{\{ needs\.build\.outputs\.artifact \}\}/);
+  assert.match(job("production"), /name: \$\{\{ needs\.build\.outputs\.artifact \}\}/);
+  assert.match(job("build"), /retention-days: 30/);
+  for (const name of ["build", "staging", "production"]) {
+    assert.match(job(name), /run-id: \$\{\{[^}]+outputs\.run_id \}\}/);
+    assert.match(job(name), /github-token: \$\{\{ github\.token \}\}/);
+    assert.match(job(name), /artifact sha256:/);
+  }
+  assert.match(job("staging"), /DIGEST: \$\{\{ needs\.build\.outputs\.digest \}\}/);
+  assert.match(job("production"), /DIGEST: \$\{\{ needs\.build\.outputs\.digest \}\}/);
+  assert.match(job("staging"), /\[ "\$digest" = "\$DIGEST" \]/);
+  assert.match(job("production"), /\[ "\$digest" = "\$DIGEST" \]/);
+});
+
+test("#52: wrangler is pinned outside the checkout; no npx wrangler deploy", () => {
+  for (const name of ["staging", "production"]) {
+    assert.match(
+      job(name),
+      /require\('\.\/package-lock\.json'\)\.packages\['node_modules\/wrangler'\]\.version/,
+    );
+    assert.match(job(name), /npm install --prefix "\$RUNNER_TEMP\/wrangler"/);
+  }
+  assert.doesNotMatch(deploy, /npx wrangler deploy\b/);
+});
+
+test("#52: artifact_run_id is an env var and never interpolated into a script", () => {
+  assert.match(job("build"), /ARTIFACT_RUN_ID: \$\{\{ inputs\.artifact_run_id \}\}/);
+  assert.match(job("build"), /\^\[0-9\]\{1,20\}\$/);
+  const runs = deploy.split(/\n {6}run: \|\n/).slice(1);
+  for (const block of runs) assert.doesNotMatch(block.split(/\n {6}\S/)[0], /\$\{\{ inputs\./);
+  for (const line of deploy.split("\n")) {
+    if (!line.includes("${{ inputs.")) continue;
+    assert.ok(/run-name:/.test(line) || /ARTIFACT_RUN_ID:/.test(line), line);
+  }
+});
+
+test("#52/#60: both jobs smoke health for their stage and the expected sha", () => {
+  assert.match(job("staging"), /bash scripts\/smoke-health\.sh "\$url" staging "\$SHA"/);
+  assert.match(job("production"), /bash scripts\/smoke-health\.sh "\$url" production "\$SHA"/);
+});
+
+test("#60: smoke-health.sh keeps the last body and reports it", () => {
+  assert.match(smokeHealth, /last=\$body/);
+  assert.match(smokeHealth, /::error::.*sha=\$sha.*\(last: \$seen\)/);
+  assert.match(smokeHealth, /stage=\$\(jq -r \.stage <<<"\$last"/);
+  assert.match(smokeHealth, /no response/);
+  assert.match(smokeHealth, /attempts=\$\{SMOKE_ATTEMPTS:-12\}/);
+  assert.match(smokeHealth, /pause=\$\{SMOKE_SLEEP:-5\}/);
+  assert.match(smokeHealth, /curl -fsS --max-time 10/);
+});
+
+test(
+  "#60: smoke-health.sh behaviour",
+  {
+    skip:
+      spawnSync("bash", ["-c", "command -v jq >/dev/null && command -v curl >/dev/null"]).status !==
+      0,
+  },
+  async () => {
+    const A = "a".repeat(40);
+    const B = "b".repeat(40);
+    const env = { ...process.env, SMOKE_ATTEMPTS: "2", SMOKE_SLEEP: "0" };
+    const server = createServer((_req, res) => {
+      const body = JSON.stringify({ ok: true, stage: "staging", sha: A });
+      res.writeHead(200, {
+        "content-type": "application/json",
+        "content-length": Buffer.byteLength(body),
+      });
+      res.end(body);
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const port = server.address().port;
+    // execFile, not spawnSync: a sync child blocks this event loop, so the stub never answers.
+    const run = (url, sha) =>
+      new Promise((resolve) => {
+        execFile(
+          "bash",
+          ["scripts/smoke-health.sh", url, "staging", sha],
+          { cwd: root, env, encoding: "utf8" },
+          (err, stdout, stderr) => resolve({ status: err ? (err.code ?? 1) : 0, stdout, stderr }),
+        );
+      });
+    try {
+      const ok = await run(`http://127.0.0.1:${port}`, A);
+      assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+      const bad = await run(`http://127.0.0.1:${port}`, B);
+      assert.equal(bad.status, 1);
+      assert.match(bad.stdout, new RegExp(`sha=${B}`));
+      assert.match(bad.stdout, new RegExp(`last: stage=staging sha=${A}`));
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+    const closed = createServer();
+    await new Promise((resolve) => closed.listen(0, "127.0.0.1", resolve));
+    const closedPort = closed.address().port;
+    await new Promise((resolve) => closed.close(resolve));
+    const none = await run(`http://127.0.0.1:${closedPort}`, A);
+    assert.equal(none.status, 1);
+    assert.match(none.stdout, /last: no response/);
+  },
+);
+
+test("#52: production failure summary says do not re-run and names the rollback", () => {
+  const text = job("production");
+  const summary = text.slice(text.indexOf("- name: Summary"));
+  assert.match(summary, /Do not re-run; roll back/);
+  assert.match(summary, /wrangler rollback --env production/);
+  assert.match(summary, /steps\.deploy\.outputs\.attempted/);
+  const deployCall = text.indexOf('wrangler.js" deploy --env');
+  const attempted = text.indexOf('echo "attempted=true" >> "$GITHUB_OUTPUT"');
+  assert.ok(attempted > -1 && attempted < deployCall);
+  const live = text.indexOf('wrangler.js" deployments list --env production --json');
+  assert.ok(live > -1 && live < text.indexOf('wrangler.js" deploy --env'));
+});
+
+test("#52: the old deploy workflows are gone", () => {
+  assert.equal(existsSync(join(root, ".github/workflows/deploy-staging.yml")), false);
+  assert.equal(existsSync(join(root, ".github/workflows/deploy-production.yml")), false);
+  const r = spawnSync(
+    "git",
+    [
+      "grep",
+      "-n",
+      "deploy-staging.yml\\|deploy-production.yml",
+      "--",
+      ".",
+      ":!scripts/cloudflare-config.test.mjs",
+    ],
+    { cwd: root, encoding: "utf8" },
   );
-  assert.match(prodWorkflow, /= production \]/);
-  for (const c of prodWorkflow.match(/curl [^\n]*/g)) assert.match(c, /--max-time 10\b/, c);
-  // Cloudflare secrets only in the deploy step
-  const steps = deploy.split(/\n {6}- /).slice(1);
-  assert.deepEqual(
-    steps.filter((st) => /CLOUDFLARE_/.test(st)).map((st) => st.match(/name: (.*)/)?.[1]),
-    ["Deploy bica-production"],
-  );
-  assert.doesNotMatch(prodWorkflow.slice(0, prodWorkflow.indexOf("\njobs:")), /CLOUDFLARE_/);
-  assert.doesNotMatch(
-    prodWorkflow,
-    /TURNSTILE_SECRET|XAI_API_KEY|CHAT_SESSION_SECRET|d1 |BETTER_AUT[H]/,
-  );
-  // staging never deploys production
-  assert.doesNotMatch(workflow, /--env production/);
+  assert.equal(r.stdout, "");
 });
 
 test("#17: docs: wrangler-only rollback, no Vercel fallback; env protection and token", () => {
@@ -655,12 +807,15 @@ test("#17: no Vercel leftovers in src, scripts, package.json, workflows or confi
 });
 
 test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails loudly", () => {
-  const step = prodWorkflow.slice(prodWorkflow.indexOf("- name: Smoke /api/health and /"));
+  const prodJob = job("production");
+  const step = prodJob.slice(prodJob.indexOf("- name: Smoke /api/health and /"));
+  assert.match(step, /bash scripts\/smoke-health\.sh "\$url" production "\$SHA"/);
+  assert.match(smokeHealth, /body=\$\(curl -fsS --max-time 10 "\$url\/api\/health" \|\| true\)/);
+  assert.match(smokeHealth, /SMOKE_ATTEMPTS:-12/);
+  assert.match(smokeHealth, /SMOKE_SLEEP:-5/);
   const loops = step.match(/for i in \$\(seq 1 12\); do/g) ?? [];
-  assert.equal(loops.length, 2);
-  assert.equal((step.match(/\[ "\$i" -lt 12 \] && sleep 5/g) ?? []).length, 2);
-  // health: curl failure (incl. exit 6) only ends the && chain, never the step
-  assert.match(step, /body=\$\(curl -fsS --max-time 10 "\$url\/api\/health"\) \\\n\s+&& \[/);
+  assert.equal(loops.length, 1);
+  assert.equal((step.match(/\[ "\$i" -lt 12 \] && sleep 5/g) ?? []).length, 1);
   // GET /: tolerated per attempt, 200 ends the step
   assert.match(
     step,
@@ -672,9 +827,10 @@ test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails l
   assert.match(step, /head -c 2048 \/tmp\/body/);
   assert.match(step, /::error::GET \/ never returned 200[^\n]*\n\s+exit 1/);
   for (const c of step.match(/curl [^\n]*/g)) assert.match(c, /--max-time 10\b/, c);
-  // worst case 2 x 12 x (10 + 5) s = 6 min fits the step and job timeouts
+  for (const c of smokeHealth.match(/curl [^\n]*/g)) assert.match(c, /--max-time 10\b/, c);
+  // health (~60 s) plus GET / (~60 s) fits the step and job timeouts
   assert.match(step, /timeout-minutes: 6\b/);
-  assert.match(prodWorkflow, /\n {4}timeout-minutes: 20\n/);
+  assert.match(prodJob, /\n {4}timeout-minutes: 20\n/);
   assert.doesNotMatch(step, /secrets\.|TOKEN/);
 });
 
@@ -693,16 +849,12 @@ test("#42 W1: PUBLIC_HOSTNAME equals TURNSTILE_HOSTNAMES; the build takes no pub
   assert.equal(pub("production"), tsHost("production"));
   assert.doesNotMatch(wrangler.slice(0, wrangler.indexOf("[env.staging]")), /PUBLIC_HOSTNAME/);
   // Removed build-time var. This assertion is the only place that name remains.
-  assert.doesNotMatch(workflow + prodWorkflow + ci, /VITE_PUBLIC_HOSTNAME/);
-  assert.doesNotMatch(workflow + prodWorkflow, /PUBLIC_HOSTNAME/);
-  assert.match(
-    workflow,
-    /BICA_BUILD_SHA: \$\{\{ github\.event\.workflow_run\.head_sha \|\| github\.sha \}\}/,
-  );
-  assert.match(prodWorkflow, /BICA_BUILD_SHA: \$\{\{ needs\.gate\.outputs\.sha \}\}/);
+  assert.doesNotMatch(deploy + ci, /VITE_PUBLIC_HOSTNAME/);
+  assert.doesNotMatch(deploy, /PUBLIC_HOSTNAME/);
+  assert.match(deploy, /BICA_BUILD_SHA: \$\{\{ steps\.resolve\.outputs\.sha \}\}/);
   assert.match(`https://${pub("staging")}`, /^https:\/\/bica-staging\.[a-z0-9-]+\.workers\.dev$/);
   assert.match(
-    prodWorkflow,
+    job("production"),
     new RegExp(`url=https://${pub("production").replace(/\./g, "\\.")}\n`),
   );
   const grep = spawnSync(

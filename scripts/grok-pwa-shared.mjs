@@ -97,14 +97,19 @@ export function publicAppHost(hostHeader) {
 }
 
 /**
- * Deployed Workers builds set `VITE_PUBLIC_HOSTNAME` in the staging /
- * production workflows. Local preview has no such env, so fall back to the
- * request host / X-Forwarded-Host.
+ * Worker var PUBLIC_HOSTNAME wins (staging / production). Local preview has
+ * none, so fall back to the request host / X-Forwarded-Host.
+ * Pass `sources` in tests so they don't read the real env.
+ *
+ * @param {string | null | undefined} hostHeader
+ * @param {{ workerEnv?: unknown, processEnv?: unknown }} [sources]
  */
-export function resolvePublicHost(hostHeader) {
-  return (
-    publicAppHost(process.env?.VITE_PUBLIC_HOSTNAME) || publicAppHost(hostHeader)
-  );
+export function resolvePublicHost(hostHeader, sources) {
+  const configured = sources
+    ? publicAppHost(sources.workerEnv) || publicAppHost(sources.processEnv)
+    : publicAppHost(globalThis.__env__?.PUBLIC_HOSTNAME) ||
+      publicAppHost(typeof process !== "undefined" ? process.env?.PUBLIC_HOSTNAME : undefined);
+  return configured || publicAppHost(hostHeader);
 }
 
 export function isInstallQuery(url) {
@@ -152,11 +157,12 @@ export function renderInstallPageHtml(template, { host, url, appName } = {}) {
 /** `appName` (the app's configured name) wins over the host-derived one. */
 export function renderWebManifest(hostHeader, appName) {
   const name = appName || appNameFromHost(hostHeader);
+  const publicHost = resolvePublicHost(hostHeader);
   return JSON.stringify(
     {
       name,
       short_name: name,
-      id: "/",
+      id: publicHost ? `https://${publicHost}/` : "/",
       start_url: "/",
       scope: "/",
       display: "standalone",
@@ -323,7 +329,10 @@ export function siteHasCustomCard(site = {}) {
  * Otherwise empty — caller emits the og.grok.me placeholder.
  */
 export function resolveOgCardAsset(site = {}, cwd = process.cwd()) {
-  return ogCardPublicPath(cwd) || (detectCustomOgCard(cwd, site) ? String(site.image ?? "").trim() || "/og.jpg" : "");
+  return (
+    ogCardPublicPath(cwd) ||
+    (detectCustomOgCard(cwd, site) ? String(site.image ?? "").trim() || "/og.jpg" : "")
+  );
 }
 
 /** Stamp `card=custom` when public/og.jpg or public/og.png is on disk. */
@@ -426,12 +435,7 @@ export function injectGrokPwaHead(html, ctx = {}) {
   if (typeof html !== "string") return html;
   const { site, projectId, creator, creatorId, host, cwd } = normalizeHeadContext(ctx);
   const documentTitle = titleFromDocument(html);
-  const appName = resolveOgTitle(
-    site,
-    ctx.appName ?? DEFAULT_APP_NAME,
-    host,
-    documentTitle,
-  );
+  const appName = resolveOgTitle(site, ctx.appName ?? DEFAULT_APP_NAME, host, documentTitle);
   let next = stripShareMetaTags(html);
 
   const missing = grokPwaHeadTags(appName)

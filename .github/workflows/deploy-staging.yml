@@ -69,7 +69,7 @@ jobs:
       # The public Turnstile site key (#35) is committed (src/lib/turnstile-keys.mjs).
       - run: npm run build:cf
         env:
-          VITE_PUBLIC_HOSTNAME: bica-staging.appelgriebsch.workers.dev
+          BICA_BUILD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
       - name: Deploy bica-staging
         run: npx wrangler deploy --env staging --config wrangler.toml | tee deploy.log
         env:
@@ -79,19 +79,27 @@ jobs:
         run: |
           url=$(grep -oE 'https://bica-staging\.[a-z0-9-]+\.workers\.dev' deploy.log | head -n 1)
           test -n "$url" || { echo "no workers.dev URL in the deploy output"; exit 1; }
-          for i in 1 2 3 4 5 6; do
-            body=$(curl -fsS --max-time 10 "$url/api/health") && break
-            sleep 5
+          sha="${{ github.event.workflow_run.head_sha || github.sha }}"
+          for i in $(seq 1 12); do
+            body=$(curl -fsS --max-time 10 "$url/api/health" || true)
+            if [ "$(jq -r .stage <<<"$body" 2>/dev/null)" = staging ] && [ "$(jq -r .sha <<<"$body" 2>/dev/null)" = "$sha" ]; then
+              break
+            fi
+            echo "health attempt $i: not ready"
+            body=""
+            [ "$i" -lt 12 ] && sleep 5
           done
-          [ -n "${body:-}" ] || { echo "::error::/api/health never answered at $url"; exit 1; }
+          [ -n "${body:-}" ] || { echo "::error::/api/health never answered stage=staging at $url"; exit 1; }
           echo "$body"
+          test "$(jq -r .ok <<<"$body")" = true
           test "$(jq -r .stage <<<"$body")" = staging
+          test "$(jq -r .sha <<<"$body")" = "$sha"
       # #28: HTML carries the security headers and a (Report-Only) nonce CSP.
       # workers.dev keeps serving the previous version for a few seconds after
       # `wrangler deploy` returns (run 38550854181 probed 0.4 s later and got the
-      # pre-#28 Worker, which has none of these headers). /api/health can't tell
-      # versions apart, so retry the whole check for up to ~60 s; a version that
-      # really lacks a header still fails after the last attempt.
+      # pre-#28 Worker, which has none of these headers). /api/health carries the
+      # build sha (checked above); retry this header check for up to ~60 s. A
+      # version that really lacks a header still fails after the last attempt.
       - name: Smoke security headers
         timeout-minutes: 3
         run: |

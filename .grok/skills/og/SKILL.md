@@ -33,7 +33,7 @@ or the favicon link ships a broken card / blank tab icon, and `npm run dev` /
 
 **When the app is a game of any kind** (Canvas/WebGL *and* DOM board/word/
 puzzle/quiz games), set this meta tag in the root `head()` **always** — it
-does not need `VITE_PUBLIC_HOSTNAME` and must not be gated on `ogImage`:
+does not need a public hostname and must not be gated on `ogImage`:
 
 ```tsx
 { property: "og:type", content: "x:game" },
@@ -132,7 +132,7 @@ for anything a user would *show someone*.
   theme) → keep the default `og.grok.me` card:
 
   ```
-  https://og.grok.me/v1/card.png?host={VITE_PUBLIC_HOSTNAME}&title={APP_NAME}
+  https://og.grok.me/v1/card.png?host={PUBLIC_HOSTNAME}&title={APP_NAME}
   ```
 
   Optional theme colour: append `&color={RRGGBB}` (6-digit hex, no `#` — e.g.
@@ -145,10 +145,10 @@ for anything a user would *show someone*.
   renames the app, update `APP_NAME` — it is both the document title and the
   painted card title.
 
-Either way: **live preview has no `VITE_PUBLIC_HOSTNAME`, so emit no
-`og:image` at all** (text-only unfurl is expected). On publish the platform
-injects the hostname — do **not** write a `.env` for it. Card pixels update on
-the **next deploy** (the URL is baked into HTML at build time).
+Either way: **live preview has no public host, so emit no
+`og:image` at all** (text-only unfurl is expected). On publish the runtime
+wrangler var `PUBLIC_HOSTNAME` supplies the hostname — do **not** write a
+`.env` for it, and do not bake the host into the build.
 
 ## Custom card: generate `public/og.jpg`
 
@@ -277,7 +277,7 @@ not a "games only" gate.
 host/title/color as the link card:
 
 ```
-https://og.grok.me/v1/banner.png?host={VITE_PUBLIC_HOSTNAME}&title={APP_NAME}
+https://og.grok.me/v1/banner.png?host={PUBLIC_HOSTNAME}&title={APP_NAME}
 ```
 
 Optional `&color={RRGGBB}` matches the link card. Wire it in the first

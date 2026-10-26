@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { resolveBuildSha } from "./build-sha.mjs";
 import { buildOutput } from "./build-output.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -72,17 +72,8 @@ test(
           text: readFileSync(abs, "utf8"),
         };
       });
-    let sha;
-    try {
-      sha = execFileSync("git", ["rev-parse", "HEAD"], {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-      })
-        .trim()
-        .slice(0, 7);
-    } catch {
-      sha = (process.env.GITHUB_SHA ?? "").trim().slice(0, 7);
-    }
+    // Same resolver the build used. Holds when this process env matches the build env.
+    const sha = resolveBuildSha();
     const quoted = [`"${sha}"`, `'${sha}'`, "`" + sha + "`"];
     assert.equal(
       js.some((f) => f.text.includes("__BICA_BUILD_SHA__")),

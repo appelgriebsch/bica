@@ -18,9 +18,9 @@ Account id comes from `wrangler login` or `CLOUDFLARE_ACCOUNT_ID`. It is not com
 
 `GET /api/health`
 
-- `BICA_STAGE=staging` → `200` `{ "ok": true, "stage": "staging" }` and `cache-control: no-store`
-- `BICA_STAGE=production` → `200` `{ "ok": true, "stage": "production" }` (#8)
-- missing, blank, or any other value → `503` `{ "ok": false }`
+- `BICA_STAGE=staging` → `200` `{ "ok": true, "stage": "staging", "sha": "<full sha>" }` and `cache-control: no-store`
+- `BICA_STAGE=production` → `200` `{ "ok": true, "stage": "production", "sha": "<full sha>" }` (#8)
+- missing, blank, or any other value → `503` `{ "ok": false }` (no sha)
 
 The handler touches no secrets.
 
@@ -35,9 +35,10 @@ Set Worker secrets with `wrangler secret put <NAME> --env staging` (never in `wr
 | `CHAT_SESSION_SECRET`                           | Worker secret                        | Conversas (#35): HMAC key of the `bica_chat` session cookie. Must be at least 32 bytes; generate it with `openssl rand -base64 32`. Missing or shorter → chat is unavailable (fails closed). |
 | `TURNSTILE_SITE_KEY`                            | Committed, public (`src/lib/turnstile-keys.mjs`) | Conversas (#35): the staging widget key `0x4AAAAAAFWlhnYXXvgEtMvS`, baked into the client by `build:cf`. Dev and other builds use Cloudflare's test site key. Nothing to set. |
 | `TURNSTILE_HOSTNAMES`                           | Plain var, `[env.staging.vars]` (committed) | Conversas (#35): comma-separated hostnames siteverify may report. Staging: `bica-staging.appelgriebsch.workers.dev` only, never localhost. Empty → every token fails. |
+| `PUBLIC_HOSTNAME`                               | Plain var, `[env.staging.vars]` and `[env.production.vars]` | og:image and the manifest id (#51). Staging: `bica-staging.appelgriebsch.workers.dev`. Production: `bica.appelgriebsch.org`. Unset at the top level, so local preview falls back to the request host. |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | GitHub `staging` environment secrets | Required. `wrangler deploy` in CI. Token scopes: below.                                                                  |
 
-`BICA_STAGE=staging` is a plain var in `[env.staging.vars]`. `VITE_*` values (`VITE_PUBLIC_HOSTNAME`, `VITE_STUN_URLS`) are build-time: set them in the deploy workflow's build step, not as Worker secrets. Prod sets `VITE_PUBLIC_HOSTNAME=bica.appelgriebsch.org` in `deploy-production.yml`. There is no grok.me publish path (#17).
+`BICA_STAGE` and `PUBLIC_HOSTNAME` are plain vars in `[env.*.vars]`, read at runtime (Worker binding, then `process.env`). The build does not take a public host, so one `build:cf` artifact serves both stages. `BICA_BUILD_SHA`, when set, is stamped into that artifact (`__BICA_BUILD_SHA_FULL__`); otherwise the build uses git HEAD, then `GITHUB_SHA`, then `dev`. `VITE_STUN_URLS`, if set, is still build-time. There is no grok.me publish path (#17).
 
 ## Conversas protection (#35)
 
@@ -91,7 +92,7 @@ Only these two paths publish, and both pass `--env staging`:
 
 `.github/workflows/ci.yml` (job **`CI`**, the required check) runs on every pull request to `main` and every push to `main`, on the Node version in `.nvmrc` (22) with the npm cache. It runs `npm ci`, `npm audit --omit=dev --audit-level=high`, typecheck, lint, `npm test`, `npm run deps:check`, `npm run licenses:check`, `npm run build`, `npm run build:cf`, the built-output tests on the Worker bundle (`BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test`), then `wrangler deploy --dry-run --env staging --config wrangler.toml` (bundling, bindings and assets; no token). It has no secrets and `contents: read`. Concurrency is one group per PR number, or per commit SHA on main, with cancel-in-progress only for pull_request, so a newer push cancels an older run of the same PR and every main push gets its own CI run (which drives the staging deploy via workflow_run).
 
-The staging deploy (GitHub environment `staging`, 15 minute timeout) starts from `workflow_run` when `CI` completes on `main`, and runs only if that run concluded `success`, was a `push` (not a PR), and came from `main` of this repository (not a fork). A manual run is accepted only from `main`. It checks out exactly the CI-tested `head_sha`. A manual `workflow_dispatch` run first checks that the `CI` check run of its sha succeeded and stops otherwise. Then: `npm ci`, `npm run build:cf` (the release build, with the committed staging Turnstile site key; no test, lint or deps steps, since CI ran them for this sha), `wrangler deploy`, `GET /api/health` on the deployed URL (200, `stage: "staging"`), then the security-header smoke (HEAD and GET on `/` and `/me`, including the CSP's Turnstile `frame-src`). Every step runs under `bash -euo pipefail`, so any failure stops the job before deploy. `workflow_run` always uses the workflow file from the default branch, which keeps the deploy secrets out of anything a pull request can change. A failed deploy doesn't turn the required `CI` check red. Deploys share the fixed concurrency group `deploy-staging` with `cancel-in-progress: false`: two quick merges deploy one after the other, and neither is cancelled mid-deploy.
+The staging deploy (GitHub environment `staging`, 15 minute timeout) starts from `workflow_run` when `CI` completes on `main`, and runs only if that run concluded `success`, was a `push` (not a PR), and came from `main` of this repository (not a fork). A manual run is accepted only from `main`. It checks out exactly the CI-tested `head_sha`. A manual `workflow_dispatch` run first checks that the `CI` check run of its sha succeeded and stops otherwise. Then: `npm ci`, `npm run build:cf` (the release build, with the committed staging Turnstile site key and `BICA_BUILD_SHA` set to the deployed sha; no test, lint or deps steps, since CI ran them for this sha), `wrangler deploy`, `GET /api/health` on the deployed URL (200, `stage: "staging"` and `sha` equal to that commit, retried while workers.dev rolls out), then the security-header smoke (HEAD and GET on `/` and `/me`, including the CSP's Turnstile `frame-src`). Every step runs under `bash -euo pipefail`, so any failure stops the job before deploy. `workflow_run` always uses the workflow file from the default branch, which keeps the deploy secrets out of anything a pull request can change. A failed deploy doesn't turn the required `CI` check red. Deploys share the fixed concurrency group `deploy-staging` with `cancel-in-progress: false`: two quick merges deploy one after the other, and neither is cancelled mid-deploy.
 
 ### Branch ruleset on `main` (repo admin, not in the repo)
 
@@ -99,7 +100,7 @@ Settings → Rules → Rulesets → New branch ruleset: target the default branc
 
 `npm run build` / `build:cf` is Nitro preset `cloudflare-module` (module syntax, `nodejs_compat`) plus precache and the Worker entry. Dev stays on `0.0.0.0:8080` with Nitro off. There is no Vercel build (#17).
 
-There is no `deploy` script. Top-level `wrangler deploy` (no `--env`) is not wired. The top-level Wrangler config sets `workers_dev = false`, has no routes, and does not set `BICA_STAGE`, so an accidental publish has no public hostname and health fails closed.
+There is no `deploy` script. Top-level `wrangler deploy` (no `--env`) is not wired. The top-level Wrangler config sets `workers_dev = false`, has no routes, and does not set `BICA_STAGE` or `PUBLIC_HOSTNAME`, so an accidental publish has no public hostname and health fails closed.
 
 Nitro may write `.output/server/wrangler.json` and warn that `main` / `assets` in that generated file are overridden. Deploy with `--config wrangler.toml` so `[env.staging]` from the root file is the config that ships. Do not let a generated file replace the root config.
 
@@ -117,7 +118,7 @@ Nitro may write `.output/server/wrangler.json` and warn that `main` / `assets` i
 
 ## Production (#8)
 
-[ADR 0003](adr/0003-production-workers.md). `[env.production]` in `wrangler.toml`: script `bica-production`, `workers_dev = false`, custom domain `bica.appelgriebsch.org`, `BICA_STAGE=production`, `TURNSTILE_HOSTNAMES=bica.appelgriebsch.org`, plus
+[ADR 0003](adr/0003-production-workers.md). `[env.production]` in `wrangler.toml`: script `bica-production`, `workers_dev = false`, custom domain `bica.appelgriebsch.org`, `BICA_STAGE=production`, `PUBLIC_HOSTNAME=bica.appelgriebsch.org`, `TURNSTILE_HOSTNAMES=bica.appelgriebsch.org`, plus
 
 ```toml
 [[env.production.ratelimits]]
@@ -134,7 +135,7 @@ The top-level `[[migrations]]` (`v1-chat-budget`) apply on the first prod deploy
 
 ### Deploy
 
-Only `.github/workflows/deploy-production.yml`, run by hand (`workflow_dispatch`). The `gate` job (no secrets, `contents: read` + `checks: read`) requires the newest `CI` check run of the dispatched sha to be `success`; the `deploy` job (`contents: read` only) runs in the `production` GitHub environment, checks out exactly that sha, runs `npm ci`, `build:cf` (with `VITE_PUBLIC_HOSTNAME=bica.appelgriebsch.org`), `wrangler deploy --env production`, then smoke-tests `/api/health` (`stage: "production"`) and `/`. Concurrency group `deploy-production`, never cancelled. CI runs `wrangler deploy --dry-run --env production` (no token).
+Only `.github/workflows/deploy-production.yml`, run by hand (`workflow_dispatch`). The `gate` job (no secrets, `contents: read` + `checks: read`) requires the newest `CI` check run of the dispatched sha to be `success`; the `deploy` job (`contents: read` only) runs in the `production` GitHub environment, checks out exactly that sha, runs `npm ci`, `build:cf` (with `BICA_BUILD_SHA` set to the dispatched sha), `wrangler deploy --env production`, then smoke-tests `/api/health` (`stage: "production"`, `sha` of that commit) and `/`. Concurrency group `deploy-production`, never cancelled. CI runs `wrangler deploy --dry-run --env production` (no token).
 
 **The workflow's `main` check is not the protection.** A dispatch from another branch runs that branch's copy of the workflow, which can drop the check. What actually guards prod is the `production` environment, and it must have **both**:
 

@@ -169,7 +169,7 @@ export function grokPwaPlugin({ appName } = {}) {
     },
     transformIndexHtml(html) {
       return injectGrokPwaHead(html, {
-        host: process.env.VITE_PUBLIC_HOSTNAME ?? "",
+        host: "",
         cwd: root,
         appName,
       });

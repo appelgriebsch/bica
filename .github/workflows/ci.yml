@@ -6,10 +6,12 @@ on:
   push:
     branches: [main]
 
-# Test-only, so cancelling a superseded run is safe.
+# Group per PR number, or per commit SHA on main. cancel-in-progress only for
+# pull_request, so a newer push cancels an older run of the same PR and every
+# main push gets its own CI run (which drives the staging deploy via workflow_run).
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # No secrets here: this runs on pull requests.
 permissions:

@@ -243,15 +243,16 @@ test("deploy runs only after green CI for a push to main, on exactly that sha", 
   );
 });
 
-test("CI: PRs and pushes to main, job CI, no secrets, cancels superseded runs", () => {
+test("CI: PRs and pushes to main, job CI, no secrets, cancels superseded PR runs, never main", () => {
   assert.match(
     ci,
     /^on:\n {2}pull_request:\n {4}branches: \[main\]\n {2}push:\n {4}branches: \[main\]\n/m,
   );
   assert.match(
     ci,
-    /^concurrency:\n {2}group: ci-\$\{\{ github\.ref \}\}\n {2}cancel-in-progress: true$/m,
+    /^concurrency:\n {2}group: ci-\$\{\{ github\.event\.pull_request\.number \|\| github\.sha \}\}\n {2}cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}$/m,
   );
+  assert.doesNotMatch(ci, /cancel-in-progress: true/);
   assert.match(ci, /^permissions:\n {2}contents: read\n/m);
   assert.match(ci, /^jobs:\n {2}ci:\n(?: {4}#.*\n)* {4}name: CI$/m);
   assert.doesNotMatch(ci, /secrets\.|environment:|CLOUDFLARE_/);

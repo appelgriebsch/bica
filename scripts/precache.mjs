@@ -57,15 +57,23 @@ export function injectManifest(sw, { urls, version }) {
 
 /** Root-only render (no route matched, no loader data) that hydrates any route client-side. */
 async function renderShell() {
-  process.env.TSS_SHELL = "true";
-  const { loadBuildHandler } = await import("./serve-build.mjs");
-  const { handler } = await loadBuildHandler();
-  const res = await handler.fetch(
-    new Request("http://localhost/", { headers: { accept: "text/html" } }),
-    {},
-  );
-  if (!res.ok) throw new Error(`shell render failed: ${res.status}`);
-  return Buffer.from(await res.arrayBuffer());
+  // #51 W-1: the shell must be stage-neutral
+  const saved = process.env.PUBLIC_HOSTNAME;
+  delete process.env.PUBLIC_HOSTNAME;
+  try {
+    process.env.TSS_SHELL = "true";
+    const { loadBuildHandler } = await import("./serve-build.mjs");
+    const { handler } = await loadBuildHandler();
+    const res = await handler.fetch(
+      new Request("http://localhost/", { headers: { accept: "text/html" } }),
+      {},
+    );
+    if (!res.ok) throw new Error(`shell render failed: ${res.status}`);
+    return Buffer.from(await res.arrayBuffer());
+  } finally {
+    if (saved === undefined) delete process.env.PUBLIC_HOSTNAME;
+    else process.env.PUBLIC_HOSTNAME = saved;
+  }
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {

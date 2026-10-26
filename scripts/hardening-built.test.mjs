@@ -6,7 +6,7 @@
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { STATIC_SECURITY_HEADERS } from "../src/lib/security-headers.mjs";
+import { buildOutput } from "./build-output.mjs";
 import { resolveBuildShaFull } from "./build-sha.mjs";
 
 const skip = !process.env.BICA_BUILT && "set BICA_BUILT=1 after npm run build:cf";
@@ -262,6 +263,13 @@ test(
     }
   },
 );
+
+test("#51 W-1: the precached shell bakes no public host", { skip }, () => {
+  const shell = readFileSync(join(root, buildOutput().publicDir, "_shell"), "utf8");
+  assert.equal(shell.includes('property="og:image"'), false);
+  assert.equal(shell.includes("bica-staging.appelgriebsch.workers.dev"), false);
+  assert.equal(shell.includes("bica.appelgriebsch.org"), false);
+});
 
 test("manifest is named Bica on a workers.dev host", { skip }, async () => {
   const res = await get("/__grok/manifest.webmanifest", { accept: "*/*" });

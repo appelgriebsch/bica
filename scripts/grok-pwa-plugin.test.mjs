@@ -130,6 +130,59 @@ test("replaces a non-large twitter:card with the platform card", () => {
   assert.equal(out.split('name="twitter:card"').length - 1, 1);
 });
 
+test("#62: strips only the share keys the middleware re-adds", () => {
+  const host = "share.example";
+  const html = [
+    "<html><head>",
+    '<meta name="twitter:card" content="summary_large_image"/>',
+    '<meta property="og:type" content="website"/>',
+    '<meta property="og:image" content="https://doc.example/og.jpg"/>',
+    '<meta name="twitter:image" content="https://doc.example/og.jpg"/>',
+    '<meta name="twitter:title" content="Doc"/>',
+    '<meta property="x:game:image" content="https://og.grok.me/v1/banner.png?host=doc.example"/>',
+    '<meta property="x:game:image:width" content="1200"/>',
+    '<meta property="x:game:image:height" content="264"/>',
+    '<meta property="og:image:alt" content="Alt"/>',
+    "</head></html>",
+  ].join("");
+  const contents = (doc, key) => {
+    const found = [];
+    for (const tag of doc.match(/<meta\b[^>]*>/gi) ?? []) {
+      const name = tag.match(/\b(?:property|name)\s*=\s*["']([^"']+)["']/i)?.[1]?.toLowerCase();
+      if (name !== key) continue;
+      found.push(tag.match(/\bcontent\s*=\s*["']([^"']*)["']/i)?.[1] ?? "");
+    }
+    return found;
+  };
+  const out = injectGrokPwaHead(html, { ...bareSite, host });
+  for (const key of [
+    "twitter:card",
+    "og:type",
+    "og:image",
+    "twitter:image",
+    "twitter:title",
+    "x:game:image",
+    "x:game:image:width",
+    "x:game:image:height",
+    "og:image:alt",
+  ]) {
+    assert.equal(contents(out, key).length, 1, key);
+  }
+  assert.equal(contents(out, "og:image")[0], `https://${host}/og.jpg`);
+  assert.equal(contents(out, "twitter:image")[0], "https://doc.example/og.jpg");
+  assert.equal(contents(out, "twitter:title")[0], "Doc");
+  assert.equal(contents(out, "og:type")[0], "website");
+  assert.equal(contents(out, "x:game:image")[0], "https://og.grok.me/v1/banner.png?host=doc.example");
+  assert.equal(contents(out, "x:game:image:width")[0], "1200");
+  assert.equal(contents(out, "x:game:image:height")[0], "264");
+
+  const banner = injectGrokPwaHead(html, { site: { banner: "/x-banner.jpg" }, host });
+  assert.deepEqual(contents(banner, "x:game:image"), [`https://${host}/x-banner.jpg`]);
+
+  const game = injectGrokPwaHead(html, { site: { type: "x:game" }, host });
+  assert.deepEqual(contents(game, "og:type"), ["x:game"]);
+});
+
 test("does not duplicate the extensions script", () => {
   const ctx = { ...bareSite, appName: "Demo", projectId: "proj-123" };
   const once = injectGrokPwaHead("<html><head></head></html>", ctx);

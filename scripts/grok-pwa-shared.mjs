@@ -384,11 +384,11 @@ export function grokOgHeadTags({
   return tags;
 }
 
-export function stripShareMetaTags(html) {
+export function stripShareMetaTags(html, keys = SHARE_META_KEYS) {
   return String(html).replace(/<meta\b[^>]*>/gi, (tag) => {
     const attrs = [...tag.matchAll(/\b(?:property|name)\s*=\s*["']([^"']+)["']/gi)];
     for (const match of attrs) {
-      if (SHARE_META_KEYS.has(String(match[1]).toLowerCase())) return "";
+      if (keys.has(String(match[1]).toLowerCase())) return "";
     }
     return tag;
   });
@@ -436,7 +436,16 @@ export function injectGrokPwaHead(html, ctx = {}) {
   const { site, projectId, creator, creatorId, host, cwd } = normalizeHeadContext(ctx);
   const documentTitle = titleFromDocument(html);
   const appName = resolveOgTitle(site, ctx.appName ?? DEFAULT_APP_NAME, host, documentTitle);
-  let next = stripShareMetaTags(html);
+  const ogTags = grokOgHeadTags({ host, appName, site, documentTitle, cwd });
+  const ogKeys = new Set(
+    ogTags.flatMap((tag) =>
+      [...tag.matchAll(/\b(?:property|name)\s*=\s*["']([^"']+)["']/gi)].map((match) =>
+        String(match[1]).toLowerCase(),
+      ),
+    ),
+  );
+  // #62: strip only the share keys we re-add, keep the document's others.
+  let next = stripShareMetaTags(html, ogKeys);
 
   const missing = grokPwaHeadTags(appName)
     .filter(([key]) => {
@@ -446,10 +455,7 @@ export function injectGrokPwaHead(html, ctx = {}) {
     })
     .map(([, tag]) => tag);
 
-  next = insertAfterHeadOpen(
-    next,
-    grokOgHeadTags({ host, appName, site, documentTitle, cwd }).join(""),
-  );
+  next = insertAfterHeadOpen(next, ogTags.join(""));
 
   if (!next.includes("/grok-app-builder/extensions.js")) {
     missing.push(...grokExtensionsHeadTags(projectId, ctx.nonce));

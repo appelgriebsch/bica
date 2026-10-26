@@ -305,6 +305,9 @@ test("#62: document share tags survive and stay on this stage's host", { skip },
     assert.equal(one("x:game:image:height"), "264", host);
     assert.equal(one("og:type"), "website", host);
     for (const [key, values] of meta) {
+      if (/^(?:og:|twitter:|x:game:)/.test(key)) assert.equal(values.length, 1, `${host} ${key}`);
+    }
+    for (const [key, values] of meta) {
       if (!/^(?:og:|twitter:|x:game:)/.test(key)) continue;
       for (const content of values) assert.equal(content.includes(other), false, `${host} ${key}`);
     }

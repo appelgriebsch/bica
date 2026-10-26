@@ -10,7 +10,7 @@ import { siteKeyForBuild } from "./src/lib/turnstile-keys.mjs";
 // @ts-expect-error JS module alongside the TS vite config
 import { activePreset } from "./scripts/build-output.mjs";
 // @ts-expect-error JS module alongside the TS vite config
-import { resolveBuildSha } from "./scripts/build-sha.mjs";
+import { resolveBuildSha, resolveBuildShaFull } from "./scripts/build-sha.mjs";
 
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // Keep `nitro` gated to `build`: enabled in dev it opens a second dev-server
@@ -32,6 +32,7 @@ export default defineConfig(({ command }) => ({
   define: {
     "import.meta.env.TURNSTILE_SITE_KEY": JSON.stringify(siteKeyForBuild(process.env)),
     __BICA_BUILD_SHA__: JSON.stringify(resolveBuildSha()),
+    __BICA_BUILD_SHA_FULL__: JSON.stringify(resolveBuildShaFull()),
   },
   plugins: [
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.

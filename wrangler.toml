@@ -52,6 +52,8 @@ BICA_STAGE = "staging"
 # localhost. The public site key is a build-time constant
 # (src/lib/turnstile-keys.mjs); TURNSTILE_SECRET_KEY is a Worker secret.
 TURNSTILE_HOSTNAMES = "bica-staging.appelgriebsch.workers.dev"
+# #51: og:image and the manifest id. Read at runtime, not baked into the build.
+PUBLIC_HOSTNAME = "bica-staging.appelgriebsch.workers.dev"
 
 # Chat burst limit (#13, keyed by client IP since #35), across isolates.
 # Cloudflare allows only period = 10 or 60. limit must match
@@ -75,6 +77,7 @@ routes = [{ pattern = "bica.appelgriebsch.org", custom_domain = true }]
 BICA_STAGE = "production"
 # Only the prod hostname, never localhost. Add it to the Turnstile widget too.
 TURNSTILE_HOSTNAMES = "bica.appelgriebsch.org"
+PUBLIC_HOSTNAME = "bica.appelgriebsch.org"
 
 # Its own namespace, so prod and staging bursts never share a counter.
 # limit must match DEFAULT_LIMITS.perMinute.

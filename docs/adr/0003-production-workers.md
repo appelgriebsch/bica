@@ -11,7 +11,7 @@ Prod runs on Cloudflare Workers (#8, #40). Since #33 there are no accounts and n
 ## Decision
 
 - `[env.production]` in `wrangler.toml`: script `bica-production`, `workers_dev = false`, the custom domain `bica.appelgriebsch.org`, `BICA_STAGE=production`, `TURNSTILE_HOSTNAMES=bica.appelgriebsch.org`, its own `CHAT_RATE` namespace and the `CHAT_BUDGET` Durable Object binding. No database binding, no auth secrets.
-- `/api/health` returns 200 for exactly `staging` or `production`; anything else (including a missing stage) is 503.
+- `/api/health` returns 200 for exactly `staging` or `production` and includes the build `sha`; anything else (including a missing stage) is 503 `{ "ok": false }` with no sha.
 - Deploys only via `.github/workflows/deploy-production.yml`: `workflow_dispatch` from `main`, a gate job that requires green `CI` for the sha, then a job in the `production` GitHub environment (required reviewers) that builds, deploys and smoke-tests exactly that sha. Fixed concurrency group, never cancelled. A push to `main` deploys only staging.
 - Prod reuses the staging Turnstile widget (one public site key baked in by `build:cf`); the widget's hostname list gets the prod domain, and `TURNSTILE_HOSTNAMES` keeps each Worker to its own host.
 - Separate `production` environment secrets: a prod-only API token (Workers Scripts Edit, plus Zone Read on the prod zone only). The environment must restrict deployment branches to `main` and require Andreas as reviewer; the workflow's own `main` check is not a boundary, because a dispatch from another branch runs that branch's workflow file.

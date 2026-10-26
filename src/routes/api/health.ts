@@ -14,7 +14,7 @@ export const Route = createFileRoute("/api/health")({
   server: {
     handlers: {
       GET: () => {
-        const decision = healthForStage(readBicaStage());
+        const decision = healthForStage(readBicaStage(), __BICA_BUILD_SHA_FULL__);
         return new Response(JSON.stringify(decision.body), {
           status: decision.status,
           headers: {

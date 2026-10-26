@@ -203,7 +203,10 @@ test("#31: header smoke retries HEAD+GET on / and /me, then fails loudly", () =>
   assert.match(step, /for path in \/ \/me; do/);
   assert.doesNotMatch(step, /\/login|\/api\/auth/); // #33: both 404 now
   assert.match(step, /for method in HEAD GET; do/);
-  assert.match(step, /for h in strict-transport-security x-frame-options referrer-policy x-content-type-options permissions-policy cross-origin-opener-policy; do/);
+  assert.match(
+    step,
+    /for h in strict-transport-security x-frame-options referrer-policy x-content-type-options permissions-policy cross-origin-opener-policy; do/,
+  );
   assert.match(step, /for i in \$\(seq 1 12\); do/);
   assert.match(step, /\[ "\$i" -lt 12 \] && sleep 5\n/);
   assert.match(step, /\n {10}echo "::error::\$out"\n {10}exit 1\s*$/);
@@ -212,7 +215,10 @@ test("#31: header smoke retries HEAD+GET on / and /me, then fails loudly", () =>
 test("#31: /api/health smoke fails with ::error:: when health never answers", () => {
   const start = workflow.indexOf("- name: Smoke /api/health");
   const step = workflow.slice(start, workflow.indexOf("- name: Smoke security headers"));
-  assert.match(step, /\[ -n "\$\{body:-\}" \] \|\| \{ echo "::error::[^"]*"; exit 1; \}\n {10}echo "\$body"/);
+  assert.match(
+    step,
+    /\[ -n "\$\{body:-\}" \] \|\| \{ echo "::error::[^"]*"; exit 1; \}\n {10}echo "\$body"/,
+  );
 });
 
 test("deploy runs only after green CI for a push to main, on exactly that sha", () => {
@@ -379,17 +385,39 @@ test("manual-run guard takes the newest CI check run, and a pending one blocks",
 
 test("#35: CHAT_RATE and the ChatBudget DO binding for staging, one sqlite migration", () => {
   const staging = wrangler.slice(wrangler.indexOf("[env.staging]"));
-  assert.match(staging, /\[\[env\.staging\.ratelimits\]\]\nname = "CHAT_RATE"\nnamespace_id = "\d+"\nsimple = \{ limit = 6, period = 60 \}/);
-  assert.match(staging, /\[\[env\.staging\.durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/);
+  assert.match(
+    staging,
+    /\[\[env\.staging\.ratelimits\]\]\nname = "CHAT_RATE"\nnamespace_id = "\d+"\nsimple = \{ limit = 6, period = 60 \}/,
+  );
+  assert.match(
+    staging,
+    /\[\[env\.staging\.durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/,
+  );
   const top = wrangler.slice(0, wrangler.indexOf("[env.staging]"));
-  assert.match(top, /\[\[durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/);
-  assert.match(top, /\[\[migrations\]\]\ntag = "v1-chat-budget"\nnew_sqlite_classes = \["ChatBudget"\]/);
+  assert.match(
+    top,
+    /\[\[durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/,
+  );
+  assert.match(
+    top,
+    /\[\[migrations\]\]\ntag = "v1-chat-budget"\nnew_sqlite_classes = \["ChatBudget"\]/,
+  );
   assert.equal(wrangler.match(/\[\[migrations\]\]/g).length, 1);
   assert.doesNotMatch(wrangler, /new_classes|script_name/);
   const docs = readFileSync(join(root, "docs/cloudflare-workers.md"), "utf8");
   assert.match(docs, /\[\[env\.production\.ratelimits\]\]\nname = "CHAT_RATE"/);
-  assert.match(docs, /\[\[env\.production\.durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/);
-  for (const name of ["TURNSTILE_SECRET_KEY", "CHAT_SESSION_SECRET", "TURNSTILE_SITE_KEY", "XAI_API_KEY", "CHAT_DAILY_GLOBAL", "CHAT_DAILY_PER_IP"]) {
+  assert.match(
+    docs,
+    /\[\[env\.production\.durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/,
+  );
+  for (const name of [
+    "TURNSTILE_SECRET_KEY",
+    "CHAT_SESSION_SECRET",
+    "TURNSTILE_SITE_KEY",
+    "XAI_API_KEY",
+    "CHAT_DAILY_GLOBAL",
+    "CHAT_DAILY_PER_IP",
+  ]) {
     assert.ok(docs.includes(name), name);
   }
 });
@@ -398,7 +426,10 @@ test("#35: the Worker entry exports ChatBudget from a copy of chat-budget.mjs", 
   const { entrySource, BUDGET_MODULE } = await import("./write-cf-entry.mjs");
   const src = entrySource(".output/server/index.mjs");
   assert.match(src, /^import \{ DurableObject \} from "cloudflare:workers";$/m);
-  assert.match(src, new RegExp(`^import \\{ makeChatBudget \\} from "\\./${BUDGET_MODULE}";$`, "m"));
+  assert.match(
+    src,
+    new RegExp(`^import \\{ makeChatBudget \\} from "\\./${BUDGET_MODULE}";$`, "m"),
+  );
   assert.match(src, /^export \{ default \} from "\.\/index\.mjs";$/m);
   assert.match(src, /^export const ChatBudget = makeChatBudget\(DurableObject\);$/m);
   // only the handler and the DO class are exported
@@ -417,7 +448,10 @@ test("#35: the site key is committed (staging for build:cf, test key otherwise);
   assert.equal(k.siteKeyForBuild({}), "1x00000000000000000000AA");
   assert.equal(k.siteKeyForBuild(), "1x00000000000000000000AA");
   assert.equal(k.TURNSTILE_ACTION, "chat");
-  assert.match(viteConfig, /"import\.meta\.env\.TURNSTILE_SITE_KEY": JSON\.stringify\(siteKeyForBuild\(process\.env\)\)/);
+  assert.match(
+    viteConfig,
+    /"import\.meta\.env\.TURNSTILE_SITE_KEY": JSON\.stringify\(siteKeyForBuild\(process\.env\)\)/,
+  );
   assert.doesNotMatch(workflow, /TURNSTILE/);
   assert.doesNotMatch(workflow, /vars\./);
   const step = workflow.slice(workflow.indexOf("- name: Smoke security headers"));
@@ -425,13 +459,26 @@ test("#35: the site key is committed (staging for build:cf, test key otherwise);
 });
 
 test("#35: TURNSTILE_HOSTNAMES for staging is the workers.dev host only, never localhost", () => {
-  const vars = wrangler.slice(wrangler.indexOf("[env.staging.vars]"), wrangler.indexOf("[[env.staging.ratelimits]]"));
+  const vars = wrangler.slice(
+    wrangler.indexOf("[env.staging.vars]"),
+    wrangler.indexOf("[[env.staging.ratelimits]]"),
+  );
   assert.match(vars, /^TURNSTILE_HOSTNAMES = "bica-staging\.appelgriebsch\.workers\.dev"$/m);
   assert.doesNotMatch(wrangler, /TURNSTILE_HOSTNAMES = "[^"]*(localhost|127\.0\.0\.1|,)/);
   assert.equal(wrangler.match(/TURNSTILE_HOSTNAMES/g).length, 2); // staging + production, not top level
   // never a secret in the repo
-  const r = spawnSync("git", ["grep", "-nE", "TURNSTILE_SECRET_KEY *[=:] *\"?[0-9A-Za-z]", "--", ".", ":!scripts/*.test.mjs"], { cwd: root, encoding: "utf8" });
-  assert.equal(r.stdout.split("\n").filter((l) => l && !/1x0000|2x0000/.test(l)).join("\n"), "");
+  const r = spawnSync(
+    "git",
+    ["grep", "-nE", 'TURNSTILE_SECRET_KEY *[=:] *"?[0-9A-Za-z]', "--", ".", ":!scripts/*.test.mjs"],
+    { cwd: root, encoding: "utf8" },
+  );
+  assert.equal(
+    r.stdout
+      .split("\n")
+      .filter((l) => l && !/1x0000|2x0000/.test(l))
+      .join("\n"),
+    "",
+  );
 });
 
 const prodWorkflow = readFileSync(join(root, ".github/workflows/deploy-production.yml"), "utf8");
@@ -440,24 +487,40 @@ const prod = wrangler.slice(wrangler.indexOf("[env.production]"));
 test("#8: [env.production] custom domain, stage, CHAT_RATE and DO; no D1, no auth", () => {
   assert.ok(wrangler.indexOf("[env.production]") > wrangler.indexOf("[env.staging]"));
   assert.match(prod, /^\[env\.production\]\nworkers_dev = false\n/);
-  assert.match(prod, /^routes = \[\{ pattern = "bica\.appelgriebsch\.org", custom_domain = true \}\]$/m);
+  assert.match(
+    prod,
+    /^routes = \[\{ pattern = "bica\.appelgriebsch\.org", custom_domain = true \}\]$/m,
+  );
   assert.match(prod, /\[env\.production\.vars\]\nBICA_STAGE = "production"\n/);
   assert.match(prod, /^TURNSTILE_HOSTNAMES = "bica\.appelgriebsch\.org"$/m);
-  const rate = prod.match(/\[\[env\.production\.ratelimits\]\]\nname = "CHAT_RATE"\nnamespace_id = "(\d+)"\nsimple = \{ limit = 6, period = 60 \}/);
+  const rate = prod.match(
+    /\[\[env\.production\.ratelimits\]\]\nname = "CHAT_RATE"\nnamespace_id = "(\d+)"\nsimple = \{ limit = 6, period = 60 \}/,
+  );
   assert.ok(rate);
-  const stagingNs = wrangler.match(/\[\[env\.staging\.ratelimits\]\]\nname = "CHAT_RATE"\nnamespace_id = "(\d+)"/)[1];
+  const stagingNs = wrangler.match(
+    /\[\[env\.staging\.ratelimits\]\]\nname = "CHAT_RATE"\nnamespace_id = "(\d+)"/,
+  )[1];
   assert.notEqual(rate[1], stagingNs);
-  assert.match(prod, /\[\[env\.production\.durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/);
+  assert.match(
+    prod,
+    /\[\[env\.production\.durable_objects\.bindings\]\]\nname = "CHAT_BUDGET"\nclass_name = "ChatBudget"/,
+  );
   assert.doesNotMatch(wrangler, /d1_databases|hyperdrive|DATABASE_URL|BETTER_AUT[H]|GROK_AUT[H]/);
 });
 
 test("#8: prod deploy is manual from main, CI-gated, approval-gated, never cancelled", () => {
   assert.match(prodWorkflow, /^on:\n {2}workflow_dispatch:\n\n/m);
   assert.doesNotMatch(prodWorkflow, /^ {2}(push|pull_request|workflow_run|schedule):/m);
-  assert.match(prodWorkflow, /^concurrency:\n {2}group: deploy-production\n {2}cancel-in-progress: false$/m);
+  assert.match(
+    prodWorkflow,
+    /^concurrency:\n {2}group: deploy-production\n {2}cancel-in-progress: false$/m,
+  );
   assert.match(prodWorkflow, /shell: bash -euo pipefail \{0\}/);
   assert.match(prodWorkflow, /if: github\.ref == 'refs\/heads\/main'/);
-  const gate = prodWorkflow.slice(prodWorkflow.indexOf("  gate:"), prodWorkflow.indexOf("  deploy:"));
+  const gate = prodWorkflow.slice(
+    prodWorkflow.indexOf("  gate:"),
+    prodWorkflow.indexOf("  deploy:"),
+  );
   const deploy = prodWorkflow.slice(prodWorkflow.indexOf("  deploy:"));
   assert.doesNotMatch(gate, /environment|secrets\./);
   assert.match(deploy, /needs: gate/);
@@ -486,14 +549,23 @@ test("#8: prod deploy is manual from main, CI-gated, approval-gated, never cance
     /curl -fsS --max-time 10 "\$url\/api\/health"/,
     /"\$url\/"/,
   ].map(at);
-  assert.ok(order.every((i, n) => i > -1 && (n === 0 || i > order[n - 1])), String(order));
+  assert.ok(
+    order.every((i, n) => i > -1 && (n === 0 || i > order[n - 1])),
+    String(order),
+  );
   assert.match(prodWorkflow, /= production \]/);
   for (const c of prodWorkflow.match(/curl [^\n]*/g)) assert.match(c, /--max-time 10\b/, c);
   // Cloudflare secrets only in the deploy step
   const steps = deploy.split(/\n {6}- /).slice(1);
-  assert.deepEqual(steps.filter((st) => /CLOUDFLARE_/.test(st)).map((st) => st.match(/name: (.*)/)?.[1]), ["Deploy bica-production"]);
+  assert.deepEqual(
+    steps.filter((st) => /CLOUDFLARE_/.test(st)).map((st) => st.match(/name: (.*)/)?.[1]),
+    ["Deploy bica-production"],
+  );
   assert.doesNotMatch(prodWorkflow.slice(0, prodWorkflow.indexOf("\njobs:")), /CLOUDFLARE_/);
-  assert.doesNotMatch(prodWorkflow, /TURNSTILE_SECRET|XAI_API_KEY|CHAT_SESSION_SECRET|d1 |BETTER_AUT[H]/);
+  assert.doesNotMatch(
+    prodWorkflow,
+    /TURNSTILE_SECRET|XAI_API_KEY|CHAT_SESSION_SECRET|d1 |BETTER_AUT[H]/,
+  );
   // staging never deploys production
   assert.doesNotMatch(workflow, /--env production/);
 });
@@ -523,7 +595,8 @@ function vercelLeftovers(out) {
         l &&
         !(
           l.startsWith("docs/cloudflare-workers.md:") &&
-          (l.includes("There is no Vercel build (#17).") || l.includes("There is no Vercel fallback (#17):"))
+          (l.includes("There is no Vercel build (#17).") ||
+            l.includes("There is no Vercel fallback (#17):"))
         ),
     );
 }
@@ -554,15 +627,31 @@ test("#17: no Vercel leftovers in src, scripts, package.json, workflows or confi
   const leftovers = vercelLeftovers(r.stdout || "");
   assert.equal(leftovers.join("\n"), "", leftovers.join("\n"));
   // mutants: the allowlist applies only to the Workers docs
-  assert.deepEqual(vercelLeftovers("src/lib/x.ts:1:// Vercel fallback path (#17)"), ["src/lib/x.ts:1:// Vercel fallback path (#17)"]);
-  assert.deepEqual(vercelLeftovers("scripts/a.mjs:2:// There is no Vercel build"), ["scripts/a.mjs:2:// There is no Vercel build"]);
-  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:There is no Vercel fallback (#17): x"), []);
-  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:Deploy to Vercel"), ["docs/cloudflare-workers.md:9:Deploy to Vercel"]);
+  assert.deepEqual(vercelLeftovers("src/lib/x.ts:1:// Vercel fallback path (#17)"), [
+    "src/lib/x.ts:1:// Vercel fallback path (#17)",
+  ]);
+  assert.deepEqual(vercelLeftovers("scripts/a.mjs:2:// There is no Vercel build"), [
+    "scripts/a.mjs:2:// There is no Vercel build",
+  ]);
+  assert.deepEqual(
+    vercelLeftovers("docs/cloudflare-workers.md:9:There is no Vercel fallback (#17): x"),
+    [],
+  );
+  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:Deploy to Vercel"), [
+    "docs/cloudflare-workers.md:9:Deploy to Vercel",
+  ]);
   // only the two exact phrases: a looser docs mention still fails
-  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:Vercel fallback is fine (#17)"), ["docs/cloudflare-workers.md:9:Vercel fallback is fine (#17)"]);
-  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:There is no Vercel build (#17)."), []);
+  assert.deepEqual(vercelLeftovers("docs/cloudflare-workers.md:9:Vercel fallback is fine (#17)"), [
+    "docs/cloudflare-workers.md:9:Vercel fallback is fine (#17)",
+  ]);
+  assert.deepEqual(
+    vercelLeftovers("docs/cloudflare-workers.md:9:There is no Vercel build (#17)."),
+    [],
+  );
   assert.doesNotMatch(pkg.scripts.build, /vercel/i);
-  assert.ok(!Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).some((n) => /vercel/i.test(n)));
+  assert.ok(
+    !Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).some((n) => /vercel/i.test(n)),
+  );
 });
 
 test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails loudly", () => {
@@ -573,7 +662,10 @@ test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails l
   // health: curl failure (incl. exit 6) only ends the && chain, never the step
   assert.match(step, /body=\$\(curl -fsS --max-time 10 "\$url\/api\/health"\) \\\n\s+&& \[/);
   // GET /: tolerated per attempt, 200 ends the step
-  assert.match(step, /code=\$\(curl -sS -o \/dev\/null -w '%\{http_code\}' --max-time 10 "\$url\/" \|\| true\)/);
+  assert.match(
+    step,
+    /code=\$\(curl -sS -o \/dev\/null -w '%\{http_code\}' --max-time 10 "\$url\/" \|\| true\)/,
+  );
   assert.match(step, /\[ "\$code" = 200 \] && \{ echo "GET \/ 200 \(attempt \$i\)"; exit 0; \}/);
   // diagnostics: headers and a truncated body, then fail
   assert.match(step, /curl -sS -D \/tmp\/headers -o \/tmp\/body --max-time 10/);
@@ -586,16 +678,39 @@ test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails l
   assert.doesNotMatch(step, /secrets\.|TOKEN/);
 });
 
-test("#42 W1: build hostname pinned per env and equal to its TURNSTILE_HOSTNAMES", () => {
-  const host = (w) => w.match(/- run: npm run build:cf\n {8}env:\n {10}VITE_PUBLIC_HOSTNAME: (\S+)\n/)?.[1];
-  const tsHost = (env) => wrangler.slice(wrangler.indexOf(`[env.${env}.vars]`)).match(/TURNSTILE_HOSTNAMES = "([^"]+)"/)[1];
-  assert.equal(host(workflow), "bica-staging.appelgriebsch.workers.dev");
-  assert.equal(host(prodWorkflow), "bica.appelgriebsch.org");
-  assert.equal(host(workflow), tsHost("staging"));
-  assert.equal(host(prodWorkflow), tsHost("production"));
-  // the staging smoke URL pattern covers that host
-  assert.match(`https://${host(workflow)}`, /^https:\/\/bica-staging\.[a-z0-9-]+\.workers\.dev$/);
-  assert.match(prodWorkflow, new RegExp(`url=https://${host(prodWorkflow).replace(/\./g, "\\.")}\n`));
+test("#42 W1: PUBLIC_HOSTNAME equals TURNSTILE_HOSTNAMES; the build takes no public host", () => {
+  const block = (env) => {
+    const start = wrangler.indexOf(`[env.${env}.vars]`);
+    const rest = wrangler.slice(start + 1);
+    const next = rest.search(/\n\[/);
+    return wrangler.slice(start, next === -1 ? undefined : start + 1 + next);
+  };
+  const pub = (env) => block(env).match(/PUBLIC_HOSTNAME = "([^"]+)"/)[1];
+  const tsHost = (env) => block(env).match(/TURNSTILE_HOSTNAMES = "([^"]+)"/)[1];
+  assert.equal(pub("staging"), "bica-staging.appelgriebsch.workers.dev");
+  assert.equal(pub("production"), "bica.appelgriebsch.org");
+  assert.equal(pub("staging"), tsHost("staging"));
+  assert.equal(pub("production"), tsHost("production"));
+  assert.doesNotMatch(wrangler.slice(0, wrangler.indexOf("[env.staging]")), /PUBLIC_HOSTNAME/);
+  // Removed build-time var. This assertion is the only place that name remains.
+  assert.doesNotMatch(workflow + prodWorkflow + ci, /VITE_PUBLIC_HOSTNAME/);
+  assert.doesNotMatch(workflow + prodWorkflow, /PUBLIC_HOSTNAME/);
+  assert.match(
+    workflow,
+    /BICA_BUILD_SHA: \$\{\{ github\.event\.workflow_run\.head_sha \|\| github\.sha \}\}/,
+  );
+  assert.match(prodWorkflow, /BICA_BUILD_SHA: \$\{\{ needs\.gate\.outputs\.sha \}\}/);
+  assert.match(`https://${pub("staging")}`, /^https:\/\/bica-staging\.[a-z0-9-]+\.workers\.dev$/);
+  assert.match(
+    prodWorkflow,
+    new RegExp(`url=https://${pub("production").replace(/\./g, "\\.")}\n`),
+  );
+  const grep = spawnSync(
+    "git",
+    ["grep", "-n", "VITE_PUBLIC_HOSTNAME", "--", ".", ":!scripts/cloudflare-config.test.mjs"],
+    { cwd: root, encoding: "utf8" },
+  );
+  assert.equal(grep.stdout, "");
 });
 
 test("#8: CI dry-runs the production env without a token", () => {

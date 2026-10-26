@@ -24,12 +24,23 @@ export function resolveBicaStage(sources = {}) {
 }
 
 /**
- * @param {string | undefined} stage
- * @returns {{ status: 200, body: { ok: true, stage: "staging" | "production" } } | { status: 503, body: { ok: false } }}
+ * @param {unknown} sha
+ * @returns {string}
  */
-export function healthForStage(stage) {
+function healthSha(sha) {
+  if (typeof sha !== "string") return "dev";
+  const trimmed = sha.trim();
+  return trimmed || "dev";
+}
+
+/**
+ * @param {string | undefined} stage
+ * @param {string} [sha] full build id; empty becomes "dev". Omitted from 503.
+ * @returns {{ status: 200, body: { ok: true, stage: "staging" | "production", sha: string } } | { status: 503, body: { ok: false } }}
+ */
+export function healthForStage(stage, sha) {
   if (stage === "staging" || stage === "production") {
-    return { status: 200, body: { ok: true, stage } };
+    return { status: 200, body: { ok: true, stage, sha: healthSha(sha) } };
   }
   return { status: 503, body: { ok: false } };
 }

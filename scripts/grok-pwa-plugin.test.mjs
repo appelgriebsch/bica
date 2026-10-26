@@ -12,6 +12,7 @@ import {
   isDocumentPath,
   isInstallQuery,
   renderWebManifest,
+  resolvePublicHost,
   stripInstallParams,
 } from "./grok-pwa-shared.mjs";
 import { renderInstallPage } from "./grok-pwa-plugin.mjs";
@@ -89,14 +90,8 @@ test("injects x:creator tags when both creator values are set", () => {
 
 test("escapes x:creator values", () => {
   const tags = grokXCreatorHeadTags('"><script>', '1" onclick="alert(1)');
-  assert.equal(
-    tags[0],
-    '<meta property="x:creator" content="&quot;&gt;&lt;script&gt;">',
-  );
-  assert.equal(
-    tags[1],
-    '<meta property="x:creator:id" content="1&quot; onclick=&quot;alert(1)">',
-  );
+  assert.equal(tags[0], '<meta property="x:creator" content="&quot;&gt;&lt;script&gt;">');
+  assert.equal(tags[1], '<meta property="x:creator:id" content="1&quot; onclick=&quot;alert(1)">');
 });
 
 test("does not duplicate x:creator tags", () => {
@@ -232,6 +227,30 @@ test("escapes host-derived values in the install page", () => {
   assert.equal(html.includes("<script>alert(1)</script>"), false);
 });
 
+test("#51: PUBLIC_HOSTNAME wins over the request host; manifest id uses it", () => {
+  assert.equal(
+    resolvePublicHost("evil.example", {
+      workerEnv: "bica.appelgriebsch.org",
+      processEnv: "other.example",
+    }),
+    "bica.appelgriebsch.org",
+  );
+  assert.equal(
+    resolvePublicHost("evil.example", {
+      workerEnv: " ",
+      processEnv: "bica-staging.appelgriebsch.workers.dev",
+    }),
+    "bica-staging.appelgriebsch.workers.dev",
+  );
+  assert.equal(resolvePublicHost("evil.example", { workerEnv: "localhost" }), "evil.example");
+  assert.equal(resolvePublicHost("127.0.0.1", {}), "");
+  const manifest = JSON.parse(renderWebManifest("wild-race.grok.me"));
+  const host = resolvePublicHost("wild-race.grok.me");
+  assert.equal(manifest.id, host ? `https://${host}/` : "/");
+  assert.equal(manifest.start_url, "/");
+  assert.equal(manifest.scope, "/");
+});
+
 test("renders the manifest with the per-app name", () => {
   const manifest = JSON.parse(renderWebManifest("wild-race.grok.me"));
   assert.equal(manifest.name, "Wild Race");
@@ -314,12 +333,19 @@ test(
 
 test("#28: the configured app name wins on workers.dev and custom hosts", () => {
   assert.equal(APP_NAME, "Bica");
-  for (const host of ["bica-staging.appelgriebsch.workers.dev", "bica.example.pt", "wild-race.grok.me"]) {
+  for (const host of [
+    "bica-staging.appelgriebsch.workers.dev",
+    "bica.example.pt",
+    "wild-race.grok.me",
+  ]) {
     const manifest = JSON.parse(renderWebManifest(host, APP_NAME));
     assert.equal(manifest.name, "Bica", host);
     assert.equal(manifest.short_name, "Bica", host);
   }
-  assert.match(renderInstallPage("bica.example.pt", "/?install=1&platform=ios", APP_NAME), /Add Bica to your/);
+  assert.match(
+    renderInstallPage("bica.example.pt", "/?install=1&platform=ios", APP_NAME),
+    /Add Bica to your/,
+  );
 });
 
 test("#28: the deployed middleware passes APP_NAME to the manifest, install page and head", () => {

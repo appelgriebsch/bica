@@ -21,7 +21,7 @@ Ship a staging-only Worker:
 - Deploy only via `npm run deploy:staging`, or the staging workflow after the `CI` workflow succeeds for a push to `main` (or a manual `workflow_dispatch` run of a sha with green `CI`). Updated by #21 and #23; it first deployed from a separate branch.
 - The environment is named `staging`, not `preview`. Hiato’s name was a Pages limit. Copying it here would hide a real Workers environment behind the wrong word.
 
-`GET /api/health` returns 200 `{ "ok": true, "stage": "staging" }` only for that stage. This slice does not put Neon, Hyperdrive, or auth secrets on the Worker. PGLite is the preview database; the Worker skips it when `BICA_STAGE` is set (and on the Cloudflare build when `DATABASE_URL` is absent) so health and the app shell can answer.
+`GET /api/health` returns 200 `{ "ok": true, "stage": "staging", "sha": "<full sha>" }` only for that stage. This slice does not put Neon, Hyperdrive, or auth secrets on the Worker. PGLite is the preview database; the Worker skips it when `BICA_STAGE` is set (and on the Cloudflare build when `DATABASE_URL` is absent) so health and the app shell can answer.
 
 ## Consequences
 

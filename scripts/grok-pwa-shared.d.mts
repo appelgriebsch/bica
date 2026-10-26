@@ -5,7 +5,10 @@ export declare const OG_SITE_REL_PATH: string;
 export declare function escapeHtml(value: unknown): string;
 export declare function appNameFromHost(hostHeader: string | null | undefined): string;
 export declare function publicAppHost(hostHeader: string | null | undefined): string;
-export declare function resolvePublicHost(hostHeader: string | null | undefined): string;
+export declare function resolvePublicHost(
+  hostHeader: string | null | undefined,
+  sources?: { workerEnv?: unknown; processEnv?: unknown },
+): string;
 export declare function isInstallQuery(url: string | null | undefined): boolean;
 export declare function isDocumentPath(pathname: string | null | undefined): boolean;
 export declare function acceptsHtml(accept: string | null | undefined): boolean;

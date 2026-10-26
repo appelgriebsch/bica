@@ -11,7 +11,7 @@
  * placeholder and only games generate a custom file via Imagine).
  *
  * Checked on the filesystem (not the served head) because live preview has no
- * VITE_PUBLIC_HOSTNAME and renders no og:image tag at all, so the page alone
+ * public host and renders no og:image tag at all, so the page alone
  * can't reveal the placeholder. og:type does not need a host and is checked
  * on the __root.tsx source.
  */

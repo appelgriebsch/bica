@@ -68,7 +68,7 @@ jobs:
       # The release build. Tests ran in CI for this sha.
       - run: npm run build:cf
         env:
-          VITE_PUBLIC_HOSTNAME: bica.appelgriebsch.org
+          BICA_BUILD_SHA: ${{ needs.gate.outputs.sha }}
       - name: Deploy bica-production
         run: npx wrangler deploy --env production --config wrangler.toml | tee deploy.log
         env:
@@ -82,9 +82,11 @@ jobs:
         timeout-minutes: 6
         run: |
           url=https://bica.appelgriebsch.org
+          sha="${{ needs.gate.outputs.sha }}"
           for i in $(seq 1 12); do
             body=$(curl -fsS --max-time 10 "$url/api/health") \
-              && [ "$(jq -r .stage <<<"$body" 2>/dev/null)" = production ] && break
+              && [ "$(jq -r .stage <<<"$body" 2>/dev/null)" = production ] \
+              && [ "$(jq -r .sha <<<"$body" 2>/dev/null)" = "$sha" ] && break
             echo "health attempt $i: not ready"
             body=""
             [ "$i" -lt 12 ] && sleep 5
@@ -92,6 +94,7 @@ jobs:
           [ -n "$body" ] || { echo "::error::/api/health never answered stage=production at $url"; exit 1; }
           echo "$body"
           test "$(jq -r .ok <<<"$body")" = true
+          test "$(jq -r .sha <<<"$body")" = "$sha"
           for i in $(seq 1 12); do
             code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$url/" || true)
             [ "$code" = 200 ] && { echo "GET / 200 (attempt $i)"; exit 0; }

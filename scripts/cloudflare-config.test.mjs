@@ -250,7 +250,7 @@ test("CI: PRs and pushes to main, job CI, no secrets, cancels superseded PR runs
   );
   assert.match(
     ci,
-    /^concurrency:\n {2}group: ci-\$\{\{ github\.event\.pull_request\.number \|\| github\.ref \}\}\n {2}cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}$/m,
+    /^concurrency:\n {2}group: ci-\$\{\{ github\.event\.pull_request\.number \|\| github\.sha \}\}\n {2}cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}$/m,
   );
   assert.doesNotMatch(ci, /cancel-in-progress: true/);
   assert.match(ci, /^permissions:\n {2}contents: read\n/m);

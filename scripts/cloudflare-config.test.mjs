@@ -250,6 +250,9 @@ test("#55: staging chat-gate smoke is release-only, between headers and summary"
   const summary = staging.indexOf("- name: Summary");
   assert.ok(headers >= 0 && chat > headers && summary > chat, "step order");
   const st = step("staging", "Smoke chat gate");
+  // Release-only lives in the script. A step `if:` would skip the whole step, including on release.
+  assert.doesNotMatch(st, /^\s+if:/m);
+  assert.match(st, /timeout-minutes: 3/);
   assert.match(st, /\[ "\$MODE" != release \]/);
   assert.match(st, /\[ "\$code" = 403 \]/);
   assert.match(st, /grep -q challenge_required/);
@@ -284,6 +287,133 @@ test("#55: staging chat-gate smoke is release-only, between headers and summary"
   assert.match(built, /from "\.\/chat-smoke\.mjs"/);
   assert.doesNotMatch(built, /a6c1db121df31c78/);
 });
+
+/** The staging "Smoke chat gate" `run:` block, dedented the way Actions runs it. */
+function chatGateScript() {
+  const st = step("staging", "Smoke chat gate");
+  const at = st.indexOf("\n        run: |\n");
+  assert.ok(at >= 0, "chat gate run block");
+  return st
+    .slice(at + "\n        run: |\n".length)
+    .split("\n")
+    .map((line) => (line.startsWith("          ") ? line.slice(10) : line))
+    .join("\n");
+}
+
+test(
+  "#55: chat-gate smoke against a stub",
+  {
+    skip:
+      spawnSync("bash", ["-c", "command -v curl >/dev/null && command -v bash >/dev/null"])
+        .status !== 0,
+  },
+  async () => {
+    const script = chatGateScript();
+    const realCurl = spawnSync("bash", ["-c", "command -v curl"], {
+      encoding: "utf8",
+    }).stdout.trim();
+    assert.ok(realCurl, "curl");
+    const host = "https://bica-staging.test-acct.workers.dev";
+
+    const runCase = async (label, { mode, status, payload, code, hits: wantHits, match }) => {
+      let hits = 0;
+      const server = createServer(async (req, res) => {
+        hits += 1;
+        const chunks = [];
+        for await (const chunk of req) chunks.push(chunk);
+        const body = Buffer.concat(chunks).toString();
+        const type = String(req.headers["content-type"] ?? "")
+          .split(";")[0]
+          .trim();
+        const ok =
+          req.method === "POST" &&
+          req.url === `/_serverFn/${SEND_CHAT}` &&
+          req.headers["x-tsr-serverfn"] === "true" &&
+          type === "application/json" &&
+          req.headers.origin === host &&
+          req.headers["sec-fetch-site"] === "same-origin" &&
+          body === CHAT_TURN;
+        if (!ok) {
+          res.writeHead(400).end("bad");
+          return;
+        }
+        res.writeHead(status, { "content-type": "application/json" }).end(payload);
+      });
+      await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const port = server.address().port;
+      const dir = mkdtempSync(join(tmpdir(), "bica-chat-gate-"));
+      const shim = `#!/bin/bash
+prefix='${host}'
+stub='http://127.0.0.1:${port}'
+args=()
+for a in "$@"; do
+  if [[ "$a" == "$prefix"* ]]; then a="$stub\${a#"$prefix"}"; fi
+  args+=("$a")
+done
+exec '${realCurl}' "\${args[@]}"
+`;
+      writeFileSync(join(dir, "curl"), shim);
+      chmodSync(join(dir, "curl"), 0o755);
+      writeFileSync(join(dir, "deploy.log"), `https://bica-staging.test-acct.workers.dev\n`);
+      // execFile, not spawnSync: a sync child blocks this event loop, so the stub never answers.
+      const result = await new Promise((resolve) => {
+        execFile(
+          "bash",
+          ["-euo", "pipefail", "-c", script],
+          {
+            cwd: root,
+            env: {
+              ...process.env,
+              MODE: mode,
+              RUNNER_TEMP: dir,
+              PATH: `${dir}:${process.env.PATH}`,
+            },
+            encoding: "utf8",
+          },
+          (err, stdout, stderr) => resolve({ status: err ? (err.code ?? 1) : 0, stdout, stderr }),
+        );
+      });
+      await new Promise((resolve) => server.close(resolve));
+      rmSync(dir, { recursive: true, force: true });
+      assert.equal(result.status, code, `${label}\n${result.stdout}\n${result.stderr}`);
+      if (match) assert.match(`${result.stdout}\n${result.stderr}`, match, label);
+      if (wantHits !== undefined) assert.equal(hits, wantHits, label);
+    };
+
+    await runCase("403 challenge_required", {
+      mode: "release",
+      status: 403,
+      payload: '{"error":"challenge_required"}',
+      code: 0,
+    });
+    await runCase("403 other body", {
+      mode: "release",
+      status: 403,
+      payload: '{"error":"forbidden"}',
+      code: 1,
+    });
+    await runCase("200 challenge_required", {
+      mode: "release",
+      status: 200,
+      payload: '{"error":"challenge_required"}',
+      code: 1,
+    });
+    await runCase("404 unknown id", {
+      mode: "release",
+      status: 404,
+      payload: '{"error":"not_found"}',
+      code: 1,
+      match: /unknown server fn id/,
+    });
+    await runCase("redeploy", {
+      mode: "redeploy",
+      status: 403,
+      payload: '{"error":"challenge_required"}',
+      code: 0,
+      hits: 0,
+    });
+  },
+);
 
 test("#31: /api/health smoke fails with ::error:: when health never answers", () => {
   assert.match(smokeHealth, /echo "::error::\/api\/health never answered[^"]*"\n {2}exit 1/);

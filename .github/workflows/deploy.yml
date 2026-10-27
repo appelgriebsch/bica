@@ -282,7 +282,7 @@ jobs:
           url=$(grep -oE 'https://bica-staging\.[a-z0-9-]+\.workers\.dev' "$RUNNER_TEMP/deploy.log" | head -n 1)
           test -n "$url" || { echo "::error::no workers.dev URL in the deploy output"; exit 1; }
           bash scripts/smoke-health.sh "$url" staging "$SHA"
-      # #28: HTML carries the security headers and a (Report-Only) nonce CSP.
+      # #28: HTML carries the security headers and a nonce CSP. Enforced on staging since #55; production stays Report-Only until its flip.
       # workers.dev keeps serving the previous version for a few seconds after
       # `wrangler deploy` returns (run 38550854181 probed 0.4 s later and got the
       # pre-#28 Worker, which has none of these headers). /api/health carries the

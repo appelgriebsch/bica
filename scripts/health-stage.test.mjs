@@ -60,3 +60,16 @@ test("health route does not touch auth or the database", () => {
   assert.match(source, /__BICA_BUILD_SHA_FULL__/);
   assert.match(source, /cache-control/);
 });
+
+test("#55: unsupported methods are 405 via one helper", async () => {
+  const { methodNotAllowed } = await import("../src/lib/method-not-allowed.mjs");
+  const res = methodNotAllowed("GET, HEAD");
+  assert.equal(res.status, 405);
+  assert.equal(res.headers.get("allow"), "GET, HEAD");
+  assert.equal(res.headers.get("cache-control"), "no-store");
+  assert.equal(await res.text(), "");
+  const route = (name) => readFileSync(join(root, "src/routes/api", name), "utf8");
+  assert.match(route("health.ts"), /ANY: \(\) => methodNotAllowed\("GET, HEAD"\)/);
+  assert.match(route("ping.ts"), /ANY: \(\) => methodNotAllowed\("GET, HEAD"\)/);
+  assert.match(route("csp-report.ts"), /ANY: \(\) => methodNotAllowed\("POST"\)/);
+});

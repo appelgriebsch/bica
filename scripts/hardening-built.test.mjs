@@ -444,6 +444,33 @@ test(
   },
 );
 
+test("#55: unsupported methods are 405; GET, HEAD and POST stay", { skip }, async () => {
+  const denied = async (path, method, allow) => {
+    const res = await fetch(`${base}${path}`, { method, headers: { host: HOST } });
+    assert.equal(res.status, 405, `${method} ${path}`);
+    assert.equal(res.headers.get("allow"), allow, `${method} ${path}`);
+    assert.equal(res.headers.get("cache-control"), "no-store", `${method} ${path}`);
+    assert.equal(await res.text(), "", `${method} ${path}`);
+  };
+  await denied("/api/health", "POST", "GET, HEAD");
+  await denied("/api/ping", "POST", "GET, HEAD");
+  await denied("/api/csp-report", "GET", "POST");
+  const health = await fetch(`${base}/api/health`);
+  assert.equal(health.status, 200);
+  assert.match(await health.text(), /"ok":true/);
+  const head = await fetch(`${base}/api/health`, { method: "HEAD" });
+  assert.equal(head.status, 200);
+  assert.equal(await head.text(), "");
+  const ping = await fetch(`${base}/api/ping`);
+  assert.equal(ping.status, 204);
+  const report = await fetch(`${base}/api/csp-report`, {
+    method: "POST",
+    headers: { "content-type": "application/csp-report" },
+    body: JSON.stringify({ "csp-report": { "violated-directive": "script-src" } }),
+  });
+  assert.equal(report.status, 204);
+});
+
 test("CSP reports are accepted with 204", { skip }, async () => {
   const res = await fetch(`${base}/api/csp-report`, {
     method: "POST",

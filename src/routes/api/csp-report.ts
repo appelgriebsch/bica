@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createCspReportHandler } from "@/lib/csp-report.mjs";
+import { methodNotAllowed } from "@/lib/method-not-allowed.mjs";
 
 /**
  * CSP violation reports (#28; `report-uri`/`report-to` in
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/api/csp-report")({
   server: {
     handlers: {
       POST: ({ request }) => handle(request),
+      ANY: () => methodNotAllowed("POST"),
     },
   },
 });

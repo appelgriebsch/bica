@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { healthForStage, resolveBicaStage } from "@/lib/health-stage.mjs";
+import { methodNotAllowed } from "@/lib/method-not-allowed.mjs";
 
 /** Staging and production liveness. Do not import the auth server or the database from here. */
 function readBicaStage(): string | undefined {
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/api/health")({
           },
         });
       },
+      ANY: () => methodNotAllowed("GET, HEAD"),
     },
   },
 });

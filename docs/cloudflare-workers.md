@@ -36,7 +36,7 @@ Set Worker secrets with `wrangler secret put <NAME> --env staging` (never in `wr
 | `TURNSTILE_SITE_KEY`                            | Committed, public (`src/lib/turnstile-keys.mjs`) | Conversas (#35): the staging widget key `0x4AAAAAAFWlhnYXXvgEtMvS`, baked into the client by `build:cf`. Dev and other builds use Cloudflare's test site key. Nothing to set. |
 | `TURNSTILE_HOSTNAMES`                           | Plain var, `[env.staging.vars]` (committed) | Conversas (#35): comma-separated hostnames siteverify may report. Staging: `bica-staging.appelgriebsch.workers.dev` only, never localhost. Empty → every token fails. |
 | `PUBLIC_HOSTNAME`                               | Plain var, `[env.staging.vars]` and `[env.production.vars]` | og:image and the manifest id (#51). Staging: `bica-staging.appelgriebsch.workers.dev`. Production: `bica.appelgriebsch.org`. Unset at the top level, so local preview falls back to the request host. |
-| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | GitHub `staging` environment secrets | Required. `wrangler deploy` in CI. Token scopes: below.                                                                  |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | GitHub environment secrets (`staging` and `production`, #50), never repository secrets | Required. `wrangler deploy` in the Deploy workflow. Token scopes: below. |
 
 `BICA_STAGE` and `PUBLIC_HOSTNAME` are plain vars in `[env.*.vars]`, read at runtime (Worker binding, then `process.env`). The build does not take a public host, so one `build:cf` artifact serves both stages. `BICA_BUILD_SHA`, when set, is stamped into that artifact (`__BICA_BUILD_SHA_FULL__`); otherwise the build uses git HEAD, then `GITHUB_SHA`, then `dev`. `VITE_STUN_URLS`, if set, is still build-time. There is no grok.me publish path (#17).
 
@@ -77,7 +77,7 @@ Create the token from the **Edit Cloudflare Workers** template, scoped to the on
 - Account › **Workers Scripts › Edit** (deploy, secrets, the workers.dev subdomain toggle).
 - Account › **Account Settings › Read** (wrangler's account lookup). This is probably unnecessary because `CLOUDFLARE_ACCOUNT_ID` is set, so wrangler doesn't need to look the account up. Untested: try dropping it once a real run has succeeded.
 
-The workflow passes the token and account id only to the deploy step, never at job level. A token made before #33 may still carry D1 › Edit; it is no longer needed.
+The workflow passes the token and account id only to steps that call wrangler, never at job level. A token made before #33 may still carry D1 › Edit; it is no longer needed.
 
 Remove what the template adds that bica doesn't use (KV, R2, Pages, and the zone permissions). Staging has no routes, so it needs no zone access. Production's token is separate; see [Prod API token](#prod-api-token).
 
@@ -85,14 +85,22 @@ The repo pins Node 22 (`.nvmrc`, `engines` with `engine-strict=true`, so `npm ci
 
 ## Deploy
 
-Only these two paths publish, and both pass `--env staging`:
+Only these paths publish:
 
-- locally: `npm run deploy:staging` (`build:cf`, then `wrangler deploy --env staging --config wrangler.toml`), with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` exported
-- CI: after the `CI` workflow succeeds for a push to `main` (`workflow_run`), or by hand (`workflow_dispatch`), in `.github/workflows/deploy-staging.yml`
+- locally, staging: `npm run deploy:staging` (`build:cf`, then `wrangler deploy --env staging --config wrangler.toml`), with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` exported
+- GitHub Actions: `.github/workflows/deploy.yml` (workflow name `Deploy`)
 
-`.github/workflows/ci.yml` (job **`CI`**, the required check) runs on every pull request to `main` and every push to `main`, on the Node version in `.nvmrc` (22) with the npm cache. It runs `npm ci`, `npm audit --omit=dev --audit-level=high`, typecheck, lint, `npm test`, `npm run deps:check`, `npm run licenses:check`, `npm run build`, `npm run build:cf`, the built-output tests on the Worker bundle (`BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test`), then `wrangler deploy --dry-run --env staging --config wrangler.toml` (bundling, bindings and assets; no token). It has no secrets and `contents: read`. Concurrency is one group per PR number, or per commit SHA on main, with cancel-in-progress only for pull_request, so a newer push cancels an older run of the same PR and every main push gets its own CI run (which drives the staging deploy via workflow_run).
+`.github/workflows/ci.yml` (job **`CI`**, the required check) runs on every pull request to `main` and every push to `main`, on the Node version in `.nvmrc` (22) with the npm cache. It runs `npm ci`, `npm audit --omit=dev --audit-level=high`, typecheck, lint, `npm test`, `npm run deps:check`, `npm run licenses:check`, `npm run build`, `npm run build:cf`, the built-output tests on the Worker bundle (`BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test`), then `wrangler deploy --dry-run --env staging --config wrangler.toml` (bundling, bindings and assets; no token). It has no secrets and `contents: read`. Concurrency is one group per PR number, or per commit SHA on main, with cancel-in-progress only for pull_request, so a newer push cancels an older run of the same PR and every main push gets its own CI run (which starts Deploy via `workflow_run`). CI also runs `wrangler deploy --dry-run --env production` (no token).
 
-The staging deploy (GitHub environment `staging`, 15 minute timeout) starts from `workflow_run` when `CI` completes on `main`, and runs only if that run concluded `success`, was a `push` (not a PR), and came from `main` of this repository (not a fork). A manual run is accepted only from `main`. It checks out exactly the CI-tested `head_sha`. A manual `workflow_dispatch` run first checks that the `CI` check run of its sha succeeded and stops otherwise. Then: `npm ci`, `npm run build:cf` (the release build, with the committed staging Turnstile site key and `BICA_BUILD_SHA` set to the deployed sha; no test, lint or deps steps, since CI ran them for this sha), `wrangler deploy`, `GET /api/health` on the deployed URL (200, `stage: "staging"` and `sha` equal to that commit, retried while workers.dev rolls out), then the security-header smoke (HEAD and GET on `/` and `/me`, including the CSP's Turnstile `frame-src`). Every step runs under `bash -euo pipefail`, so any failure stops the job before deploy. `workflow_run` always uses the workflow file from the default branch, which keeps the deploy secrets out of anything a pull request can change. A failed deploy doesn't turn the required `CI` check red. Deploys share the fixed concurrency group `deploy-staging` with `cancel-in-progress: false`: two quick merges deploy one after the other, and neither is cancelled mid-deploy.
+`deploy.yml` runs when `CI` completes on `main` (`workflow_run`), and only if that run concluded `success`, was a `push` (not a pull request), and came from `main` of this repository (not a fork). A manual `workflow_dispatch` is accepted only from `main`. `workflow_run` always uses this file from the default branch, so a pull request cannot change the deploy or see its secrets. A failed deploy does not turn the required `CI` check red. There is no `push` or `pull_request` trigger. `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are GitHub **environment** secrets on `staging` and `production` (#50), never repository secrets, and are passed only to steps that call wrangler.
+
+Jobs:
+
+1. **build** (no environment, no secrets, 15 minute timeout). Release mode checks out the CI-tested sha (`workflow_run` head sha, or the dispatched sha). A manual run with no `artifact_run_id` requires the newest `CI` check run of that sha to be `success`. It runs `npm ci` and `npm run build:cf` with `BICA_BUILD_SHA`. The build is stage-neutral: the public host is a Worker var at runtime, not a build input. It packs `.output` and `wrangler.toml` as artifact `bica-worker-<sha>`, kept 30 days, and logs the tarball sha256. Redeploy mode (dispatch input `artifact_run_id`) does not build. It downloads that earlier run's artifact. The run must be Deploy, on `main`, of this repository; exactly one non-expired artifact must be named `bica-worker-<40 hex>`; and that sha must already be on `main`'s history (`compare` status `identical` or `ahead`).
+2. **staging** (environment `staging`, concurrency group `deploy-staging`, `cancel-in-progress: false`, 20 minute timeout). Checks out this workflow's own revision, because `scripts/smoke-health.sh` and `package-lock.json` have to exist even when the artifact's commit is older. Before any Cloudflare call it refuses a release deploy unless the sha is still the tip of `origin/main`, checks again after installing wrangler from the lockfile (`npm ci --ignore-scripts` in this checkout; wrangler then runs on the unpacked artifact), and deploys `--env staging`. A rollback redeploy skips the tip check. It downloads the same artifact, checks the sha256 against the build job's digest and the `.sha256` file, smokes `/api/health` (`stage` and `sha`) and the security headers (HEAD and GET on `/` and `/me`, including the CSP's Turnstile `frame-src`). The step summary says whether to approve.
+3. **production** (environment `production`, concurrency group `deploy-production`, `cancel-in-progress: false`, 20 minute timeout) runs only after staging succeeds and a required reviewer approves. It repeats the tip check after approval and again immediately before a release deploy. It downloads the same artifact, checks the same digest, records the live production version, deploys `--env production`, then smokes `/api/health` and `/`. The step summary says what was published, or how to roll back.
+
+Every job logs `artifact sha256: <digest>`. A running deploy is never cancelled. GitHub keeps one running and one pending job per concurrency group, though, so a third queued deploy replaces the pending one. For release runs that's harmless (the dropped run would fail the tip check anyway), but a pending rollback redeploy can be dropped silently: check that it ran, and dispatch it again if not.
 
 ### Branch ruleset on `main` (repo admin, not in the repo)
 
@@ -135,7 +143,7 @@ The top-level `[[migrations]]` (`v1-chat-budget`) apply on the first prod deploy
 
 ### Deploy
 
-Only `.github/workflows/deploy-production.yml`, run by hand (`workflow_dispatch`). The `gate` job (no secrets, `contents: read` + `checks: read`) requires the newest `CI` check run of the dispatched sha to be `success`; the `deploy` job (`contents: read` only) runs in the `production` GitHub environment, checks out exactly that sha, runs `npm ci`, `build:cf` (with `BICA_BUILD_SHA` set to the dispatched sha), `wrangler deploy --env production`, then smoke-tests `/api/health` (`stage: "production"`, `sha` of that commit) and `/`. Concurrency group `deploy-production`, never cancelled. CI runs `wrangler deploy --dry-run --env production` (no token).
+Production is the `production` job of `.github/workflows/deploy.yml` (see [Deploy](#deploy) above). Approval is the `production` environment.
 
 **The workflow's `main` check is not the protection.** A dispatch from another branch runs that branch's copy of the workflow, which can drop the check. What actually guards prod is the `production` environment, and it must have **both**:
 
@@ -152,7 +160,7 @@ Without both, anyone with write access could deploy prod from a branch.
 | `TURNSTILE_SECRET_KEY` | Worker secret | The (shared staging) widget's secret. `npx wrangler secret put TURNSTILE_SECRET_KEY --env production` |
 | `CHAT_SESSION_SECRET` | Worker secret | ≥ 32 bytes, its own value (not staging's): `openssl rand -base64 32`, then `npx wrangler secret put CHAT_SESSION_SECRET --env production` |
 | Turnstile widget hostnames | Cloudflare dashboard | Add `bica.appelgriebsch.org` to the widget whose site key is committed |
-| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | GitHub `production` environment secrets | Prod-only token, below |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | GitHub environment secrets (`production`, #50), never repository secrets | Prod-only token, below |
 | Deployment branches `main` only + required reviewer Andreas | GitHub `production` environment | Both required (see Deploy) |
 | `CHAT_DAILY_GLOBAL`, `CHAT_DAILY_PER_IP`, `CSP_ENFORCE` | Optional plain vars | Defaults 2000 / 60; CSP stays Report-Only unless `CSP_ENFORCE=1` |
 
@@ -174,7 +182,29 @@ Done in #8 / #40: DNS for `bica.appelgriebsch.org` now points at the Workers cus
 
 ### Rollback
 
-`npx wrangler rollback --env production` (pick a version with `npx wrangler deployments list --env production`). It rolls back **code only**: vars, secrets and bindings stay as they are now. If the bad change was a secret or var, fix that with `wrangler secret put` instead. Lossless for progress (it lives on devices).
+A Worker version captures the bundled code, static assets, bindings and compatibility settings ([Versions & deployments](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/)). Storage state (KV, R2, Durable Objects, D1) is not part of a version. A rollback immediately creates a new deployment of the chosen version; connected resources are not changed ([Rollbacks](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/rollbacks/)). A data-shape change can break older code. Only the 100 most recent versions can be targeted. Rollbacks are not allowed across a Durable Object class lifecycle change (`[[migrations]]`) or to a version bound to a deleted R2, KV or queue resource. `wrangler secret put` creates a new version. Progress on devices is unchanged.
+
+(a) On a machine with a production token, list versions and re-activate one:
+
+```
+npx wrangler deployments list --env production
+npx wrangler rollback --env production [version-id] --message "..."
+```
+
+`wrangler rollback` re-activates an earlier **version**: that version's code, assets, vars and other bindings and compatibility settings, not only code. Data in Durable Objects is not rolled back. Secrets are versioned too (each `secret put` creates a version), so after a rollback check `npx wrangler versions view <id> --env production` and re-put a secret if it was rotated since. Blocked to any version from before a DO migration (`v1-chat-budget` or any later tag).
+
+(b) Redeploy a known-good artifact (kept 30 days). Actions → Deploy → Run workflow, branch `main`, `artifact_run_id` = the run id of the last good Deploy run. `artifact_run_id` must be a Deploy run that built the artifact (a release run), not an earlier redeploy run; artifacts expire after 30 days. That redeploys those bytes to staging, then waits for production approval. Reject the approval to stop at staging.
+
+The redeploy is a new `wrangler deploy` of that run's `.output` **and that commit's `wrangler.toml`**, so its `[env.*.vars]`, routes/`workers_dev`, `compatibility_date`, ratelimit and DO bindings and `[[migrations]]` come back too. Only Worker secrets stay as they are now. Before redeploying, compare `git diff <sha> main -- wrangler.toml`. Never redeploy across a DO migration (an older config missing a newer migration tag can fail or misbehave); fix forward instead.
+
+(c) Staging drill: deploy A, deploy B, redeploy A via (b) and reject production, check staging `/api/health` sha is A, then redeploy B.
+
+| step          | run id                       |
+| ------------- | ---------------------------- |
+| deploy A      | TBD (filled after the drill) |
+| deploy B      | TBD (filled after the drill) |
+| rollback to A | TBD (filled after the drill) |
+| re-deploy B   | TBD (filled after the drill) |
 
 There is no Vercel fallback (#17): a DNS flip back to another platform is not a supported path.
 

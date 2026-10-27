@@ -474,8 +474,7 @@ does not apply to this app.
 ### Build & deploy target
 
 You never trigger the deploy yourself, **but this app deploys only to
-Cloudflare Workers** via `.github/workflows/deploy-staging.yml` and
-`deploy-production.yml`. There is **no grok.me publish path**. Build cleanly
+Cloudflare Workers** via `.github/workflows/deploy.yml`. There is **no grok.me publish path**. Build cleanly
 under `npm run build` / `build:cf`: `npm run build` must succeed and emit valid
 Worker output, and code that works under `npm run dev` but breaks a production /
 SSR build is a bug: watch for dev-only deps, server-only Node APIs run at import

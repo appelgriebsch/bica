@@ -1,7 +1,7 @@
 # Staging and production Workers (#8). The top level stays inert: no
 # workers.dev route, no route and no BICA_STAGE, so a publish without --env
-# fails closed at /api/health. Production deploys only through
-# .github/workflows/deploy-production.yml (manual, approval-gated).
+# fails closed at /api/health. Deploys only through
+# .github/workflows/deploy.yml (build once, then approval-gated production).
 name = "bica"
 main = ".output/server/staging-entry.mjs"
 compatibility_date = "2026-10-05"

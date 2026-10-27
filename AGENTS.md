@@ -75,7 +75,7 @@ broken, or ugly, that is their whole experience.
 - Success = app **running on `0.0.0.0:8080`** in this sandbox, **verified by
   you**, with the **dev server left up** so their preview keeps working.
 - Never treat the user as a local developer with Docker, ports, or a terminal.
-- Never ask them to open `localhost`, map ports, install Node, run `npm`, paste
+- Never ask them to open `localhost`, map ports, install Node, run `bun`, paste
   screenshots, or "check if it works on their side."
 - **Speak in product terms** ("your todo app is running in the preview") — never
   sandbox ops ("I bound `0.0.0.0:8080` in the container"). To the user, ports,
@@ -126,7 +126,7 @@ project instructions; follow it with the same priority as this file.
 | Item | Value |
 | --- | --- |
 | Working directory | `/workspace` (project root) |
-| OS | Linux container, **Node 22** (not the user's OS) |
+| OS | Linux container, **Node 22 (≥ 22.23.4, `.nvmrc`)** (not the user's OS); check with `bun run node:check` |
 | App must listen on | **`0.0.0.0:8080`** — how the live preview finds your app |
 | How you check the app | `http://127.0.0.1:8080` **from inside this container** (curl / browser tools / Playwright) |
 | How the **user** sees the app | Live preview in the **web client** (automatic once something serves on 8080) — not a URL you invent for them |
@@ -162,7 +162,7 @@ file correct for the app you are building.
    script **returns quickly** — do not leave the script foreground-blocked on
    the dev server forever.
 6. **Bind the preview:** the primary app must end up listening on
-   **`0.0.0.0:8080`** (same contract as `npm run dev` in this template).
+   **`0.0.0.0:8080`** (same contract as `bun run dev` in this template).
 7. **No secrets in the file** that shouldn't live in the workspace snapshot.
 8. **Do not delete** the file when cleaning up or re-scaffolding.
 
@@ -175,7 +175,7 @@ cd /workspace
 if curl -sf -o /dev/null --max-time 2 http://127.0.0.1:8080/; then
   exit 0
 fi
-npm run dev >>/tmp/app-startup.log 2>&1 &
+bun run dev >>/tmp/app-startup.log 2>&1 &
 ```
 
 When you start the dev server during a turn, write/update `startup.sh` first,
@@ -185,7 +185,7 @@ revive and live work stay identical.
 ### What is already here
 
 - **`package.json`** + **`node_modules/`** — deps **preinstalled**. Avoid
-  `npm install` unless you truly need a new package. The full inventory in
+  `bun add` unless you truly need a new package. The full inventory in
   `package.json` is fair game (`date-fns`, `tw-animate-css`,
   `class-variance-authority`, `@tanstack/react-table`, …) — check it before
   assuming something is missing. Game engines (`three`, Phaser, …) are **not**
@@ -210,26 +210,30 @@ revive and live work stay identical.
 - **No app routes/UI yet** — only the pre-wired `src/lib` data/auth helpers
   (see "Data & auth") and `src/lib/error-component.tsx` (the router's
   `defaultErrorComponent`); build the app around them, don't delete them.
-  `npm run dev` errors until you create the entry files — start from
+  `bun run dev` errors until you create the entry files — start from
   §"First scaffold" below.
-- **Port contract** — `npm run dev` binds **`0.0.0.0:8080`**. Prefer 8080 over
+- **Port contract** — `bun run dev` binds **`0.0.0.0:8080`**. Prefer 8080 over
   5173/3000 so the preview reliably picks your app.
 
 ### What you can / cannot install
 
 | Allowed | Not available |
 | --- | --- |
-| `npm install` / `npm i` for **JS packages** (registry works). Prefer packages already in `package.json` when possible. | **`apt` / `apt-get` / `yum` / system package managers** — do not try; they will not work here |
-| Node 22, Playwright Chromium (for your QA), preinstalled app deps | OS-level libs, compilers, or native toolchains via the shell |
-| Docs / web search for APIs and how-tos | Trial-and-error install loops when something is missing — search first, then use an npm or pure-browser approach |
+| `bun add` / `bun install` for **JS packages** (registry works). Prefer packages already in `package.json` when possible. | **`apt` / `apt-get` / `yum` / system package managers** — do not try; they will not work here |
+| Node 22 (≥ 22.23.4, `.nvmrc`; `bun run node:check`), Playwright Chromium (for your QA), preinstalled app deps | OS-level libs, compilers, or native toolchains via the shell |
+| Docs / web search for APIs and how-tos | Trial-and-error install loops when something is missing — search first, then use a Bun-installed package or a pure-browser approach |
 
-- Need a JS dependency (including game engines like `three` / Phaser) → **npm**
+- Need a JS dependency (including game engines like `three` / Phaser) → **`bun add`**
   and leave it in `package.json` for deploy.
-- Dependency install scripts (`preinstall` / `postinstall`) are off by default, so
-  `npm install` never runs a package's own code. `npm run dev|build|typecheck`
-  are unaffected. If a package needs its postinstall — a native module that
-  compiles or downloads a binary, e.g. `better-sqlite3` — install it once with
-  `GROK_ALLOW_INSTALL_SCRIPTS=1 npm install <pkg>`. Prefer a pure-JS alternative.
+- No dependency install scripts (`preinstall` / `postinstall`) run: `bunfig.toml`
+  sets `[install] ignoreScripts = true` and `package.json` sets
+  `"trustedDependencies": []`, so `bun install` / `bun add` never run a package's
+  own code (Bun's built-in default-trusted list does not apply). `bun pm untrusted`
+  lists workerd's `postinstall` as blocked; that is expected.
+  `bun run dev|build|typecheck` are unaffected. A package that needs its install
+  script (a native module that compiles or downloads a binary) needs a reviewed
+  change to both settings. Prefer a pure-JS alternative. Never run
+  `bun audit fix` unread: it rewrites the exact `overrides` pins.
 - Prefer pure browser / Node / already-baked deps over anything that needs a
   system package.
 
@@ -241,7 +245,7 @@ conventions are rejected by the plugin — don't trust stale priors; these
 snippets match the installed version). Create these files first, exactly in this
 shape, then build your app out from them.
 
-**Shell (required before `npm run dev` works):**
+**Shell (required before `bun run dev` works):**
 
 ```tsx
 // src/router.tsx
@@ -352,7 +356,7 @@ nothing shows.
 `src/components/preview-host-bridge.tsx` (+ `src/lib/preview-host-bridge.ts`).
 It lets the Grok preview chrome (address bar, back/forward) talk to the app
 over `postMessage` while embedded. Outside the preview iframe (downloaded zip,
-GitHub export, local `npm run dev`, deployed top-level) it is a silent noop —
+GitHub export, local `bun run dev`, deployed top-level) it is a silent noop —
 do not strip it "for production."
 
 Hard rules:
@@ -419,7 +423,7 @@ email/password), pre-wired in `src/lib` — see "Data & auth" below.
 
 The database + authentication are **preinstalled** and pre-wired in `src/lib`
 (don't reinstall). The **DB** is **Cloudflare D1** (ADR 0002): the Worker's `DB`
-binding on deploy, and wrangler's local D1 (`.wrangler/state`) in `npm run dev`,
+binding on deploy, and wrangler's local D1 (`.wrangler/state`) in `bun run dev`,
 so the preview always renders with nothing to configure. **Auth is
 real and ON by default even in the live preview** — it federates via a baked
 shared preview client — so build real sign-in; do **NOT** scaffold demo/mock
@@ -475,13 +479,13 @@ does not apply to this app.
 
 You never trigger the deploy yourself, **but this app deploys only to
 Cloudflare Workers** via `.github/workflows/deploy.yml`. There is **no grok.me publish path**. Build cleanly
-under `npm run build` / `build:cf`: `npm run build` must succeed and emit valid
-Worker output, and code that works under `npm run dev` but breaks a production /
+under `bun run build` / `build:cf`: `bun run build` must succeed and emit valid
+Worker output, and code that works under `bun run dev` but breaks a production /
 SSR build is a bug: watch for dev-only deps, server-only Node APIs run at import
 time, runtime filesystem writes, and hard-coded ports / hosts / secrets. Before
-treating the app as done, confirm `npm run build` and `npm run typecheck` pass.
+treating the app as done, confirm `bun run build` and `bun run typecheck` pass.
 
-**A passing `npm run build` does not mean the deployed app renders.** After
+**A passing `bun run build` does not mean the deployed app renders.** After
 building, serve the built output and load it in a browser (§3). The most common
 blank-deploy failure is `Failed to load module script … MIME type "text/html"`:
 the built `index.html` requests JS assets that 404 in prod, so the server
@@ -500,9 +504,9 @@ without it the deployed app loses the Home Screen install page), and
 `grokPwaPlugin()`.
 
 ```bash
-npm run dev         # 0.0.0.0:8080 — run in background when ready; leave it up
-npm run build
-npm run typecheck
+bun run dev         # 0.0.0.0:8080 — run in background when ready; leave it up
+bun run build
+bun run typecheck
 ```
 
 Helper for visual smoke (preinstalled Playwright):
@@ -669,7 +673,7 @@ If the shared contract isn’t ready, stay sequential.
    steer/roll sign if inverted; retest.
 6. **Verify the PRODUCTION build, not just dev.** Dev (Vite) can render while
    the deployed Worker build is blank. Before declaring done: run
-   `npm run build`, serve the built output, and load it in the browser the same
+   `bun run build`, serve the built output, and load it in the browser the same
    way as step 5. Watch specifically for
    `Failed to load module script … MIME type "text/html"`. Fix the config and
    re-verify the **built** output renders before finishing.
@@ -737,7 +741,7 @@ play end-to-end, but inverted A/D must not ship.
   layout, no horizontal overflow, touch-friendly targets/controls.
 - Dev server stays up; no broken imports.
 - **Production build passes** and the **built output renders** (not just
-  `npm run dev` / not just a green `npm run build`).
+  `bun run dev` / not just a green `bun run build`).
 - **Required:** one real browser render check on dev **and** on the production
   build; both show visible content with a clean console before you finish.
 - **Games with movement:** A/D player-correct (chase cam, A = left) per
@@ -774,7 +778,7 @@ skills:    open design-ui (any UI) and/or building-games (any game) BEFORE build
 you:       agent in a Linux sandbox, cwd /workspace
 user:      web client only — no sandbox shell, no local Docker, no terminal
 startup:   OWN /workspace/startup.sh — platform re-runs it after hibernate/revive
-serve:     startup.sh / npm run dev  →  bind 0.0.0.0:8080  (live preview)
+serve:     startup.sh / bun run dev  →  bind 0.0.0.0:8080  (live preview)
 verify:    YOU drive browser tools / browser-smoke.mjs (dev AND built) — not curl-only
 controls:  WASD/vehicle/flight → .grok/skills/controls/SKILL.md; A=left self-test
 og:        twitter:card=summary_large_image is first-scaffold + PWA chrome (every app). keep og:image + x:game:image in root head (banner default og.grok.me/v1/banner.png); svg favicon always; custom og.jpg is the DEFAULT for faceful apps (plain utilities keep link placeholder); games → og:type="x:game" + Imagine public/x-banner.jpg (1200×264) via .grok/skills/og/SKILL.md

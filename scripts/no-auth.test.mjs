@@ -231,12 +231,18 @@ test("#33 acceptance: no auth leftovers in src, server, scripts, docs or .github
   assert.ok(hits.length > 0, "the ADR history note should mention what was removed");
   for (const h of hits) assert.match(h, /^docs\/adr\/0002-d1-database\.md:/, h);
   const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-  const lock = JSON.parse(readFileSync(join(root, "package-lock.json"), "utf8"));
+  const lock = JSON.parse(
+    readFileSync(join(root, "bun.lock"), "utf8").replace(/,(\s*[}\]])/g, "$1"),
+  );
+  const auth = "better-aut" + "h";
   assert.deepEqual(
     Object.keys(pkg.dependencies).filter((d) => /^better-aut[h]$/.test(d)),
     [],
   );
-  assert.equal(lock.packages["node_modules/better-aut" + "h"], undefined);
+  assert.equal(
+    Object.keys(lock.packages).some((k) => k === auth || k.endsWith("/" + auth)),
+    false,
+  );
 });
 
 test("#33: the auth, sync and D1 modules and routes are gone, and nothing imports them", () => {

@@ -1,0 +1,7 @@
+# No dependency lifecycle scripts run (#56 W-1). Bun 1.4.4 honours the empty
+# package.json "trustedDependencies" (recorded in bun.lock); this stays as defense
+# in depth for older Bun versions (1.4.2 ignored an empty list and ran workerd's
+# postinstall) and for `bun add`. `bun pm untrusted` lists workerd as blocked.
+# `bun run` pre/post scripts (pretest) are unaffected.
+[install]
+ignoreScripts = true

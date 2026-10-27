@@ -120,8 +120,8 @@ test("#52: release build, then staging smoke, then production", () => {
   const order = [
     /id: resolve/,
     /check-runs\?check_name=CI/,
-    /run: npm ci/,
-    /run: npm run build:cf/,
+    /run: bun install --frozen-lockfile$/m,
+    /run: bun run build:cf/,
     /retention-days: 30/,
     /name: Deploy bica-staging/,
     /bash scripts\/smoke-health\.sh "\$url" staging "\$SHA"/,
@@ -135,7 +135,7 @@ test("#52: release build, then staging smoke, then production", () => {
   assert.doesNotMatch(deploy, /DATABASE_URL/);
   assert.equal(
     pkg.scripts["deploy:staging"],
-    "npm run build:cf && wrangler deploy --env staging --config wrangler.toml",
+    "bun run build:cf && wrangler deploy --env staging --config wrangler.toml",
   );
   assert.match(smokeHealth, /test "\$\(jq -r \.stage <<<"\$body"\)" = "\$stage"/);
 });
@@ -270,7 +270,7 @@ test("deploy runs only after green CI for a push to main, on exactly that sha", 
   assert.match(build, /checks: read/);
   assert.doesNotMatch(
     deploy,
-    /run: .*(?:npm test|npm run lint|npm run typecheck|deps:check|BICA_BUILT)/,
+    /run: .*(?:npm test|bun run test|npm run lint|bun run lint|npm run typecheck|bun run typecheck|deps:check|BICA_BUILT)/,
   );
 });
 
@@ -292,17 +292,18 @@ test("CI: PRs and pushes to main, job CI, no secrets, cancels superseded PR runs
   assert.match(ci, /actions\/setup-node@[0-9a-f]{40}/);
   const at = (re) => ci.search(re);
   const order = [
-    /run: npm ci$/m,
-    /run: npm audit --omit=dev --audit-level=high$/m,
-    /run: npm run typecheck$/m,
-    /run: npm run lint$/m,
-    /run: npm test$/m,
-    /run: npm run deps:check$/m,
-    /run: npm run licenses:check$/m,
-    /run: npm run build$/m,
-    /run: npm run build:cf$/m,
-    /run: BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test$/m,
-    /run: npx wrangler deploy --dry-run --env staging --config wrangler\.toml$/m,
+    /run: bun install --frozen-lockfile$/m,
+    /run: bun audit --prod --audit-level=high$/m,
+    /run: bun run typecheck$/m,
+    /run: bun run lint$/m,
+    /run: bun run test$/m,
+    /run: bun run deps:check$/m,
+    /run: bun run licenses:check$/m,
+    /run: bun run build$/m,
+    /run: bun run build:cf$/m,
+    /run: BICA_BUILT=1 DEPLOY_TARGET=cloudflare bun run test$/m,
+    /run: bunx wrangler deploy --dry-run --env staging --config wrangler\.toml$/m,
+    /run: bunx wrangler deploy --dry-run --env production --config wrangler\.toml$/m,
   ].map(at);
   assert.ok(
     order.every((i, n) => i > -1 && (n === 0 || i > order[n - 1])),
@@ -310,21 +311,53 @@ test("CI: PRs and pushes to main, job CI, no secrets, cancels superseded PR runs
   );
 });
 
-test("CI audits production dependencies immediately after npm ci", () => {
+test("CI audits production dependencies immediately after bun install", () => {
   assert.match(ci, /^jobs:\n {2}ci:\n(?: {4}#.*\n)* {4}name: CI$/m);
-  assert.match(ci, / {6}- run: npm ci\n {6}- run: npm audit --omit=dev --audit-level=high\n/);
+  assert.match(
+    ci,
+    / {6}- run: bun install --frozen-lockfile\n {6}- run: bun audit --prod --audit-level=high\n {6}- name: Full audit \(report only, #65 optional-peer findings\)\n {8}continue-on-error: true\n {8}run: bun audit\n/,
+  );
 });
 
-test("Node 22 is pinned: .nvmrc, engines, engine-strict, both workflows", () => {
-  assert.equal(readFileSync(join(root, ".nvmrc"), "utf8").trim(), "22");
-  assert.equal(pkg.engines?.node, ">=22 <23");
-  const lock = JSON.parse(readFileSync(join(root, "package-lock.json"), "utf8"));
-  assert.equal(lock.packages[""].engines?.node, pkg.engines.node);
-  assert.match(readFileSync(join(root, ".npmrc"), "utf8"), /^engine-strict=true$/m);
+function assertNodeCheckFollowsSetup(text) {
+  const parts = text.split(/\n {6}- /);
+  let setups = 0;
+  for (let i = 0; i < parts.length; i++) {
+    if (!parts[i].includes("uses: actions/setup-node@")) continue;
+    setups++;
+    const next = parts[i + 1] ?? "";
+    assert.match(next, /run: node scripts\/node-check\.mjs --exact/);
+    const iff = parts[i].match(/^if: [^\n]+/);
+    if (iff) assert.ok(next.startsWith(iff[0] + "\n"), next.slice(0, 120));
+    else assert.equal(next.startsWith("if:"), false, next.slice(0, 80));
+  }
+  assert.ok(setups > 0);
+  return setups;
+}
+
+test("Node 22.23.4 is pinned: .nvmrc, engines, packageManager, both workflows", () => {
+  assert.equal(readFileSync(join(root, ".nvmrc"), "utf8").trim(), "22.23.4");
+  assert.equal(pkg.engines?.node, ">=22.23.4 <23");
+  assert.equal(pkg.packageManager, "bun@1.4.4");
+  assert.equal(pkg.scripts["node:check"], "node scripts/node-check.mjs");
+  assert.equal(pkg.scripts.pretest, "node scripts/node-check.mjs");
+  assert.equal(pkg.scripts["deps:check"], "bun scripts/deps-check.mjs");
   for (const wf of [ci, deploy]) {
     assert.match(wf, /node-version-file: \.nvmrc/);
     assert.doesNotMatch(wf, /node-version: /);
+    assert.doesNotMatch(wf, /cache: npm/);
+    assert.doesNotMatch(wf, /\bnpm /);
+    assert.doesNotMatch(wf, /\bnpx /);
+    assert.doesNotMatch(wf, /--bun\b/);
+    assert.doesNotMatch(wf, /\bbun test\b/);
   }
+  assert.equal(assertNodeCheckFollowsSetup(ci), 1);
+  assert.equal(assertNodeCheckFollowsSetup(deploy), 3);
+  const uses = `${ci}\n${deploy}`.match(/^.*oven-sh\/setup-bun.*$/gm) ?? [];
+  assert.equal(uses.length, 4);
+  for (const line of uses)
+    assert.match(line, /oven-sh\/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2\.2\.0$/);
+  assert.equal(`${ci}\n${deploy}`.match(/bun-version-file: package\.json/g).length, uses.length);
 });
 
 test("tests never assign globalThis.navigator directly (getter-only since Node 21)", () => {
@@ -583,9 +616,9 @@ test("#52: staging needs build; production needs staging and build", () => {
 });
 
 test("#52: build:cf only in the release build, with BICA_BUILD_SHA", () => {
-  assert.match(job("build"), /run: npm run build:cf\n/);
+  assert.match(job("build"), /run: bun run build:cf\n/);
   assert.match(job("build"), /BICA_BUILD_SHA: \$\{\{ steps\.resolve\.outputs\.sha \}\}/);
-  assert.doesNotMatch(job("staging") + job("production"), /npm run build/);
+  assert.doesNotMatch(job("staging") + job("production"), /(?:npm|bun) run build/);
   assert.doesNotMatch(deploy, /PUBLIC_HOSTNAME|VITE_PUBLIC_HOSTNAME/);
 });
 
@@ -622,20 +655,102 @@ test("#52: one bica-worker artifact, 30 days, digest checked in every job", () =
   assert.match(job("production"), /\[ "\$digest" != "\$DIGEST" \]/);
 });
 
-test("#52: wrangler comes from the lockfile; no npx wrangler deploy", () => {
+test("#52: wrangler comes from the lockfile; no npx or bunx wrangler deploy", () => {
   for (const name of ["staging", "production"]) {
     const text = job(name);
-    assert.match(text, /npm ci --ignore-scripts --no-audit --no-fund/);
-    assert.match(
-      text,
-      /require\('\.\/package-lock\.json'\)\.packages\['node_modules\/wrangler'\]\.version/,
-    );
+    assert.match(text, /bun install --frozen-lockfile --ignore-scripts/);
+    assert.match(text, /Bun\.JSONC\.parse/);
+    assert.match(text, /packages\.wrangler/);
     assert.match(text, /node "\$GITHUB_WORKSPACE\/node_modules\/wrangler\/bin\/wrangler\.js"/);
   }
   assert.doesNotMatch(deploy, /wrangler@/);
   assert.doesNotMatch(deploy, /npm install --prefix/);
   assert.doesNotMatch(deploy, /\$RUNNER_TEMP\/wrangler/);
   assert.doesNotMatch(deploy, /npx wrangler deploy\b/);
+  assert.doesNotMatch(deploy, /bunx wrangler deploy\b/);
+});
+
+// #56 W-2: the wrangler install + version check runs in the jobs holding the
+// Cloudflare token, so each guard must stay fail-closed, not just present.
+function wranglerInstall(name) {
+  const m = job(name).match(
+    /\n {6}- name: Install wrangler from the lockfile\n((?: {8}(?!run: ).*\n)*) {8}run: \|\n((?: {10}.*\n)+)/,
+  );
+  assert.ok(m, `${name}: Install wrangler from the lockfile step`);
+  return { keys: m[1], script: m[2] };
+}
+
+test("#56 W-2: the lockfile wrangler install and version check fail closed", () => {
+  for (const name of ["staging", "production"]) {
+    const { keys, script } = wranglerInstall(name);
+    assert.equal(keys, "", `${name}: no extra keys (continue-on-error, if) on the install step`);
+    assert.match(script, /^ {10}bun install --frozen-lockfile --ignore-scripts$/m, name);
+    assert.equal(script.match(/bun install/g).length, 1, name);
+    assert.match(script, /^ {10}version=\$\(bun -e '[^'\n]+'\)$/m, `${name}: version read`);
+    assert.ok(
+      script.includes(
+        [
+          '          if ! [[ "$version" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]; then',
+          `            echo "::error::no wrangler version in bun.lock ('$version')"; exit 1`,
+          "          fi",
+        ].join("\n"),
+      ),
+      `${name}: empty or unparseable locked version fails`,
+    );
+    assert.ok(
+      script.includes(
+        [
+          '          case "$got" in',
+          '            *"$version"*) ;;',
+          '            *) echo "::error::wrangler $got does not contain $version"; exit 1 ;;',
+          "          esac",
+        ].join("\n"),
+      ),
+      `${name}: version mismatch fails`,
+    );
+    assert.doesNotMatch(script, /\|\| true|\|\| :|set \+e/, name);
+  }
+  assert.doesNotMatch(deploy, /continue-on-error/);
+  const coe = [...ci.matchAll(/continue-on-error/g)];
+  assert.equal(coe.length, 1, "ci.yml: only the full-audit report step");
+  assert.match(
+    ci,
+    /- name: Full audit \(report only, #65 optional-peer findings\)\n {8}continue-on-error: true\n {8}run: bun audit\n/,
+  );
+});
+
+test("#56 W-2: the bun.lock wrangler read returns the installed version; the guard rejects empty", () => {
+  const { script } = wranglerInstall("staging");
+  const snippet = script.match(/^ {10}version=\$\(bun -e '([^'\n]+)'\)$/m)[1];
+  const r = spawnSync("bun", ["-e", snippet], { cwd: root, encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  const installed = JSON.parse(
+    readFileSync(join(root, "node_modules/wrangler/package.json"), "utf8"),
+  ).version;
+  assert.equal(r.stdout.trim(), installed);
+  const guard = script.match(/^ {10}if ! \[\[ "\$version" =~ [\s\S]*?^ {10}fi$/m)[0];
+  for (const [version, status] of [
+    ["", 1],
+    ["undefined", 1],
+    ["4x.1y.0z", 1],
+    ["4.150", 1],
+    ["4.150.0\n", 1],
+    [installed, 0],
+  ]) {
+    const g = spawnSync("bash", ["-euo", "pipefail", "-c", guard], {
+      env: { ...process.env, version },
+      encoding: "utf8",
+    });
+    assert.equal(g.status, status, `version=${JSON.stringify(version)}: ${g.stdout}`);
+  }
+});
+
+test("#56 W-1: no dependency install scripts run (bunfig ignoreScripts, empty trustedDependencies)", () => {
+  assert.deepEqual(pkg.trustedDependencies, []);
+  assert.match(
+    readFileSync(join(root, "bunfig.toml"), "utf8"),
+    /^\[install\]\nignoreScripts = true$/m,
+  );
 });
 
 test("#52: artifact_run_id is an env var and never interpolated into a script", () => {
@@ -926,7 +1041,7 @@ test("#42 W1: PUBLIC_HOSTNAME equals TURNSTILE_HOSTNAMES; the build takes no pub
 
 test("#61: CI build:cf sets PUBLIC_HOSTNAME in a step env, nowhere else in ci.yml", () => {
   const step = ci.match(
-    /- run: npm run build:cf\n {8}env:\n(?: {10}#[^\n]*\n)* {10}PUBLIC_HOSTNAME: (\S+)\n/,
+    /- run: bun run build:cf\n {8}env:\n(?: {10}#[^\n]*\n)* {10}PUBLIC_HOSTNAME: (\S+)\n/,
   );
   assert.ok(step, "step-level env directly under build:cf");
   assert.ok(
@@ -937,7 +1052,7 @@ test("#61: CI build:cf sets PUBLIC_HOSTNAME in a step env, nowhere else in ci.ym
 });
 
 test("#8: CI dry-runs the production env without a token", () => {
-  assert.match(ci, /run: npx wrangler deploy --dry-run --env production --config wrangler\.toml/);
+  assert.match(ci, /run: bunx wrangler deploy --dry-run --env production --config wrangler\.toml/);
 });
 
 test("#67 W-2: tip and digest guards fail with ::error:: and exit 1", () => {

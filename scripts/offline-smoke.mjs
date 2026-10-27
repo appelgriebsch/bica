@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Offline cold-start + upgrade check for the built app (issue #5).
- * Run after `npm run build`: node scripts/offline-smoke.mjs
+ * Run after `bun run build`: node scripts/offline-smoke.mjs
  * 1. Load / online, wait for the worker to finish precaching.
  * 2. Go offline and open every route fresh: content renders, no console errors.
  * 3. Ship a "next build" whose manifest has a broken entry: the install fails

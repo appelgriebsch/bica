@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Online-only gating check (issue #7) against a dev build:
- *   npx vite dev --port 8096
+ *   bunx vite dev --port 8096
  *   node scripts/online-smoke.mjs http://127.0.0.1:8096
  * Uses the dev fake-offline switch (window.__bicaFakeOffline).
  */

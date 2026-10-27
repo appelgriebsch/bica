@@ -72,7 +72,7 @@ test("injects into the real sw.js placeholders", async () => {
 
 test(
   "the built worker precaches every scene and route chunk",
-  { skip: !process.env.BICA_BUILT && "set BICA_BUILT=1 after npm run build" },
+  { skip: !process.env.BICA_BUILT && "set BICA_BUILT=1 after bun run build" },
   async () => {
     const root = new URL(`../${buildOutput().publicDir}/`, import.meta.url);
     const sw = await readFile(new URL("sw.js", root), "utf8");

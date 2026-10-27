@@ -2,7 +2,7 @@
 -- Generated, do not edit: Better Auth 1.6.33 `getMigrations({ database: <D1>,
 -- plugins: [bearer()] }).compileMigrations()` (genericOAuth and
 -- tanstackStartCookies add no tables). Applied by `wrangler d1 migrations apply`
--- (staging) and automatically by `npm run dev` (src/lib/db.local.ts).
+-- (staging) and automatically by `bun run dev` (src/lib/db.local.ts).
 
 create table "user" ("id" text not null primary key, "name" text not null, "email" text not null unique, "emailVerified" integer not null, "image" text, "createdAt" date not null, "updatedAt" date not null);
 create table "session" ("id" text not null primary key, "expiresAt" date not null, "token" text not null unique, "createdAt" date not null, "updatedAt" date not null, "ipAddress" text, "userAgent" text, "userId" text not null references "user" ("id") on delete cascade);

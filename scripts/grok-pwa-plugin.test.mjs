@@ -176,7 +176,10 @@ test("#62: strips only the share keys the middleware re-adds", () => {
   assert.equal(contents(out, "twitter:image")[0], "https://doc.example/og.jpg");
   assert.equal(contents(out, "twitter:title")[0], "Doc");
   assert.equal(contents(out, "og:type")[0], "website");
-  assert.equal(contents(out, "x:game:image")[0], "https://og.grok.me/v1/banner.png?host=doc.example");
+  assert.equal(
+    contents(out, "x:game:image")[0],
+    "https://og.grok.me/v1/banner.png?host=doc.example",
+  );
   assert.equal(contents(out, "x:game:image:width")[0], "1200");
   assert.equal(contents(out, "x:game:image:height")[0], "264");
 
@@ -357,7 +360,7 @@ test("head, manifest and install page use Bica icons, never the grok placeholder
 
 test(
   "built manifest and html reference only Bica icons",
-  { skip: !process.env.BICA_BUILT && "set BICA_BUILT=1 after npm run build" },
+  { skip: !process.env.BICA_BUILT && "set BICA_BUILT=1 after bun run build" },
   () => {
     const { publicDir, serverEntry } = buildOutput();
     const roots = [join(TEMPLATE_ROOT, publicDir), join(TEMPLATE_ROOT, dirname(serverEntry))];

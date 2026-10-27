@@ -1,6 +1,6 @@
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -9,7 +9,10 @@ import { fileURLToPath } from "node:url";
 import { bumpKind } from "./deps-check.mjs";
 
 const script = fileURLToPath(new URL("./deps-check.mjs", import.meta.url));
-const bun = "/usr/local/bin/bun";
+// Absolute path of the `bun` on PATH, so tests that narrow PATH still find it.
+const bun = execFileSync("bun", ["-e", "console.log(process.execPath)"], {
+  encoding: "utf8",
+}).trim();
 const SHA = "a".repeat(40);
 const HASH = "sha512-" + "a".repeat(64);
 const dirs = [];
@@ -89,7 +92,7 @@ function fixture({
 }
 
 function check(dir, args = [], env = {}) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const child = spawn(bun, [script, ...args], { cwd: dir, env: { ...process.env, ...env } });
     let out = "";
     child.stdout.setEncoding("utf8");
@@ -97,7 +100,8 @@ function check(dir, args = [], env = {}) {
     child.stdout.on("data", (d) => (out += d));
     child.stderr.on("data", (d) => (out += d));
     const done = (code) => resolve({ code: code === 0 ? 0 : 1, out });
-    child.on("error", () => done(1));
+    // A spawn error is a broken test setup, never a deps-check failure.
+    child.on("error", reject);
     child.on("close", done);
   });
 }

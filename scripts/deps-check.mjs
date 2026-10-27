@@ -255,6 +255,10 @@ function bom(pkg, lock) {
 }
 
 async function main() {
+  if (!globalThis.Bun?.JSONC) {
+    fail("deps-check requires Bun");
+    return finish();
+  }
   let pkg;
   try {
     pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
@@ -267,10 +271,6 @@ async function main() {
     raw = readFileSync(join(root, "bun.lock"), "utf8");
   } catch {
     fail("bun.lock missing");
-    return finish();
-  }
-  if (!globalThis.Bun?.JSONC) {
-    fail("deps-check requires Bun");
     return finish();
   }
   let lock;
@@ -291,7 +291,9 @@ async function main() {
   return finish();
 }
 
-if (import.meta.main) {
+// ponytail: `!== false`, not truthy: Node 20 has no import.meta.main (undefined), and a
+// truthy guard there exits 0 with no output. Under Node, main() then fails "requires Bun".
+if (import.meta.main !== false) {
   main()
     .then((code) => process.exit(code))
     .catch((e) => {

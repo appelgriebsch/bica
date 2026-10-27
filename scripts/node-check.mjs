@@ -4,8 +4,8 @@
  * `--exact` (CI) requires an equal version. A newer 22.x patch prints a note.
  * Runs under Node: inside Bun, process.version is Bun's compat version.
  */
-import { readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { readFileSync, realpathSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const VER = /^v(\d+)\.(\d+)\.(\d+)$/;
@@ -34,8 +34,18 @@ export function checkNode({ version, bun, nvmrc, engines, exact }) {
   return { ok: problems.length === 0, problems, notes };
 }
 
-// ponytail: not import.meta.main, which Node 20 lacks: the CLI would then skip the check and exit 0.
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// ponytail: not import.meta.main, which Node 20 lacks: the CLI would then skip the check
+// and exit 0. Both sides realpath'd, because Node resolves symlinks for the main module.
+function invokedDirectly() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (invokedDirectly()) {
   const i = process.argv.indexOf("--root");
   const root = i >= 0 ? process.argv[i + 1] : process.cwd();
   let nvmrc;

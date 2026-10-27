@@ -690,10 +690,9 @@ test("#56 W-2: the lockfile wrangler install and version check fail closed", () 
     assert.ok(
       script.includes(
         [
-          '          case "$version" in',
-          "            [0-9]*.[0-9]*.[0-9]*) ;;",
-          `            *) echo "::error::no wrangler version in bun.lock ('$version')"; exit 1 ;;`,
-          "          esac",
+          '          if ! [[ "$version" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]; then',
+          `            echo "::error::no wrangler version in bun.lock ('$version')"; exit 1`,
+          "          fi",
         ].join("\n"),
       ),
       `${name}: empty or unparseable locked version fails`,
@@ -729,10 +728,13 @@ test("#56 W-2: the bun.lock wrangler read returns the installed version; the gua
     readFileSync(join(root, "node_modules/wrangler/package.json"), "utf8"),
   ).version;
   assert.equal(r.stdout.trim(), installed);
-  const guard = script.match(/^ {10}case "\$version" in\n[\s\S]*?^ {10}esac$/m)[0];
+  const guard = script.match(/^ {10}if ! \[\[ "\$version" =~ [\s\S]*?^ {10}fi$/m)[0];
   for (const [version, status] of [
     ["", 1],
     ["undefined", 1],
+    ["4x.1y.0z", 1],
+    ["4.150", 1],
+    ["4.150.0\n", 1],
     [installed, 0],
   ]) {
     const g = spawnSync("bash", ["-euo", "pipefail", "-c", guard], {

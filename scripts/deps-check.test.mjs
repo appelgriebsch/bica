@@ -1,7 +1,7 @@
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -411,4 +411,31 @@ test("passes with no npm on PATH", async () => {
   });
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /deps check passed/);
+});
+
+// S-2: deps-check is Bun-only. Under Node it must fail loudly, never exit 0 silently.
+// Node 20 has no import.meta.main, so a truthy guard skipped main() there.
+const oldNode = ["/usr/bin/node", "/usr/local/bin/node"].find((bin) => {
+  const r = spawnSync(bin, ["-p", "process.versions.node"], { encoding: "utf8" });
+  return r.status === 0 && Number(r.stdout.split(".")[0]) < 22;
+});
+
+for (const [label, node] of [
+  ["this Node", process.execPath],
+  ["Node < 22 (no import.meta.main)", oldNode],
+]) {
+  test(
+    `run under ${label} fails with "requires Bun"`,
+    { skip: !node && "no Node < 22 here" },
+    () => {
+      const r = spawnSync(node, [script], { cwd: fixture(direct), encoding: "utf8" });
+      assert.equal(r.status, 1, r.stdout + r.stderr);
+      assert.match(r.stdout, /FAIL {2}deps-check requires Bun/);
+      assert.doesNotMatch(r.stdout, /deps check passed|all up to date/);
+    },
+  );
+}
+
+test("the entry guard runs main unless import.meta.main is exactly false", () => {
+  assert.match(readFileSync(script, "utf8"), /^if \(import\.meta\.main !== false\) \{$/m);
 });

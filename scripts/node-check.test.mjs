@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { checkNode } from "./node-check.mjs";
@@ -106,4 +106,24 @@ test("CLI exits 1 against a temp --root whose floor is above this node", () => {
 // and exited 0 on exactly the wrong Node.
 test("CLI entry guard does not rely on import.meta.main", () => {
   assert.doesNotMatch(readFileSync(script, "utf8"), /^if \(import\.meta\.main\)/m);
+});
+
+// S-2: Node realpaths the main module, so a symlinked absolute path must still run the check.
+test("CLI run through a symlinked path still checks and fails below the floor", () => {
+  const dir = mkdtempSync(join(tmpdir(), "node-check-"));
+  try {
+    symlinkSync(dirname(script), join(dir, "link"));
+    writeFileSync(join(dir, ".nvmrc"), "22.99.99\n");
+    writeFileSync(
+      join(dir, "package.json"),
+      JSON.stringify({ engines: { node: ">=22.99.99 <23" } }),
+    );
+    const linked = join(dir, "link", "node-check.mjs");
+    assert.throws(
+      () => execFileSync(process.execPath, [linked, "--root", dir], { encoding: "utf8" }),
+      (e) => e.status === 1 && /FAIL {2}v\d+\.\d+\.\d+ is below \.nvmrc 22\.99\.99/.test(e.stdout),
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

@@ -121,7 +121,7 @@ Nitro may write `.output/server/wrangler.json` and warn that `main` / `assets` i
 ## Security headers (#28)
 
 - Every Worker response gets HSTS (no `preload` yet), `X-Frame-Options: DENY`, `Referrer-Policy`, `nosniff`, `Permissions-Policy` and `COOP: same-origin` (no sign-in popup since #33; `server/middleware/00-security-headers.ts`). Static assets get the same set from `public/_headers` (`/*`).
-- HTML gets a per-request nonce CSP, set by the router (`src/lib/csp-nonce.ts`, policy in `src/lib/security-headers.mjs`). It is `Content-Security-Policy-Report-Only` until the Worker var `CSP_ENFORCE=1` is set; reports go to `/api/csp-report` (logged, not stored). Switch to enforce after a staging pass with no unexpected reports.
+- HTML gets a per-request nonce CSP, set by the router (`src/lib/csp-nonce.ts`, policy in `src/lib/security-headers.mjs`). Staging sets `CSP_ENFORCE=1` in `[env.staging.vars]`, so it sends `Content-Security-Policy`. Production stays `Content-Security-Policy-Report-Only` until a few clean days, then the same var. Reports still go to `/api/csp-report` (logged, not stored).
 - `/_shell` is a static file, so it has the static headers but no CSP (a nonce can't be baked into it).
 
 ## Production (#8)
@@ -162,7 +162,7 @@ Without both, anyone with write access could deploy prod from a branch.
 | Turnstile widget hostnames | Cloudflare dashboard | Add `bica.appelgriebsch.org` to the widget whose site key is committed |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | GitHub environment secrets (`production`, #50), never repository secrets | Prod-only token, below |
 | Deployment branches `main` only + required reviewer Andreas | GitHub `production` environment | Both required (see Deploy) |
-| `CHAT_DAILY_GLOBAL`, `CHAT_DAILY_PER_IP`, `CSP_ENFORCE` | Optional plain vars | Defaults 2000 / 60; CSP stays Report-Only unless `CSP_ENFORCE=1` |
+| `CHAT_DAILY_GLOBAL`, `CHAT_DAILY_PER_IP`, `CSP_ENFORCE` | Optional plain vars | Defaults 2000 / 60. Production CSP stays Report-Only until a few clean staging days, then set `CSP_ENFORCE=1`. |
 
 `wrangler secret put` against a script that doesn't exist yet creates it, so the secrets can be set before the first deploy.
 

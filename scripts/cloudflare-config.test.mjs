@@ -1043,6 +1043,18 @@ test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails l
   assert.doesNotMatch(step, /secrets\.|TOKEN/);
 });
 
+test("#55: staging sets CSP_ENFORCE; production does not yet", () => {
+  const block = (env) => {
+    const start = wrangler.indexOf(`[env.${env}.vars]`);
+    const rest = wrangler.slice(start + 1);
+    const next = rest.search(/\n\[/);
+    return wrangler.slice(start, next === -1 ? undefined : start + 1 + next);
+  };
+  assert.match(block("staging"), /^CSP_ENFORCE = "1"$/m);
+  assert.doesNotMatch(block("production"), /CSP_ENFORCE/);
+  assert.equal(wrangler.match(/^CSP_ENFORCE = "1"$/gm).length, 1);
+});
+
 test("#42 W1: PUBLIC_HOSTNAME equals TURNSTILE_HOSTNAMES; the build takes no public host", () => {
   const block = (env) => {
     const start = wrangler.indexOf(`[env.${env}.vars]`);

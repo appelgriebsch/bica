@@ -115,7 +115,12 @@ before(async () => {
   base = `http://127.0.0.1:${port}`;
   prodBase = `http://127.0.0.1:${prodPort}`;
   // Assign before the wait so after() can kill a worker that never becomes ready.
-  proc = spawnWorker(port, inspector, state, [`BICA_STAGE:staging`, `PUBLIC_HOSTNAME:${HOST}`]);
+  // wrangler dev here does not load [env.staging.vars]; pass the staging CSP flip.
+  proc = spawnWorker(port, inspector, state, [
+    `BICA_STAGE:staging`,
+    `PUBLIC_HOSTNAME:${HOST}`,
+    "CSP_ENFORCE:1",
+  ]);
   prodProc = spawnWorker(prodPort, prodInspector, prodState, [
     "BICA_STAGE:production",
     `PUBLIC_HOSTNAME:${PROD_HOST}`,
@@ -163,9 +168,9 @@ for (const path of ["/", "/me", "/practice"]) {
     for (const [k, v] of Object.entries(STATIC_SECURITY_HEADERS)) {
       assert.equal(res.headers.get(k), v, k);
     }
-    const csp = res.headers.get("content-security-policy-report-only");
-    assert.ok(csp, "Report-Only CSP");
-    assert.equal(res.headers.get("content-security-policy"), null, "not enforced on staging yet");
+    const csp = res.headers.get("content-security-policy");
+    assert.ok(csp, "enforced CSP");
+    assert.equal(res.headers.get("content-security-policy-report-only"), null);
     const nonce = /'nonce-([^']+)'/.exec(csp)?.[1];
     assert.ok(nonce);
     assert.match(csp, /worker-src 'self'/);
@@ -193,7 +198,8 @@ for (const path of ["/", "/me"]) {
     for (const [k, v] of Object.entries(STATIC_SECURITY_HEADERS)) {
       assert.equal(res.headers.get(k), v, k);
     }
-    assert.match(res.headers.get("content-security-policy-report-only") ?? "", /'nonce-[^']+'/);
+    assert.match(res.headers.get("content-security-policy") ?? "", /'nonce-[^']+'/);
+    assert.equal(res.headers.get("content-security-policy-report-only"), null);
   });
 }
 
@@ -209,9 +215,18 @@ test(
 );
 
 test("each response gets a fresh nonce", { skip }, async () => {
-  const a = (await get("/")).headers.get("content-security-policy-report-only");
-  const b = (await get("/")).headers.get("content-security-policy-report-only");
+  const a = (await get("/")).headers.get("content-security-policy");
+  const b = (await get("/")).headers.get("content-security-policy");
   assert.notEqual(a, b);
+});
+
+test("#55: production stays Report-Only", { skip }, async () => {
+  const res = await fetch(`${prodBase}/`, {
+    headers: { host: PROD_HOST, accept: "text/html" },
+  });
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-security-policy-report-only") ?? "", /'nonce-[^']+'/);
+  assert.equal(res.headers.get("content-security-policy"), null);
 });
 
 test("static assets get the _headers security headers", { skip }, async () => {
@@ -379,7 +394,7 @@ test("#33: /login and /api/auth/* are 404 (GET and POST); / has no Sign in", { s
 
 test("#33: the CSP names no auth broker; COOP is plain same-origin", { skip }, async () => {
   const res = await get("/");
-  const csp = res.headers.get("content-security-policy-report-only") ?? "";
+  const csp = res.headers.get("content-security-policy") ?? "";
   assert.match(csp, /form-action 'self';/);
   assert.doesNotMatch(csp, /auth\.grok\.me/);
   assert.equal(res.headers.get("cross-origin-opener-policy"), "same-origin");
@@ -443,8 +458,7 @@ test(
   "#35: the CSP allows Turnstile (script, frame, connect) and no other third party",
   { skip },
   async () => {
-    const csp =
-      (await get("/speak/pastelaria")).headers.get("content-security-policy-report-only") ?? "";
+    const csp = (await get("/speak/pastelaria")).headers.get("content-security-policy") ?? "";
     assert.match(
       csp,
       /script-src 'self' 'nonce-[^']+' 'strict-dynamic' https:\/\/challenges\.cloudflare\.com;/,

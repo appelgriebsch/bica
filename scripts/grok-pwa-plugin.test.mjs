@@ -11,6 +11,9 @@ import {
   injectGrokPwaHead,
   isDocumentPath,
   isInstallQuery,
+  hostFromOgImage,
+  OG_IMAGE_PATH,
+  ogImageUrl,
   renderWebManifest,
   resolvePublicHost,
   stripInstallParams,
@@ -20,6 +23,40 @@ import { buildOutput } from "./build-output.mjs";
 import { APP_NAME } from "../src/lib/app-name.mjs";
 
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+function exportedFunction(source, name) {
+  const start = source.indexOf(`export function ${name}(`);
+  assert.ok(start >= 0, name);
+  const next = source.indexOf("\nexport ", start + 1);
+  return source.slice(start, next === -1 ? undefined : next);
+}
+
+test("#59: ogImageUrl and hostFromOgImage own the og:image URL", () => {
+  for (const host of [
+    "bica.appelgriebsch.org",
+    "bica-staging.appelgriebsch.workers.dev",
+    "localhost:8080",
+  ]) {
+    assert.equal(hostFromOgImage(ogImageUrl(host)), host);
+    assert.equal(ogImageUrl(host), `https://${host}${OG_IMAGE_PATH}`);
+  }
+  assert.equal(ogImageUrl(""), undefined);
+  assert.equal(ogImageUrl(undefined), undefined);
+  for (const bad of ["", undefined, `http://x${OG_IMAGE_PATH}`, "https://x/other.jpg"]) {
+    assert.equal(hostFromOgImage(bad), "");
+  }
+  assert.equal(hostFromOgImage(`https://x${OG_IMAGE_PATH}.bak`), "");
+  assert.equal(hostFromOgImage(`${ogImageUrl("x")}?v=1`), "x");
+  const shared = readFileSync(join(TEMPLATE_ROOT, "scripts/grok-pwa-shared.mjs"), "utf8");
+  assert.match(exportedFunction(shared, "ogImageUrl"), /OG_IMAGE_PATH/);
+  assert.match(exportedFunction(shared, "hostFromOgImage"), /OG_IMAGE_PATH/);
+  const root = readFileSync(join(TEMPLATE_ROOT, "src/routes/__root.tsx"), "utf8");
+  assert.match(root, /ogImageUrl\(/);
+  assert.doesNotMatch(root, /\/og\.jpg/);
+  const hostSrc = readFileSync(join(TEMPLATE_ROOT, "src/lib/public-host.ts"), "utf8");
+  assert.match(hostSrc, /hostFromOgImage\(/);
+  assert.doesNotMatch(hostSrc, /og\.jpg|\/\^https:/);
+});
 
 test("injects before </head>", () => {
   const out = injectGrokPwaHead("<html><head><title>x</title></head><body></body></html>");

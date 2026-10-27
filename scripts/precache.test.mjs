@@ -44,7 +44,8 @@ test("manifest lists shell, every chunk and scene; skips sw.js, _headers and __g
     }
     assert.ok(!urls.includes("/sw.js"));
     assert.ok(!urls.includes("/_headers"));
-    assert.ok(!urls.some((u) => u.startsWith("/__grok/")));
+    assert.ok(urls.includes("/__grok/manifest.webmanifest"));
+    assert.ok(!urls.some((u) => u.startsWith("/__grok/") && u !== "/__grok/manifest.webmanifest"));
   } finally {
     await rm(dir, { recursive: true });
   }
@@ -56,7 +57,9 @@ test("version changes when any asset changes", async () => {
     const a = (await collectPrecache(dir)).version;
     assert.equal((await collectPrecache(dir)).version, a);
     await writeFile(join(dir, "scenes/cafe.jpg"), "cafe2");
-    assert.notEqual((await collectPrecache(dir)).version, a);
+    const changed = (await collectPrecache(dir)).version;
+    assert.notEqual(changed, a);
+    assert.notEqual((await collectPrecache(dir, "not the manifest")).version, changed);
   } finally {
     await rm(dir, { recursive: true });
   }

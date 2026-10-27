@@ -327,7 +327,19 @@ test("manifest is named Bica on a workers.dev host", { skip }, async () => {
   assert.equal(manifest.short_name, "Bica");
   assert.equal(manifest.background_color, "#f3eee6");
   assert.equal(manifest.theme_color, "#1E4D73");
+  assert.ok(manifest.icons.some((i) => i.src === "/icon-192.png" && i.purpose === undefined));
+  assert.ok(manifest.icons.some((i) => i.src === "/icon-512.png"));
+  assert.ok(manifest.icons.some((i) => i.src === "/icon-180.png"));
+  assert.ok(
+    manifest.icons.some((i) => i.src === "/icon-maskable-192.png" && i.purpose === "maskable"),
+  );
+  assert.ok(
+    manifest.icons.some((i) => i.src === "/icon-maskable-512.png" && i.purpose === "maskable"),
+  );
   assert.equal(res.headers.get("x-content-type-options"), "nosniff");
+  const alias = await get("/__grok/manifest.json", { accept: "*/*" });
+  assert.equal(alias.status, 404);
+  assert.equal((await alias.text()).includes('"short_name"'), false);
 });
 
 test("GET / serves both theme-color metas and no black one", { skip }, async () => {

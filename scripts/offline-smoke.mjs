@@ -91,6 +91,18 @@ try {
   );
   if (!shellOk) failures.push("shell");
   if (scenes !== 20) failures.push("scenes");
+  const manifest = await page.evaluate(async (v) => {
+    const cache = await caches.open(v);
+    const hit = await cache.match("/__grok/manifest.webmanifest");
+    const alias = await cache.match("/__grok/manifest.json");
+    const res = await fetch("/__grok/manifest.webmanifest");
+    const body = await res.json();
+    return { cached: Boolean(hit), alias: Boolean(alias), status: res.status, name: body.name };
+  }, version);
+  const manifestOk =
+    manifest.cached && !manifest.alias && manifest.status === 200 && manifest.name === "Bica";
+  console.log(manifestOk ? "ok  " : "FAIL", "offline manifest", JSON.stringify(manifest));
+  if (!manifestOk) failures.push("manifest");
   await context.setOffline(false);
 
   // Upgrades that must be refused: the new install fails, the old cache stays active.

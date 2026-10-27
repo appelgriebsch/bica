@@ -8,14 +8,20 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
+import { APP_NAME } from "../src/lib/app-name.mjs";
 import { buildOutput } from "./build-output.mjs";
+import { renderWebManifest } from "./grok-pwa-shared.mjs";
 
 // No .html: Workers' html_handling (auto-trailing-slash) would redirect it, and a
 // cached redirect can't answer a navigation. sw.js serves it as text/html.
 export const SHELL = "/_shell";
 
-/** Every file under `dir` as a URL path, minus the worker itself, _headers and the install tutorial. */
-export async function collectPrecache(dir) {
+/**
+ * Every file under `dir` as a URL path, minus the worker itself, _headers and
+ * the install tutorial, plus the rendered web manifest (not a file; addAll
+ * fetches it from the Worker). `manifestText` overrides that text in tests.
+ */
+export async function collectPrecache(dir, manifestText) {
   const files = await readdir(dir, { recursive: true, withFileTypes: true });
   const entries = [];
   for (const f of files) {
@@ -26,6 +32,10 @@ export async function collectPrecache(dir) {
     if (url === "/sw.js" || url === "/_headers" || url.startsWith("/__grok/")) continue;
     entries.push({ url, bytes: await readFile(abs) });
   }
+  entries.push({
+    url: "/__grok/manifest.webmanifest",
+    bytes: Buffer.from(manifestText ?? renderWebManifest(undefined, APP_NAME)),
+  });
   entries.sort((a, b) => (a.url < b.url ? -1 : 1));
   const hash = createHash("sha256");
   for (const e of entries) hash.update(e.url).update("\0").update(e.bytes).update("\0");

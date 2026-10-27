@@ -502,6 +502,14 @@ test("#28: the deployed middleware passes APP_NAME to the manifest, install page
   assert.equal(middleware.match(/appName: APP_NAME/g)?.length, 2);
 });
 
+test("#55: neither middleware serves the manifest.json alias", () => {
+  for (const file of ["server/middleware/grok-pwa.ts", "scripts/grok-pwa-plugin.mjs"]) {
+    const text = readFileSync(join(TEMPLATE_ROOT, file), "utf8");
+    assert.equal(text.includes("manifest.json"), false, file);
+    assert.match(text, /\/__grok\/manifest\.webmanifest/);
+  }
+});
+
 test("#28: the injected extensions.js carries the CSP nonce", () => {
   const html = "<html><head><title>Bica</title></head><body></body></html>";
   const out = injectGrokPwaHead(html, { ...bareSite, nonce: "abc+/=" });

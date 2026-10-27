@@ -665,7 +665,7 @@ test("#60: smoke-health.sh keeps the last body and reports it", () => {
   assert.match(smokeHealth, /no response/);
   assert.match(smokeHealth, /attempts=\$\{SMOKE_ATTEMPTS:-12\}/);
   assert.match(smokeHealth, /pause=\$\{SMOKE_SLEEP:-5\}/);
-  assert.match(smokeHealth, /curl -fsS --max-time 10/);
+  assert.match(smokeHealth, /curl --fail-with-body -sS --max-time 10/);
   assert.match(smokeHealth, /^set -euo pipefail$/m);
   assert.match(smokeHealth, /test "\$\(jq -r \.ok <<<"\$body"\)" = true$/m);
 });
@@ -681,9 +681,11 @@ test(
     const A = "a".repeat(40);
     const B = "b".repeat(40);
     const env = { ...process.env, SMOKE_ATTEMPTS: "2", SMOKE_SLEEP: "0" };
-    const server = createServer((_req, res) => {
-      const body = JSON.stringify({ ok: true, stage: "staging", sha: A });
-      res.writeHead(200, {
+    const server = createServer((req, res) => {
+      // /down/api/health answers like a Worker without a stage: 503 {"ok":false}.
+      const down = req.url.startsWith("/down/");
+      const body = JSON.stringify(down ? { ok: false } : { ok: true, stage: "staging", sha: A });
+      res.writeHead(down ? 503 : 200, {
         "content-type": "application/json",
         "content-length": Buffer.byteLength(body),
       });
@@ -708,6 +710,11 @@ test(
       assert.equal(bad.status, 1);
       assert.match(bad.stdout, new RegExp(`sha=${B}`));
       assert.match(bad.stdout, new RegExp(`last: stage=staging sha=${A}`));
+      // S-2: a 503 body is kept, so the error shows it instead of "no response".
+      const down = await run(`http://127.0.0.1:${port}/down`, A);
+      assert.equal(down.status, 1);
+      assert.match(down.stdout, /last: stage=null sha=null/);
+      assert.doesNotMatch(down.stdout, /last: no response/);
     } finally {
       await new Promise((resolve) => server.close(resolve));
     }
@@ -720,6 +727,14 @@ test(
     assert.match(none.stdout, /last: no response/);
   },
 );
+
+test("#67 S-3: staging and production have no job-level if; the manual-run CI guard is fatal", () => {
+  // A job-level `if: always()` would let production run after staging failed.
+  assert.doesNotMatch(job("staging"), /^ {4}if:/m);
+  assert.doesNotMatch(job("production"), /^ {4}if:/m);
+  assert.match(job("build"), /^\s+test "\$conclusion" = success$/m);
+  assert.doesNotMatch(job("build"), /test "\$conclusion" = success\s*\|\|/);
+});
 
 test("#52: production failure summary says do not re-run and names the rollback", () => {
   const text = job("production");
@@ -851,7 +866,7 @@ test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails l
   const prodJob = job("production");
   const step = prodJob.slice(prodJob.indexOf("- name: Smoke /api/health and /"));
   assert.match(step, /bash scripts\/smoke-health\.sh "\$url" production "\$SHA"/);
-  assert.match(smokeHealth, /body=\$\(curl -fsS --max-time 10 "\$url\/api\/health" \|\| true\)/);
+  assert.match(smokeHealth, /body=\$\(curl --fail-with-body -sS --max-time 10 "\$url\/api\/health" \|\| true\)/);
   assert.match(smokeHealth, /SMOKE_ATTEMPTS:-12/);
   assert.match(smokeHealth, /SMOKE_SLEEP:-5/);
   const loops = step.match(/for i in \$\(seq 1 12\); do/g) ?? [];

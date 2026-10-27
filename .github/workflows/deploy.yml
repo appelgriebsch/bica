@@ -163,6 +163,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # ponytail: cancel-in-progress: false never cancels a running deploy, but GitHub
+    # keeps one running + one pending job per group: a third queued deploy replaces
+    # the pending one. Harmless for releases (tip check); re-dispatch a dropped rollback.
     concurrency:
       group: deploy-staging
       cancel-in-progress: false
@@ -352,6 +355,9 @@ jobs:
     needs: [build, staging]
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # ponytail: cancel-in-progress: false never cancels a running deploy, but GitHub
+    # keeps one running + one pending job per group: a third queued deploy replaces
+    # the pending one. Harmless for releases (tip check); re-dispatch a dropped rollback.
     concurrency:
       group: deploy-production
       cancel-in-progress: false

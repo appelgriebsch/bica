@@ -246,6 +246,10 @@ jobs:
         run: |
           bun install --frozen-lockfile --ignore-scripts
           version=$(bun -e 'const l = Bun.JSONC.parse(await Bun.file("bun.lock").text()); const id = l.packages.wrangler[0]; console.log(id.slice(id.lastIndexOf("@") + 1))')
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::no wrangler version in bun.lock ('$version')"; exit 1 ;;
+          esac
           got=$(node node_modules/wrangler/bin/wrangler.js --version)
           echo "$got"
           case "$got" in
@@ -441,6 +445,10 @@ jobs:
         run: |
           bun install --frozen-lockfile --ignore-scripts
           version=$(bun -e 'const l = Bun.JSONC.parse(await Bun.file("bun.lock").text()); const id = l.packages.wrangler[0]; console.log(id.slice(id.lastIndexOf("@") + 1))')
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::no wrangler version in bun.lock ('$version')"; exit 1 ;;
+          esac
           got=$(node node_modules/wrangler/bin/wrangler.js --version)
           echo "$got"
           case "$got" in

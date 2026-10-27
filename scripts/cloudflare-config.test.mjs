@@ -670,6 +670,87 @@ test("#52: wrangler comes from the lockfile; no npx or bunx wrangler deploy", ()
   assert.doesNotMatch(deploy, /bunx wrangler deploy\b/);
 });
 
+// #56 W-2: the wrangler install + version check runs in the jobs holding the
+// Cloudflare token, so each guard must stay fail-closed, not just present.
+function wranglerInstall(name) {
+  const m = job(name).match(
+    /\n {6}- name: Install wrangler from the lockfile\n((?: {8}(?!run: ).*\n)*) {8}run: \|\n((?: {10}.*\n)+)/,
+  );
+  assert.ok(m, `${name}: Install wrangler from the lockfile step`);
+  return { keys: m[1], script: m[2] };
+}
+
+test("#56 W-2: the lockfile wrangler install and version check fail closed", () => {
+  for (const name of ["staging", "production"]) {
+    const { keys, script } = wranglerInstall(name);
+    assert.equal(keys, "", `${name}: no extra keys (continue-on-error, if) on the install step`);
+    assert.match(script, /^ {10}bun install --frozen-lockfile --ignore-scripts$/m, name);
+    assert.equal(script.match(/bun install/g).length, 1, name);
+    assert.match(script, /^ {10}version=\$\(bun -e '[^'\n]+'\)$/m, `${name}: version read`);
+    assert.ok(
+      script.includes(
+        [
+          '          case "$version" in',
+          "            [0-9]*.[0-9]*.[0-9]*) ;;",
+          `            *) echo "::error::no wrangler version in bun.lock ('$version')"; exit 1 ;;`,
+          "          esac",
+        ].join("\n"),
+      ),
+      `${name}: empty or unparseable locked version fails`,
+    );
+    assert.ok(
+      script.includes(
+        [
+          '          case "$got" in',
+          '            *"$version"*) ;;',
+          '            *) echo "::error::wrangler $got does not contain $version"; exit 1 ;;',
+          "          esac",
+        ].join("\n"),
+      ),
+      `${name}: version mismatch fails`,
+    );
+    assert.doesNotMatch(script, /\|\| true|\|\| :|set \+e/, name);
+  }
+  assert.doesNotMatch(deploy, /continue-on-error/);
+  const coe = [...ci.matchAll(/continue-on-error/g)];
+  assert.equal(coe.length, 1, "ci.yml: only the full-audit report step");
+  assert.match(
+    ci,
+    /- name: Full audit \(report only, #65 optional-peer findings\)\n {8}continue-on-error: true\n {8}run: bun audit\n/,
+  );
+});
+
+test("#56 W-2: the bun.lock wrangler read returns the installed version; the guard rejects empty", () => {
+  const { script } = wranglerInstall("staging");
+  const snippet = script.match(/^ {10}version=\$\(bun -e '([^'\n]+)'\)$/m)[1];
+  const r = spawnSync("bun", ["-e", snippet], { cwd: root, encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  const installed = JSON.parse(
+    readFileSync(join(root, "node_modules/wrangler/package.json"), "utf8"),
+  ).version;
+  assert.equal(r.stdout.trim(), installed);
+  const guard = script.match(/^ {10}case "\$version" in\n[\s\S]*?^ {10}esac$/m)[0];
+  for (const [version, status] of [
+    ["", 1],
+    ["undefined", 1],
+    [installed, 0],
+  ]) {
+    const g = spawnSync("bash", ["-euo", "pipefail", "-c", guard], {
+      env: { ...process.env, version },
+      encoding: "utf8",
+    });
+    assert.equal(g.status, status, `version=${JSON.stringify(version)}: ${g.stdout}`);
+  }
+});
+
+test("#56 W-1: no dependency install scripts run (bunfig ignoreScripts, empty trustedDependencies)", () => {
+  assert.deepEqual(pkg.trustedDependencies, []);
+  assert.match(
+    readFileSync(join(root, "bunfig.toml"), "utf8"),
+    /^\[install\]\nignoreScripts = true$/m,
+  );
+});
+
 test("#52: artifact_run_id is an env var and never interpolated into a script", () => {
   assert.match(job("build"), /ARTIFACT_RUN_ID: \$\{\{ inputs\.artifact_run_id \}\}/);
   assert.match(job("build"), /bash scripts\/resolve-redeploy\.sh/);

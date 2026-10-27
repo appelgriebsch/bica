@@ -176,12 +176,32 @@ test("fails a non-default registry", async () => {
   );
 });
 
-test("fails actions pinned to a tag or without a version comment", async () => {
+// A clean project with one bad pin: that FAIL alone has to carry the exit code.
+test("fails an action pinned to a tag", async () => {
   const r = await check(
-    fixture({ workflow: `- uses: actions/checkout@v4\n- uses: actions/setup-node@${SHA}\n` }),
+    fixture({ ...direct, workflow: `- uses: actions/checkout@v4 # v4\n` }),
+    [],
+    {
+      DEPS_CHECK_REGISTRY: await serve((_req, res) => sendJson(res, upToDate)),
+    },
   );
-  assertFailed(r, /actions\/checkout@v4 is not pinned to a commit SHA/);
-  assert.match(r.out, /actions\/setup-node pinned without a "# vX" version comment/);
+  assertFailed(r, /FAIL {2}ci\.yml:1 actions\/checkout@v4 is not pinned to a commit SHA\n/);
+  assert.match(r.out, /\n1 problem\(s\)/);
+});
+
+test("fails an action pinned without a version comment", async () => {
+  const r = await check(
+    fixture({ ...direct, workflow: `- uses: actions/setup-node@${SHA}\n` }),
+    [],
+    {
+      DEPS_CHECK_REGISTRY: await serve((_req, res) => sendJson(res, upToDate)),
+    },
+  );
+  assertFailed(
+    r,
+    /FAIL {2}ci\.yml:1 actions\/setup-node pinned without a "# vX" version comment\n/,
+  );
+  assert.match(r.out, /\n1 problem\(s\)/);
 });
 
 test("fails a direct dependency missing from THIRD-PARTY.md", async () => {
@@ -208,6 +228,42 @@ test("fails when the lock root dependencies differ from package.json", async () 
     }),
     /root dependencies differ from package.json/,
   );
+});
+
+// npm parity (#56 step 3): a `latest` whose engines.node excludes Node 22 is skipped.
+const enginesDoc = (latestEngines) => ({
+  "dist-tags": { latest: "2.0.0" },
+  versions: {
+    "1.0.0": { engines: { node: ">=18" } },
+    "1.1.0": { engines: { node: ">=18" } },
+    "2.0.0": { engines: { node: latestEngines } },
+  },
+});
+
+test("skips a latest that needs a newer Node and reports the newest Node 22 one", async () => {
+  const url = await serve((_req, res) => sendJson(res, enginesDoc(">=24")));
+  const env = { DEPS_CHECK_REGISTRY: url };
+  const behind = await check(fixture(direct), [], env);
+  assert.equal(behind.code, 0, behind.out);
+  assert.match(behind.out, /\| dep \| 1\.0\.0 \| 1\.1\.0 \| 1\.1\.0 \| minor \|/);
+  assert.doesNotMatch(behind.out, /2\.0\.0/);
+  const current = await check(
+    fixture({ ...direct, ident: "dep@1.1.0", bomVersion: "1.1.0" }),
+    [],
+    env,
+  );
+  assert.equal(current.code, 0, current.out);
+  assert.doesNotMatch(current.out, /\| dep \|/);
+  assert.match(current.out, /all up to date/);
+});
+
+test("reports a latest whose engines allow Node 22", async () => {
+  const url = await serve((_req, res) => sendJson(res, enginesDoc(">=20")));
+  const r = await check(fixture({ ...direct, ident: "dep@1.1.0", bomVersion: "1.1.0" }), [], {
+    DEPS_CHECK_REGISTRY: url,
+  });
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /\| dep \| 1\.1\.0 \| 1\.1\.0 \| 2\.0\.0 \| major \|/);
 });
 
 test("in-range updates warn by default and fail with --strict", async () => {

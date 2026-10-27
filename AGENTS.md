@@ -225,13 +225,14 @@ revive and live work stay identical.
 
 - Need a JS dependency (including game engines like `three` / Phaser) → **`bun add`**
   and leave it in `package.json` for deploy.
-- Bun runs dependency install scripts (`preinstall` / `postinstall`) only for
-  trusted packages, so `bun install` does not run an untrusted package's own code.
-  `bun run dev|build|typecheck` are unaffected. After `bun add`, check
-  `bun pm untrusted`; a package that needs its postinstall (a native module that
-  compiles or downloads a binary, e.g. `better-sqlite3`) needs review before it is
-  trusted. Prefer a pure-JS alternative. Never run `bun audit fix` unread: it
-  rewrites the exact `overrides` pins.
+- No dependency install scripts (`preinstall` / `postinstall`) run: `bunfig.toml`
+  sets `[install] ignoreScripts = true` and `package.json` sets
+  `"trustedDependencies": []`, so `bun install` / `bun add` never run a package's
+  own code (Bun's built-in default-trusted list does not apply).
+  `bun run dev|build|typecheck` are unaffected. A package that needs its install
+  script (a native module that compiles or downloads a binary) needs a reviewed
+  change to both settings. Prefer a pure-JS alternative. Never run
+  `bun audit fix` unread: it rewrites the exact `overrides` pins.
 - Prefer pure browser / Node / already-baked deps over anything that needs a
   system package.
 

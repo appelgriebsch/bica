@@ -5,6 +5,7 @@
   "sideEffects": false,
   "type": "module",
   "packageManager": "bun@1.4.2",
+  "trustedDependencies": [],
   "overrides": {
     "nf3": "0.3.17",
     "undici": "7.30.1"

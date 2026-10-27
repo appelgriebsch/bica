@@ -164,7 +164,7 @@ The outdated step needs network access.
 
 ### Adding a dependency
 
-`bun add <pkg>`. Then `bun pm untrusted`: Bun does not run lifecycle scripts of untrusted dependencies. Never run `bun audit fix` unread: it rewrites exact `overrides` pins.
+`bun add <pkg>`. No dependency install scripts run: `bunfig.toml` sets `[install] ignoreScripts = true` and `package.json` sets `"trustedDependencies": []`, so Bun's built-in default-trusted list (esbuild, sharp, workerd and others) does not apply. The bunfig setting is what enforces it: in Bun 1.4.2 an empty `trustedDependencies` alone still ran workerd's postinstall. bica needs no install scripts (`build:cf`, the built tests and the wrangler dry-runs pass without them). A package that needs one takes a reviewed change to both settings. Never run `bun audit fix` unread: it rewrites exact `overrides` pins.
 
 ### Deferred updates
 

@@ -5,7 +5,7 @@
  * hardening-built.test.mjs. Sign-in and its 401/403 went in #33.
  */
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -14,6 +14,7 @@ import {
   INVALID_INPUT,
   classifyServerFnError,
   isUndecodablePayloadError,
+  isUnknownServerFnError,
 } from "../src/lib/server-fn-status.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -96,7 +97,10 @@ test("a valid call passes through untouched", async () => {
 
 test("classifier ignores statuses and plain objects; 401/403 are no longer mapped (#33)", () => {
   assert.equal(classifyServerFnError({ status: 500 }), null);
-  assert.equal(classifyServerFnError(Object.assign(new Error("Unauthorized"), { status: 401 })), null);
+  assert.equal(
+    classifyServerFnError(Object.assign(new Error("Unauthorized"), { status: 401 })),
+    null,
+  );
   assert.equal(classifyServerFnError(Object.assign(new Error("Forbidden"), { status: 403 })), null);
   assert.equal(classifyServerFnError(null), null);
   assert.equal(classifyServerFnError("Unauthorized"), null);
@@ -109,4 +113,27 @@ test("Seroval decode failures are recognised, other 500s are not", () => {
     ),
   );
   assert.equal(isUndecodablePayloadError('{"message":"Could not reach the account."}'), false);
+});
+
+test("#55: unknown server-fn ids are recognised; a real error is not", () => {
+  for (const body of [
+    "Server function info not found for deadbeef",
+    "Server function not accessible from client: sendChat",
+    '{"message":"Server function info not found for deadbeef"}',
+  ]) {
+    assert.equal(isUnknownServerFnError(body), true, body);
+  }
+  for (const body of [
+    "",
+    undefined,
+    "Could not reach the account.",
+    "Seroval Error (step: 3)",
+    "Server function",
+  ]) {
+    assert.equal(isUnknownServerFnError(body), false, String(body));
+  }
+  // The nitro wrapper is the only caller. Dropping the branch leaves the 500.
+  const mw = readFileSync(join(root, "server/middleware/server-fn-errors.ts"), "utf8");
+  assert.match(mw, /isUnknownServerFnError\(body\)/);
+  assert.match(mw, /jsonError\(404, "not_found"\)/);
 });

@@ -421,6 +421,14 @@ test(
       assert.equal(res.status, 400, bad);
       assert.deepEqual(await res.json(), { error: "invalid_input" });
     }
+    // Unknown id: TanStack's 500 is rewritten. No framework text in the body.
+    const unknown = await callFn("deadbeef", CHAT_TURN);
+    const unknownBody = await unknown.text();
+    assert.equal(unknown.status, 404, unknownBody);
+    assert.equal(unknown.headers.get("content-type"), "application/json");
+    assert.equal(unknown.headers.get("cache-control"), "no-store");
+    assert.deepEqual(JSON.parse(unknownBody), { error: "not_found" });
+    assert.doesNotMatch(unknownBody, /Server function|\$TSR/);
   },
 );
 

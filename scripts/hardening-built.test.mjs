@@ -1,5 +1,5 @@
 /**
- * #28 against the built Worker (`npm run build:cf`, then BICA_BUILT=1): runs
+ * #28 against the built Worker (`bun run build:cf`, then BICA_BUILT=1): runs
  * it under `wrangler dev` (local workerd, no account) and probes over HTTP.
  * Security headers + nonce CSP on HTML, manifest name, server-function status
  * codes, the CSP report sink, and `/` rendering the home page (not Not Found).
@@ -17,7 +17,7 @@ import { STATIC_SECURITY_HEADERS } from "../src/lib/security-headers.mjs";
 import { buildOutput } from "./build-output.mjs";
 import { resolveBuildShaFull } from "./build-sha.mjs";
 
-const skip = !process.env.BICA_BUILT && "set BICA_BUILT=1 after npm run build:cf";
+const skip = !process.env.BICA_BUILT && "set BICA_BUILT=1 after bun run build:cf";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const HOST = "bica-staging.appelgriebsch.workers.dev";
 const PROD_HOST = "bica.appelgriebsch.org";
@@ -42,9 +42,8 @@ const freePort = () =>
 
 function spawnWorker(port, inspectorPort, dir, extraVars) {
   return spawn(
-    "npx",
+    "node_modules/.bin/wrangler",
     [
-      "wrangler",
       "dev",
       "--config",
       "wrangler.toml",

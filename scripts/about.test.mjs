@@ -58,7 +58,7 @@ test("THIRD-PARTY.md names scenes, og.jpg, and the app mark", () => {
 
 test(
   "built JS has the injected SHA and precaches the about chunk",
-  { skip: !process.env.BICA_BUILT && "set BICA_BUILT=1 after npm run build" },
+  { skip: !process.env.BICA_BUILT && "set BICA_BUILT=1 after bun run build" },
   () => {
     const dir = join(root, buildOutput().publicDir);
     const sw = readFileSync(join(dir, "sw.js"), "utf8");

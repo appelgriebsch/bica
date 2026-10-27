@@ -32,21 +32,27 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm audit --omit=dev --audit-level=high
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm test
-      - run: npm run deps:check
-      - run: npm run licenses:check
-      - run: npm run build
-      - run: npm run build:cf
+      - run: node scripts/node-check.mjs --exact
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun audit --prod --audit-level=high
+      - name: Full audit (report only, #65 optional-peer findings)
+        continue-on-error: true
+        run: bun audit
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run test
+      - run: bun run deps:check
+      - run: bun run licenses:check
+      - run: bun run build
+      - run: bun run build:cf
         env:
           # Exercises the #51 W-1 guard: precache must strip this from /_shell.
           PUBLIC_HOSTNAME: bica.appelgriebsch.org
       # The built-output tests against the Worker bundle just built.
-      - run: BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test
+      - run: BICA_BUILT=1 DEPLOY_TARGET=cloudflare bun run test
       # Bundling, bindings and assets; needs no Cloudflare token.
-      - run: npx wrangler deploy --dry-run --env staging --config wrangler.toml
-      - run: npx wrangler deploy --dry-run --env production --config wrangler.toml
+      - run: bunx wrangler deploy --dry-run --env staging --config wrangler.toml
+      - run: bunx wrangler deploy --dry-run --env production --config wrangler.toml

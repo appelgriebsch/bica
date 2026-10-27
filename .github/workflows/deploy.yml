@@ -111,13 +111,18 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
-          cache: npm
       - if: steps.resolve.outputs.mode == 'release'
-        run: npm ci
+        run: node scripts/node-check.mjs --exact
+      - if: steps.resolve.outputs.mode == 'release'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - if: steps.resolve.outputs.mode == 'release'
+        run: bun install --frozen-lockfile
       # The release build only (tests/lint/deps/licences/audit ran in CI for this
       # sha). Stage-neutral (#51/#61): the host comes from the Worker env at runtime.
       - if: steps.resolve.outputs.mode == 'release'
-        run: npm run build:cf
+        run: bun run build:cf
         env:
           BICA_BUILD_SHA: ${{ steps.resolve.outputs.sha }}
       - name: Package
@@ -176,7 +181,7 @@ jobs:
       name: staging
       url: https://bica-staging.appelgriebsch.workers.dev
     steps:
-      # scripts/smoke-health.sh and package-lock.json come from this workflow's
+      # scripts/smoke-health.sh and bun.lock come from this workflow's
       # revision on main. Not the artifact sha: a redeployed commit may predate the script.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -230,14 +235,17 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
-          cache: npm
+      - run: node scripts/node-check.mjs --exact
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
       # Lockfile + overrides (#54 undici) and integrity hashes apply.
       # --ignore-scripts runs no lifecycle scripts on a runner that later holds
       # the Cloudflare token; wrangler deploys a prebuilt bundle (no_bundle), so it needs none.
       - name: Install wrangler from the lockfile
         run: |
-          npm ci --ignore-scripts --no-audit --no-fund
-          version=$(node -p "require('./package-lock.json').packages['node_modules/wrangler'].version")
+          bun install --frozen-lockfile --ignore-scripts
+          version=$(bun -e 'const l = Bun.JSONC.parse(await Bun.file("bun.lock").text()); const id = l.packages.wrangler[0]; console.log(id.slice(id.lastIndexOf("@") + 1))')
           got=$(node node_modules/wrangler/bin/wrangler.js --version)
           echo "$got"
           case "$got" in
@@ -422,14 +430,17 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
-          cache: npm
+      - run: node scripts/node-check.mjs --exact
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
       # Lockfile + overrides (#54 undici) and integrity hashes apply.
       # --ignore-scripts runs no lifecycle scripts on a runner that later holds
       # the Cloudflare token; wrangler deploys a prebuilt bundle (no_bundle), so it needs none.
       - name: Install wrangler from the lockfile
         run: |
-          npm ci --ignore-scripts --no-audit --no-fund
-          version=$(node -p "require('./package-lock.json').packages['node_modules/wrangler'].version")
+          bun install --frozen-lockfile --ignore-scripts
+          version=$(bun -e 'const l = Bun.JSONC.parse(await Bun.file("bun.lock").text()); const id = l.packages.wrangler[0]; console.log(id.slice(id.lastIndexOf("@") + 1))')
           got=$(node node_modules/wrangler/bin/wrangler.js --version)
           echo "$got"
           case "$got" in
@@ -514,12 +525,12 @@ jobs:
             else
               echo "- Do not re-run; roll back."
               if [ "$UPLOADED" != true ]; then
-                echo "- The deploy command failed after it started, so production may have changed: check \`npx wrangler deployments list --env production\`."
+                echo "- The deploy command failed after it started, so production may have changed: check \`bunx wrangler deployments list --env production\`."
               fi
               if [ -n "$PREVIOUS" ]; then
-                echo "- \`npx wrangler rollback --env production ${PREVIOUS} --message \"rollback ${SHA}\"\`"
+                echo "- \`bunx wrangler rollback --env production ${PREVIOUS} --message \"rollback ${SHA}\"\`"
               else
-                echo "- \`npx wrangler deployments list --env production\` to pick the version"
+                echo "- \`bunx wrangler deployments list --env production\` to pick the version"
               fi
               echo "- Or dispatch Deploy with artifact_run_id of the last good run."
             fi

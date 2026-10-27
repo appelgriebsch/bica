@@ -18,11 +18,11 @@ Conversas is anonymous and protected by Cloudflare Turnstile, the `CHAT_RATE` ra
 
 ## Development
 
-Requires Node 22 (`.nvmrc`, `engines` in `package.json`).
+Requires Node 22 (≥ 22.23.4, `.nvmrc`, `engines` in `package.json`). Check with `bun run node:check`.
 
 ```sh
-npm ci
-npm run dev   # http://localhost:8080
+bun install --frozen-lockfile
+bun run dev   # http://localhost:8080
 ```
 
 Conversas needs the local secrets `XAI_API_KEY`, `TURNSTILE_SECRET_KEY` and `CHAT_SESSION_SECRET`, plus a `TURNSTILE_HOSTNAMES` var for your local host (committed per env in `wrangler.toml`), in your shell or a git-ignored `.dev.vars`. Use Cloudflare's Turnstile test keys locally; see [docs/cloudflare-workers.md](docs/cloudflare-workers.md). Never commit real values.
@@ -30,16 +30,16 @@ Conversas needs the local secrets `XAI_API_KEY`, `TURNSTILE_SECRET_KEY` and `CHA
 ## Tests and CI
 
 ```sh
-npm run typecheck
-npm run lint
-npm test            # node --test scripts/*.test.mjs
-npm run deps:check
-npm run licenses:check
-npm run build
-npm run build:cf
+bun run typecheck
+bun run lint
+bun run test            # node --test scripts/*.test.mjs
+bun run deps:check
+bun run licenses:check
+bun run build
+bun run build:cf
 ```
 
-`.github/workflows/ci.yml` runs these on every PR and push to `main`, then the built-output tests (`BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test`) and `wrangler deploy --dry-run` for both the `staging` and `production` envs. Formatting: Prettier (`.prettierrc`); linting: ESLint (`eslint.config.mjs`).
+`.github/workflows/ci.yml` runs these on every PR and push to `main`, then the built-output tests (`BICA_BUILT=1 DEPLOY_TARGET=cloudflare bun run test`) and `bunx wrangler deploy --dry-run` for both the `staging` and `production` envs. Formatting: Prettier (`.prettierrc`); linting: ESLint (`eslint.config.mjs`).
 
 ## Hosting on Cloudflare Workers
 
@@ -54,7 +54,7 @@ The top level is inert: without `--env` there is no route and no stage, so `/api
 
 `.github/workflows/deploy.yml` builds once after green CI on `main`, deploys that artifact to staging, smoke-checks `/api/health` and the security headers, then after approval in the `production` environment promotes the same artifact.
 
-- **Rollback:** `npx wrangler rollback --env production` re-activates an earlier version (code, assets, vars, bindings and compatibility settings; Durable Object data stays). Or re-run Deploy on `main` with `artifact_run_id` (that commit's `wrangler.toml` too; secrets stay). See [docs/cloudflare-workers.md](docs/cloudflare-workers.md) § Rollback.
+- **Rollback:** `bunx wrangler rollback --env production` re-activates an earlier version (code, assets, vars, bindings and compatibility settings; Durable Object data stays). Or re-run Deploy on `main` with `artifact_run_id` (that commit's `wrangler.toml` too; secrets stay). See [docs/cloudflare-workers.md](docs/cloudflare-workers.md) § Rollback.
 
 More: [docs/cloudflare-workers.md](docs/cloudflare-workers.md) and the ADRs in [docs/adr/](docs/adr/).
 

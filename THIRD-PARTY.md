@@ -1,11 +1,11 @@
 # Third-party bill of materials
 
-Review of `main` at `188691f` after the in-range `npm update` in this PR.
+Review of `main` at `188691f` after the in-range dependency update in this PR.
 Direct dependencies are the lockfile resolution of `package.json`.
 `h3` and `nf3` are transitives of Nitro. `@electric-sql/pglite` left the lockfile with the Nitro bump (#48). `better-auth` and its transitives (`better-call`, `jose`, `kysely`, `pg`, `pg-connection-string`) left the lockfile with sign-in (#33).
 The app no longer imports `pg`, `kysely`, or PGLite since the D1 move (#19), and `@types/pg` is gone from the lockfile.
 `numpy` and `pillow` are imported by `.grok/skills/**/*.py` and are not pinned.
-`package.json` overrides `undici` to 7.30.1; remove the override once miniflare ships undici >= 7.30.1.
+`package.json` overrides `undici` to 7.30.1, recorded in `bun.lock`; remove the override once miniflare ships undici >= 7.30.1.
 CVE cells marked `none found` are OSV lookups for that exact version on 2026-10-13. `license-checker-rseidelsohn` 4.4.2 and its transitives were looked up on 2026-10-20. `h3` 2.0.7 and `nitro` 3.0.260903-beta were looked up on 2026-10-20. `wrangler` 4.150.0, miniflare 5.20261006.2-beta, undici 7.30.1 and sharp 0.35.5 were looked up on 2026-10-20.
 Cells marked `not checked` were not queried.
 
@@ -143,7 +143,7 @@ These files are **Created with Grok** (AI-generated). The mark is drawn as SVG c
 
 `lightningcss` is MPL-2.0 (file-level copyleft, build-time only). `class-variance-authority`, `typescript`, and `playwright` are Apache-2.0; keep each package's NOTICE with that package. `wrangler` is `MIT OR Apache-2.0`.
 
-`npm run licenses:check` fails CI when a production dependency uses a license outside the allow-list. Two production licenses are allowed beyond the permissive SPDX set, each named here:
+`bun run licenses:check` fails CI when a production dependency uses a license outside the allow-list. Two production licenses are allowed beyond the permissive SPDX set, each named here:
 
 - `CC-BY-4.0`: `caniuse-lite` is build-time only (reaches the tree via `@tanstack/router-plugin` > `@babel/core` > `browserslist`; not in `.output`). caniuse data by Alexis Deveria, CC BY 4.0, https://creativecommons.org/licenses/by/4.0/
 - `Unlicense`: `isbot` (via `@tanstack/react-router`). Public-domain dedication.
@@ -152,15 +152,19 @@ These files are **Created with Grok** (AI-generated). The mark is drawn as SVG c
 
 ## Keeping this current
 
-`.github/workflows/ci.yml` runs `npm run deps:check` and `npm run licenses:check` on every pull request and every push to `main`.
-`npm run deps:check` runs `scripts/deps-check.mjs` and exits non-zero on problems:
+`.github/workflows/ci.yml` runs `bun run deps:check` and `bun run licenses:check` on every pull request and every push to `main`.
+`bun run deps:check` runs `scripts/deps-check.mjs` on Bun (`bun scripts/deps-check.mjs`) and exits non-zero on problems. It fails closed: a tool, registry or lock problem never prints "all up to date" or "deps check passed".
 
-1. `npm outdated`: lists each update as patch, minor, major or prerelease. In-range patch and minor updates are a warning; `--strict` makes them a failure.
-2. Lockfile: v2 or later, every entry has `integrity` and resolves from `registry.npmjs.org`, the root entry matches `package.json`, and `npm ls --all` is clean.
+1. Outdated: each direct dependency is patch, minor, major or prerelease. In-range patch and minor updates are a warning; `--strict` makes them a failure. A `latest` whose `engines.node` excludes Node 22 is skipped.
+2. `bun.lock` must be lockfile version 2. Every package entry has a `sha512-` integrity and the default registry. The root workspace matches `package.json`. `bun install --frozen-lockfile --dry-run` must exit 0. Every `overrides` pin is recorded and applied.
 3. GitHub Actions: every `uses:` under `.github/workflows` must be pinned to a 40-character commit SHA with a `# vX.Y.Z` comment.
-4. This file: every direct dependency and listed transitive matches its locked version.
+4. This file: every direct dependency and listed transitive matches its locked version in `bun.lock`.
 
 The outdated step needs network access.
+
+### Adding a dependency
+
+`bun add <pkg>`. Then `bun pm untrusted`: Bun does not run lifecycle scripts of untrusted dependencies. Never run `bun audit fix` unread: it rewrites exact `overrides` pins.
 
 ### Deferred updates
 

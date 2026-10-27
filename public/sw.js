@@ -1,6 +1,6 @@
 /* Bica offline cache + notification click.
  *
- * `npm run build` (scripts/precache.mjs) fills VERSION and PRECACHE with every
+ * `bun run build` (scripts/precache.mjs) fills VERSION and PRECACHE with every
  * static file of the build, including the SPA shell and all route chunks.
  * Install fills a fresh cache for that version and fails if any file fails, so
  * the previous worker (and its cache) keeps serving until a complete set of

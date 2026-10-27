@@ -1,5 +1,5 @@
 /**
- * Shared test helpers. Not a test file (`npm test` runs `scripts/*.test.mjs`).
+ * Shared test helpers. Not a test file (`bun run test` runs `scripts/*.test.mjs`).
  */
 
 /**

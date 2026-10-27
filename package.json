@@ -4,6 +4,7 @@
   "license": "MIT",
   "sideEffects": false,
   "type": "module",
+  "packageManager": "bun@1.4.2",
   "overrides": {
     "nf3": "0.3.17",
     "undici": "7.30.1"
@@ -12,18 +13,20 @@
     "dev": "vite dev --host 0.0.0.0 --port 8080",
     "build": "DEPLOY_TARGET=cloudflare vite build && DEPLOY_TARGET=cloudflare node scripts/precache.mjs && node scripts/write-cf-entry.mjs",
     "build:cf": "DEPLOY_TARGET=cloudflare vite build && DEPLOY_TARGET=cloudflare node scripts/precache.mjs && node scripts/write-cf-entry.mjs",
-    "deploy:staging": "npm run build:cf && wrangler deploy --env staging --config wrangler.toml",
+    "deploy:staging": "bun run build:cf && wrangler deploy --env staging --config wrangler.toml",
     "build:dev": "vite build --mode development",
     "preview": "vite preview --host 0.0.0.0 --port 8080",
     "typecheck": "tsc --noEmit",
+    "node:check": "node scripts/node-check.mjs",
+    "pretest": "node scripts/node-check.mjs",
     "test": "node --test scripts/*.test.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "deps:check": "node scripts/deps-check.mjs",
+    "deps:check": "bun scripts/deps-check.mjs",
     "licenses:check": "license-checker-rseidelsohn --production --summary --onlyAllow \"MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;OFL-1.1;MPL-2.0;0BSD;BlueOak-1.0.0;CC0-1.0;Python-2.0;MIT OR Apache-2.0;CC-BY-4.0;Unlicense\""
   },
   "engines": {
-    "node": ">=22 <23"
+    "node": ">=22.23.4 <23"
   },
   "dependencies": {
     "@fontsource-variable/figtree": "^5.3.0",

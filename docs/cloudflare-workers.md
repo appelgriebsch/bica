@@ -81,23 +81,23 @@ The workflow passes the token and account id only to steps that call wrangler, n
 
 Remove what the template adds that bica doesn't use (KV, R2, Pages, and the zone permissions). Staging has no routes, so it needs no zone access. Production's token is separate; see [Prod API token](#prod-api-token).
 
-The repo pins Node 22 (`.nvmrc`, `engines` with `engine-strict=true`, so `npm ci` refuses another major). The wrangler CLI needs it too. With an older Node on the PATH, run `npx -y node@22 node_modules/wrangler/bin/wrangler.js …`.
+The repo pins Node 22 (≥ 22.23.4, `.nvmrc`, `engines` `>=22.23.4 <23`). Check a box with `bun run node:check`. The wrangler CLI runs on that Node.
 
 ## Deploy
 
 Only these paths publish:
 
-- locally, staging: `npm run deploy:staging` (`build:cf`, then `wrangler deploy --env staging --config wrangler.toml`), with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` exported
+- locally, staging: `bun run deploy:staging` (`build:cf`, then `wrangler deploy --env staging --config wrangler.toml`), with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` exported
 - GitHub Actions: `.github/workflows/deploy.yml` (workflow name `Deploy`)
 
-`.github/workflows/ci.yml` (job **`CI`**, the required check) runs on every pull request to `main` and every push to `main`, on the Node version in `.nvmrc` (22) with the npm cache. It runs `npm ci`, `npm audit --omit=dev --audit-level=high`, typecheck, lint, `npm test`, `npm run deps:check`, `npm run licenses:check`, `npm run build`, `npm run build:cf`, the built-output tests on the Worker bundle (`BICA_BUILT=1 DEPLOY_TARGET=cloudflare npm test`), then `wrangler deploy --dry-run --env staging --config wrangler.toml` (bundling, bindings and assets; no token). It has no secrets and `contents: read`. Concurrency is one group per PR number, or per commit SHA on main, with cancel-in-progress only for pull_request, so a newer push cancels an older run of the same PR and every main push gets its own CI run (which starts Deploy via `workflow_run`). CI also runs `wrangler deploy --dry-run --env production` (no token).
+`.github/workflows/ci.yml` (job **`CI`**, the required check) runs on every pull request to `main` and every push to `main`, on the Node version in `.nvmrc` (22.23.4, `node scripts/node-check.mjs --exact`) with Bun from `package.json`. It runs `bun install --frozen-lockfile`, `bun audit --prod --audit-level=high`, a non-blocking full `bun audit`, typecheck, lint, `bun run test`, `bun run deps:check`, `bun run licenses:check`, `bun run build`, `bun run build:cf`, the built-output tests on the Worker bundle (`BICA_BUILT=1 DEPLOY_TARGET=cloudflare bun run test`), then `bunx wrangler deploy --dry-run --env staging --config wrangler.toml` (bundling, bindings and assets; no token). It has no secrets and `contents: read`. Concurrency is one group per PR number, or per commit SHA on main, with cancel-in-progress only for pull_request, so a newer push cancels an older run of the same PR and every main push gets its own CI run (which starts Deploy via `workflow_run`). CI also runs `bunx wrangler deploy --dry-run --env production` (no token).
 
 `deploy.yml` runs when `CI` completes on `main` (`workflow_run`), and only if that run concluded `success`, was a `push` (not a pull request), and came from `main` of this repository (not a fork). A manual `workflow_dispatch` is accepted only from `main`. `workflow_run` always uses this file from the default branch, so a pull request cannot change the deploy or see its secrets. A failed deploy does not turn the required `CI` check red. There is no `push` or `pull_request` trigger. `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are GitHub **environment** secrets on `staging` and `production` (#50), never repository secrets, and are passed only to steps that call wrangler.
 
 Jobs:
 
-1. **build** (no environment, no secrets, 15 minute timeout). Release mode checks out the CI-tested sha (`workflow_run` head sha, or the dispatched sha). A manual run with no `artifact_run_id` requires the newest `CI` check run of that sha to be `success`. It runs `npm ci` and `npm run build:cf` with `BICA_BUILD_SHA`. The build is stage-neutral: the public host is a Worker var at runtime, not a build input. It packs `.output` and `wrangler.toml` as artifact `bica-worker-<sha>`, kept 30 days, and logs the tarball sha256. Redeploy mode (dispatch input `artifact_run_id`) does not build. It downloads that earlier run's artifact. The run must be Deploy, on `main`, of this repository; exactly one non-expired artifact must be named `bica-worker-<40 hex>`; and that sha must already be on `main`'s history (`compare` status `identical` or `ahead`).
-2. **staging** (environment `staging`, concurrency group `deploy-staging`, `cancel-in-progress: false`, 20 minute timeout). Checks out this workflow's own revision, because `scripts/smoke-health.sh` and `package-lock.json` have to exist even when the artifact's commit is older. Before any Cloudflare call it refuses a release deploy unless the sha is still the tip of `origin/main`, checks again after installing wrangler from the lockfile (`npm ci --ignore-scripts` in this checkout; wrangler then runs on the unpacked artifact), and deploys `--env staging`. A rollback redeploy skips the tip check. It downloads the same artifact, checks the sha256 against the build job's digest and the `.sha256` file, smokes `/api/health` (`stage` and `sha`) and the security headers (HEAD and GET on `/` and `/me`, including the CSP's Turnstile `frame-src`). The step summary says whether to approve.
+1. **build** (no environment, no secrets, 15 minute timeout). Release mode checks out the CI-tested sha (`workflow_run` head sha, or the dispatched sha). A manual run with no `artifact_run_id` requires the newest `CI` check run of that sha to be `success`. It runs `bun install --frozen-lockfile` and `bun run build:cf` with `BICA_BUILD_SHA`. The build is stage-neutral: the public host is a Worker var at runtime, not a build input. It packs `.output` and `wrangler.toml` as artifact `bica-worker-<sha>`, kept 30 days, and logs the tarball sha256. Redeploy mode (dispatch input `artifact_run_id`) does not build. It downloads that earlier run's artifact. The run must be Deploy, on `main`, of this repository; exactly one non-expired artifact must be named `bica-worker-<40 hex>`; and that sha must already be on `main`'s history (`compare` status `identical` or `ahead`).
+2. **staging** (environment `staging`, concurrency group `deploy-staging`, `cancel-in-progress: false`, 20 minute timeout). Checks out this workflow's own revision, because `scripts/smoke-health.sh` and `bun.lock` have to exist even when the artifact's commit is older. Before any Cloudflare call it refuses a release deploy unless the sha is still the tip of `origin/main`, checks again after installing wrangler from the lockfile (`bun install --frozen-lockfile --ignore-scripts` in this checkout; wrangler then runs on the unpacked artifact via `node node_modules/wrangler/bin/wrangler.js`), and deploys `--env staging`. A rollback redeploy skips the tip check. It downloads the same artifact, checks the sha256 against the build job's digest and the `.sha256` file, smokes `/api/health` (`stage` and `sha`) and the security headers (HEAD and GET on `/` and `/me`, including the CSP's Turnstile `frame-src`). The step summary says whether to approve.
 3. **production** (environment `production`, concurrency group `deploy-production`, `cancel-in-progress: false`, 20 minute timeout) runs only after staging succeeds and a required reviewer approves. It repeats the tip check after approval and again immediately before a release deploy. It downloads the same artifact, checks the same digest, records the live production version, deploys `--env production`, then smokes `/api/health` and `/`. The step summary says what was published, or how to roll back.
 
 Every job logs `artifact sha256: <digest>`. A running deploy is never cancelled. GitHub keeps one running and one pending job per concurrency group, though, so a third queued deploy replaces the pending one. For release runs that's harmless (the dropped run would fail the tip check anyway), but a pending rollback redeploy can be dropped silently: check that it ran, and dispatch it again if not.
@@ -106,7 +106,7 @@ Every job logs `artifact sha256: <digest>`. A running deploy is never cancelled.
 
 Settings → Rules → Rulesets → New branch ruleset: target the default branch, enforcement Active. Require a pull request (0 approvals), and require the status check **`CI`** (GitHub Actions) with "require branches to be up to date". Block force pushes, restrict deletions, and leave the bypass list empty (adding "Repository admin" is the optional escape hatch).
 
-`npm run build` / `build:cf` is Nitro preset `cloudflare-module` (module syntax, `nodejs_compat`) plus precache and the Worker entry. Dev stays on `0.0.0.0:8080` with Nitro off. There is no Vercel build (#17).
+`bun run build` / `build:cf` is Nitro preset `cloudflare-module` (module syntax, `nodejs_compat`) plus precache and the Worker entry. Dev stays on `0.0.0.0:8080` with Nitro off. There is no Vercel build (#17).
 
 There is no `deploy` script. Top-level `wrangler deploy` (no `--env`) is not wired. The top-level Wrangler config sets `workers_dev = false`, has no routes, and does not set `BICA_STAGE` or `PUBLIC_HOSTNAME`, so an accidental publish has no public hostname and health fails closed.
 
@@ -156,9 +156,9 @@ Without both, anyone with write access could deploy prod from a branch.
 
 | Name | Where | Notes |
 | --- | --- | --- |
-| `XAI_API_KEY` | Worker secret | `npx wrangler secret put XAI_API_KEY --env production` |
-| `TURNSTILE_SECRET_KEY` | Worker secret | The (shared staging) widget's secret. `npx wrangler secret put TURNSTILE_SECRET_KEY --env production` |
-| `CHAT_SESSION_SECRET` | Worker secret | ≥ 32 bytes, its own value (not staging's): `openssl rand -base64 32`, then `npx wrangler secret put CHAT_SESSION_SECRET --env production` |
+| `XAI_API_KEY`                                               | Worker secret                                                            | `bunx wrangler secret put XAI_API_KEY --env production`                                                                                    |
+| `TURNSTILE_SECRET_KEY`                                      | Worker secret                                                            | The (shared staging) widget's secret. `bunx wrangler secret put TURNSTILE_SECRET_KEY --env production`                                     |
+| `CHAT_SESSION_SECRET`                                       | Worker secret                                                            | ≥ 32 bytes, its own value (not staging's): `openssl rand -base64 32`, then `bunx wrangler secret put CHAT_SESSION_SECRET --env production` |
 | Turnstile widget hostnames | Cloudflare dashboard | Add `bica.appelgriebsch.org` to the widget whose site key is committed |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | GitHub environment secrets (`production`, #50), never repository secrets | Prod-only token, below |
 | Deployment branches `main` only + required reviewer Andreas | GitHub `production` environment | Both required (see Deploy) |
@@ -187,11 +187,11 @@ A Worker version captures the bundled code, static assets, bindings and compatib
 (a) On a machine with a production token, list versions and re-activate one:
 
 ```
-npx wrangler deployments list --env production
-npx wrangler rollback --env production [version-id] --message "..."
+bunx wrangler deployments list --env production
+bunx wrangler rollback --env production [version-id] --message "..."
 ```
 
-`wrangler rollback` re-activates an earlier **version**: that version's code, assets, vars and other bindings and compatibility settings, not only code. Data in Durable Objects is not rolled back. Secrets are versioned too (each `secret put` creates a version), so after a rollback check `npx wrangler versions view <id> --env production` and re-put a secret if it was rotated since. Blocked to any version from before a DO migration (`v1-chat-budget` or any later tag).
+`wrangler rollback` re-activates an earlier **version**: that version's code, assets, vars and other bindings and compatibility settings, not only code. Data in Durable Objects is not rolled back. Secrets are versioned too (each `secret put` creates a version), so after a rollback check `bunx wrangler versions view <id> --env production` and re-put a secret if it was rotated since. Blocked to any version from before a DO migration (`v1-chat-budget` or any later tag).
 
 (b) Redeploy a known-good artifact (kept 30 days). Actions → Deploy → Run workflow, branch `main`, `artifact_run_id` = the run id of the last good Deploy run. `artifact_run_id` must be a Deploy run that built the artifact (a release run), not an earlier redeploy run; artifacts expire after 30 days. That redeploys those bytes to staging, then waits for production approval. Reject the approval to stop at staging.
 

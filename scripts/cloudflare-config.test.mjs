@@ -866,7 +866,10 @@ test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails l
   const prodJob = job("production");
   const step = prodJob.slice(prodJob.indexOf("- name: Smoke /api/health and /"));
   assert.match(step, /bash scripts\/smoke-health\.sh "\$url" production "\$SHA"/);
-  assert.match(smokeHealth, /body=\$\(curl --fail-with-body -sS --max-time 10 "\$url\/api\/health" \|\| true\)/);
+  assert.match(
+    smokeHealth,
+    /body=\$\(curl --fail-with-body -sS --max-time 10 "\$url\/api\/health" \|\| true\)/,
+  );
   assert.match(smokeHealth, /SMOKE_ATTEMPTS:-12/);
   assert.match(smokeHealth, /SMOKE_SLEEP:-5/);
   const loops = step.match(/for i in \$\(seq 1 12\); do/g) ?? [];

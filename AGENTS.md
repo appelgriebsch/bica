@@ -228,7 +228,8 @@ revive and live work stay identical.
 - No dependency install scripts (`preinstall` / `postinstall`) run: `bunfig.toml`
   sets `[install] ignoreScripts = true` and `package.json` sets
   `"trustedDependencies": []`, so `bun install` / `bun add` never run a package's
-  own code (Bun's built-in default-trusted list does not apply).
+  own code (Bun's built-in default-trusted list does not apply). `bun pm untrusted`
+  lists workerd's `postinstall` as blocked; that is expected.
   `bun run dev|build|typecheck` are unaffected. A package that needs its install
   script (a native module that compiles or downloads a binary) needs a reviewed
   change to both settings. Prefer a pure-JS alternative. Never run

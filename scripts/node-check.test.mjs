@@ -36,7 +36,7 @@ test("fails a wrong major", () => {
 });
 
 test("fails when Bun stands in for node", () => {
-  const r = checkNode({ ...floor, version: "v26.3.0", bun: "1.4.2" });
+  const r = checkNode({ ...floor, version: "v26.3.0", bun: "1.4.4" });
   assert.equal(r.ok, false);
   assert.match(r.problems.join("\n"), /process\.versions\.bun is set/);
 });

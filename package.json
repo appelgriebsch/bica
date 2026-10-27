@@ -4,7 +4,7 @@
   "license": "MIT",
   "sideEffects": false,
   "type": "module",
-  "packageManager": "bun@1.4.2",
+  "packageManager": "bun@1.4.4",
   "trustedDependencies": [],
   "overrides": {
     "nf3": "0.3.17",

@@ -338,7 +338,7 @@ function assertNodeCheckFollowsSetup(text) {
 test("Node 22.23.4 is pinned: .nvmrc, engines, packageManager, both workflows", () => {
   assert.equal(readFileSync(join(root, ".nvmrc"), "utf8").trim(), "22.23.4");
   assert.equal(pkg.engines?.node, ">=22.23.4 <23");
-  assert.equal(pkg.packageManager, "bun@1.4.2");
+  assert.equal(pkg.packageManager, "bun@1.4.4");
   assert.equal(pkg.scripts["node:check"], "node scripts/node-check.mjs");
   assert.equal(pkg.scripts.pretest, "node scripts/node-check.mjs");
   assert.equal(pkg.scripts["deps:check"], "bun scripts/deps-check.mjs");

@@ -6,7 +6,7 @@ Accepted. 2026-10-22. Implemented after #52, so the build-once deploy pipeline f
 
 ## Context
 
-Bica installs with npm (`package-lock.json`, `npm ci`, `npm audit --omit=dev`, `npx wrangler`). Hiato uses Bun 1.4.2 for installs and scripts but runs wrangler on Node. We prototyped the switch on a throwaway copy of `main` @ `f6c8b88`, with Bun 1.4.2 and Node 22.23.3.
+Bica installs with npm (`package-lock.json`, `npm ci`, `npm audit --omit=dev`, `npx wrangler`). Hiato uses Bun for installs and scripts but runs wrangler on Node. We prototyped the switch on a throwaway copy of `main` @ `f6c8b88`, with Bun 1.4 (hiato's pin at the time) and Node 22.23.3.
 
 **Node floor.** The project's Node advisory review sets **22.23.4** as the minimum patched Node 22. nodejs.org lists v22.23.4 (2026-10-20, security release, LTS "Jod") as the latest Node 22. Today bica pins only the major: `.nvmrc` = `22`, `engines.node` `>=22 <23`, and the three workflows read `.nvmrc` through `node-version-file`. Bun does not enforce `engines`, even with `engine-strict=true`, and `bun run` uses whatever `node` is first on PATH. On a machine with an older default Node that means v20.19.2. With no `node` on PATH, Bun substitutes itself, so `process.version` reports `v26.3.0`. Removing `.npmrc` drops the only engines enforcement, and nothing checks the version scripts actually run on. At `main` @ `a3b7554`, Node 22.23.4 passes typecheck, lint, the tests (290 pass / 19 skip; built 309/309), licences, deps-check and `build:cf`. The build output matches 22.23.3 apart from the known per-build fields.
 
@@ -51,7 +51,7 @@ Bica installs with npm (`package-lock.json`, `npm ci`, `npm audit --omit=dev`, `
 1. **Bun installs packages and runs scripts.**
    - `bun install --frozen-lockfile`, `bun run <script>`, and `bunx wrangler` from the local install.
    - Deploy jobs that hold `CLOUDFLARE_API_TOKEN` run the lockfile wrangler via `node node_modules/wrangler/bin/wrangler.js` (keeps #52/#67 W-1). CI uses `bunx`.
-   - `"packageManager": "bun@1.4.2"` in `package.json`.
+   - `"packageManager": "bun@1.4.4"` in `package.json`. 1.4.4 is the security floor for GHSA-cf8x-9m69-3gg3 (HTTP/3 QPACK amplification, affected ≥ 1.3.14 < 1.4.4). bica doesn't use HTTP/3, so it isn't reachable here, but the pin stays at or above the floor.
    - CI uses `oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0` with `bun-version-file: package.json`, and needs no dependency cache.
    - The audit gate is `bun audit --prod --audit-level=high`. It fails only on high and above, so the optional-peer difference (see Context) doesn't change what the gate blocks today. A prod-only Bun audit can still miss findings on optional-peer paths. Optionally, CI also runs a full `bun audit` as a non-blocking report line.
    - `overrides` stay as they are.
@@ -107,11 +107,11 @@ Bica installs with npm (`package-lock.json`, `npm ci`, `npm audit --omit=dev`, `
 - The shipped client is byte-identical. The Worker bundle changes once (the srvx dedupe), so the first Bun artifact digest differs from the last npm one. Bindings, compat flags and the Durable Object are unchanged.
 - Installs drop from about 12 s to under 1 s per job, and deps-check runs in under a second.
 - deps-check no longer checks the installed `node_modules` the way `npm ls` did. CI always installs fresh with `--frozen-lockfile`, so this only matters for hand-edited local trees.
-- No dependency install scripts run: `bunfig.toml` sets `[install] ignoreScripts = true` and `package.json` sets `"trustedDependencies": []`, so Bun's built-in default-trusted list (esbuild, sharp, workerd and others) does not apply. The bunfig setting is what enforces it: in Bun 1.4.2 an empty `trustedDependencies` alone still ran workerd's postinstall. bica needs no install scripts (`build:cf`, the built tests and the wrangler dry-runs pass without them). A package that needs one takes a reviewed change to both settings. Never run `bun audit fix` unread: it rewrites exact `overrides` pins.
+- No dependency install scripts run: `bunfig.toml` sets `[install] ignoreScripts = true` and `package.json` sets `"trustedDependencies": []`, so Bun's built-in default-trusted list (esbuild, sharp, workerd and others) does not apply. Bun 1.4.4 honours the empty list (it is recorded in `bun.lock`); `bunfig.toml` stays as defense in depth for older Bun versions (1.4.2 ignored an empty list and ran workerd's postinstall) and for `bun add`. `bun pm untrusted` therefore lists workerd's `postinstall` as blocked, which is expected. bica needs no install scripts (`build:cf`, the built tests and the wrangler dry-runs pass without them). A package that needs one takes a reviewed change to both settings. Never run `bun audit fix` unread: it rewrites exact `overrides` pins.
 - The prod-only audit scope differs from npm's. `bun audit --prod` skips optional-peer paths that `npm audit --omit=dev` counts (#65: fast-uri via `@hookform/resolvers` → `ajv`). At the high gate this changes nothing today. Findings below the gate, or on such paths, show up only in a full `bun audit`.
 - Every Node 22 security release that raises the floor is a small PR: `.nvmrc` plus `engines`, with node:check and its tests enforcing that the two agree. Node 22 reaches end of life on 2027-04-30, and moving to a newer major needs its own ADR.
 - A dev or agent box whose `node` is older than the floor, or is Bun's shim, now fails `bun run test` and `bun run node:check` loudly instead of silently running on the wrong Node.
-- Hiato and bica now share Bun 1.4.2 and the same setup-bun pin. Hiato keeps `bun test` (its tests are written for it); bica keeps `node --test`.
+- Hiato and bica share the setup-bun pin; bica pins Bun 1.4.4 (the GHSA-cf8x-9m69-3gg3 floor), and hiato should follow. Hiato keeps `bun test` (its tests are written for it); bica keeps `node --test`.
 
 ## Rollback
 

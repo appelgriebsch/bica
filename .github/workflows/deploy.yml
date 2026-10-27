@@ -181,8 +181,9 @@ jobs:
       name: staging
       url: https://bica-staging.appelgriebsch.workers.dev
     steps:
-      # scripts/smoke-health.sh and bun.lock come from this workflow's
-      # revision on main. Not the artifact sha: a redeployed commit may predate the script.
+      # scripts/smoke-health.sh, scripts/chat-smoke.mjs and bun.lock come from
+      # this workflow's revision on main. Not the artifact sha: a redeployed
+      # commit may predate the script.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.sha }}
@@ -316,6 +317,37 @@ jobs:
             [ "$i" -lt 12 ] && sleep 5
           done
           echo "::error::$out"
+          exit 1
+      - name: Smoke chat gate
+        # Release only: the id and the 404 mapping live in this checkout, which
+        # on a redeploy can be newer than the rolled-back artifact.
+        timeout-minutes: 3
+        env:
+          MODE: ${{ needs.build.outputs.mode }}
+        run: |
+          if [ "$MODE" != release ]; then
+            echo "Redeploy: skipping chat-gate smoke (artifact may predate this server fn id)."
+            exit 0
+          fi
+          url=$(grep -oE 'https://bica-staging\.[a-z0-9-]+\.workers\.dev' "$RUNNER_TEMP/deploy.log" | head -n 1 || true)
+          [ -n "$url" ] || { echo "::error::No bica-staging workers.dev URL in deploy.log"; exit 1; }
+          id=$(node scripts/chat-smoke.mjs id)
+          node scripts/chat-smoke.mjs body > /tmp/chat-turn.json
+          code=$(curl -sS -o /tmp/chat-body -w '%{http_code}' --max-time 10 \
+            -X POST "$url/_serverFn/$id" \
+            -H "content-type: application/json" \
+            -H "x-tsr-serverfn: true" \
+            -H "sec-fetch-site: same-origin" \
+            -H "origin: $url" \
+            --data-binary @/tmp/chat-turn.json) || { echo "::error::chat gate request failed"; exit 1; }
+          if [ "$code" = 403 ] && grep -q challenge_required /tmp/chat-body; then
+            echo "chat gate ok: 403 challenge_required"
+            exit 0
+          fi
+          echo "::error::chat gate: HTTP $code"
+          head -c 300 /tmp/chat-body || true
+          echo
+          if [ "$code" = 404 ]; then echo "::error::unknown server fn id"; fi
           exit 1
       - name: Summary
         if: always()

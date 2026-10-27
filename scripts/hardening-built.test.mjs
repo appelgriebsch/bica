@@ -16,19 +16,14 @@ import { fileURLToPath } from "node:url";
 import { STATIC_SECURITY_HEADERS } from "../src/lib/security-headers.mjs";
 import { buildOutput } from "./build-output.mjs";
 import { resolveBuildShaFull } from "./build-sha.mjs";
+import { CHAT_TURN, SEND_CHAT } from "./chat-smoke.mjs";
 
 const skip = !process.env.BICA_BUILT && "set BICA_BUILT=1 after bun run build:cf";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const HOST = "bica-staging.appelgriebsch.workers.dev";
 const PROD_HOST = "bica.appelgriebsch.org";
-// Server-function ids are content hashes of file + export name (stable across builds).
-// Since #33 sendChat is the only server function.
-const SEND_CHAT = "a6c1db121df31c780863651ffdf226f842441dec27cf2216ec61f708eb327331";
 // What the TanStack client (seroval) sends for `{ data: undefined }`.
 const NO_DATA = '{"t":{"t":10,"i":0,"p":{"k":["data"],"v":[{"t":2,"s":1}]},"o":0},"f":127,"m":[]}';
-// ...and for `{ data: { scenarioId: "pastelaria", messages: [{ role: "user", content: "Olá" }] } }`.
-const CHAT_TURN =
-  '{"t":{"t":10,"i":0,"p":{"k":["data"],"v":[{"t":10,"i":1,"p":{"k":["scenarioId","messages"],"v":[{"t":1,"s":"pastelaria"},{"t":9,"i":2,"a":[{"t":10,"i":3,"p":{"k":["role","content"],"v":[{"t":1,"s":"user"},{"t":1,"s":"Olá"}]},"o":0}],"o":0}]},"o":0}]},"o":0},"f":127,"m":[]}';
 
 let base, proc, state, prodBase, prodProc, prodState;
 

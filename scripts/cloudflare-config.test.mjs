@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { activePreset, buildOutput } from "./build-output.mjs";
+import { CHAT_TURN, SEND_CHAT } from "./chat-smoke.mjs";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -240,6 +241,40 @@ test("#31: header smoke retries HEAD+GET on / and /me, then fails loudly", () =>
   assert.match(step, /for i in \$\(seq 1 12\); do/);
   assert.match(step, /\[ "\$i" -lt 12 \] && sleep 5\n/);
   assert.match(step, /\n {10}echo "::error::\$out"\n {10}exit 1\s*$/);
+});
+
+test("#55: staging chat-gate smoke is release-only, between headers and summary", () => {
+  const staging = job("staging");
+  const headers = staging.indexOf("- name: Smoke security headers");
+  const chat = staging.indexOf("- name: Smoke chat gate");
+  const summary = staging.indexOf("- name: Summary");
+  assert.ok(headers >= 0 && chat > headers && summary > chat, "step order");
+  const st = step("staging", "Smoke chat gate");
+  assert.match(st, /\[ "\$MODE" != release \]/);
+  assert.match(st, /\[ "\$code" = 403 \]/);
+  assert.match(st, /grep -q challenge_required/);
+  assert.match(st, /node scripts\/chat-smoke\.mjs id/);
+  assert.match(st, /node scripts\/chat-smoke\.mjs body/);
+  assert.doesNotMatch(st, /a6c1db12/);
+  assert.match(st, /MODE: \$\{\{ needs\.build\.outputs\.mode \}\}/);
+  assert.doesNotMatch(st, /secrets\.|CLOUDFLARE_|TOKEN|XAI_API_KEY|TURNSTILE/);
+  assert.match(st, /--max-time 10\b/);
+  assert.match(st, /404 means unknown server fn|unknown server fn id/);
+  const id = spawnSync(process.execPath, ["scripts/chat-smoke.mjs", "id"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  const body = spawnSync(process.execPath, ["scripts/chat-smoke.mjs", "body"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  assert.equal(id.status, 0);
+  assert.equal(body.status, 0);
+  assert.equal(id.stdout, SEND_CHAT);
+  assert.equal(body.stdout, CHAT_TURN);
+  const built = readFileSync(join(root, "scripts/hardening-built.test.mjs"), "utf8");
+  assert.match(built, /from "\.\/chat-smoke\.mjs"/);
+  assert.doesNotMatch(built, /a6c1db121df31c78/);
 });
 
 test("#31: /api/health smoke fails with ::error:: when health never answers", () => {

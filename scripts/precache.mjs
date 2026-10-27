@@ -8,14 +8,20 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
+import { APP_NAME } from "../src/lib/app-name.mjs";
 import { buildOutput } from "./build-output.mjs";
+import { renderWebManifest } from "./grok-pwa-shared.mjs";
 
 // No .html: Workers' html_handling (auto-trailing-slash) would redirect it, and a
 // cached redirect can't answer a navigation. sw.js serves it as text/html.
 export const SHELL = "/_shell";
 
-/** Every file under `dir` as a URL path, minus the worker itself, _headers and the install tutorial. */
-export async function collectPrecache(dir) {
+/**
+ * Every file under `dir` as a URL path, minus the worker itself, _headers and
+ * the install tutorial, plus the rendered web manifest (not a file; addAll
+ * fetches it from the Worker). `manifestText` overrides that text in tests.
+ */
+export async function collectPrecache(dir, manifestText) {
   const files = await readdir(dir, { recursive: true, withFileTypes: true });
   const entries = [];
   for (const f of files) {
@@ -26,6 +32,10 @@ export async function collectPrecache(dir) {
     if (url === "/sw.js" || url === "/_headers" || url.startsWith("/__grok/")) continue;
     entries.push({ url, bytes: await readFile(abs) });
   }
+  entries.push({
+    url: "/__grok/manifest.webmanifest",
+    bytes: Buffer.from(manifestText ?? renderWebManifest(undefined, APP_NAME)),
+  });
   entries.sort((a, b) => (a.url < b.url ? -1 : 1));
   const hash = createHash("sha256");
   for (const e of entries) hash.update(e.url).update("\0").update(e.bytes).update("\0");
@@ -57,26 +67,21 @@ export function injectManifest(sw, { urls, version }) {
 
 /** Root-only render (no route matched, no loader data) that hydrates any route client-side. */
 async function renderShell() {
-  // #51 W-1: the shell must be stage-neutral
-  const saved = process.env.PUBLIC_HOSTNAME;
-  delete process.env.PUBLIC_HOSTNAME;
-  try {
-    process.env.TSS_SHELL = "true";
-    const { loadBuildHandler } = await import("./serve-build.mjs");
-    const { handler } = await loadBuildHandler();
-    const res = await handler.fetch(
-      new Request("http://localhost/", { headers: { accept: "text/html" } }),
-      {},
-    );
-    if (!res.ok) throw new Error(`shell render failed: ${res.status}`);
-    return Buffer.from(await res.arrayBuffer());
-  } finally {
-    if (saved === undefined) delete process.env.PUBLIC_HOSTNAME;
-    else process.env.PUBLIC_HOSTNAME = saved;
-  }
+  // #51 W-1: stage-neutral. The CLI cleared PUBLIC_HOSTNAME before this runs.
+  process.env.TSS_SHELL = "true";
+  const { loadBuildHandler } = await import("./serve-build.mjs");
+  const { handler } = await loadBuildHandler();
+  const res = await handler.fetch(
+    new Request("http://localhost/", { headers: { accept: "text/html" } }),
+    {},
+  );
+  if (!res.ok) throw new Error(`shell render failed: ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  // ponytail: hashes the host-free manifest; the served one carries PUBLIC_HOSTNAME as id. A host-only change rolls with the next build's VERSION. Hash per host if a var-only change must refresh installed clients.
+  delete process.env.PUBLIC_HOSTNAME;
   const dir = join(process.cwd(), buildOutput().publicDir);
   const html = await renderShell();
   await writeFile(join(dir, SHELL), html);

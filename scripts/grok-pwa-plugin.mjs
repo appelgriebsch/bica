@@ -52,7 +52,7 @@ function serveGrokPwa(middlewares, appName) {
       return;
     }
 
-    if (pathOnly === "/__grok/manifest.webmanifest" || pathOnly === "/__grok/manifest.json") {
+    if (pathOnly === "/__grok/manifest.webmanifest") {
       const body = Buffer.from(renderWebManifest(requestHost(req), appName), "utf8");
       res.statusCode = 200;
       res.setHeader("content-type", "application/manifest+json; charset=utf-8");

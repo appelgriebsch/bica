@@ -10,8 +10,8 @@
  *   router (src/router.tsx) mints the nonce, sets the header and hands the
  *   nonce to TanStack's scripts; the PWA middleware reads it back from the
  *   header for the extensions.js tag it injects.
- * - Report-Only unless CSP_ENFORCE=1 (staging stays Report-Only until a clean
- *   Tessa pass; then set the var instead of editing code).
+ * - Report-Only unless CSP_ENFORCE=1. Staging sets that var; production stays
+ *   Report-Only until the same flip (no code change).
  */
 export const STATIC_SECURITY_HEADERS = Object.freeze({
   // ponytail: no `preload` until the production domain is final.

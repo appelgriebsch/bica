@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { inflateSync } from "node:zlib";
 import test from "node:test";
 import {
   appNameFromHost,
@@ -11,15 +12,53 @@ import {
   injectGrokPwaHead,
   isDocumentPath,
   isInstallQuery,
+  hostFromOgImage,
+  OG_IMAGE_PATH,
+  ogImageUrl,
   renderWebManifest,
   resolvePublicHost,
   stripInstallParams,
 } from "./grok-pwa-shared.mjs";
 import { renderInstallPage } from "./grok-pwa-plugin.mjs";
 import { buildOutput } from "./build-output.mjs";
+import { collectPrecache } from "./precache.mjs";
 import { APP_NAME } from "../src/lib/app-name.mjs";
 
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+function exportedFunction(source, name) {
+  const start = source.indexOf(`export function ${name}(`);
+  assert.ok(start >= 0, name);
+  const next = source.indexOf("\nexport ", start + 1);
+  return source.slice(start, next === -1 ? undefined : next);
+}
+
+test("#59: ogImageUrl and hostFromOgImage own the og:image URL", () => {
+  for (const host of [
+    "bica.appelgriebsch.org",
+    "bica-staging.appelgriebsch.workers.dev",
+    "localhost:8080",
+  ]) {
+    assert.equal(hostFromOgImage(ogImageUrl(host)), host);
+    assert.equal(ogImageUrl(host), `https://${host}${OG_IMAGE_PATH}`);
+  }
+  assert.equal(ogImageUrl(""), undefined);
+  assert.equal(ogImageUrl(undefined), undefined);
+  for (const bad of ["", undefined, `http://x${OG_IMAGE_PATH}`, "https://x/other.jpg"]) {
+    assert.equal(hostFromOgImage(bad), "");
+  }
+  assert.equal(hostFromOgImage(`https://x${OG_IMAGE_PATH}.bak`), "");
+  assert.equal(hostFromOgImage(`${ogImageUrl("x")}?v=1`), "x");
+  const shared = readFileSync(join(TEMPLATE_ROOT, "scripts/grok-pwa-shared.mjs"), "utf8");
+  assert.match(exportedFunction(shared, "ogImageUrl"), /OG_IMAGE_PATH/);
+  assert.match(exportedFunction(shared, "hostFromOgImage"), /OG_IMAGE_PATH/);
+  const root = readFileSync(join(TEMPLATE_ROOT, "src/routes/__root.tsx"), "utf8");
+  assert.match(root, /ogImageUrl\(/);
+  assert.doesNotMatch(root, /\/og\.jpg/);
+  const hostSrc = readFileSync(join(TEMPLATE_ROOT, "src/lib/public-host.ts"), "utf8");
+  assert.match(hostSrc, /hostFromOgImage\(/);
+  assert.doesNotMatch(hostSrc, /og\.jpg|\/\^https:/);
+});
 
 test("injects before </head>", () => {
   const out = injectGrokPwaHead("<html><head><title>x</title></head><body></body></html>");
@@ -319,6 +358,12 @@ test("renders the manifest with the per-app name", () => {
     { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
     { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
     {
+      src: "/icon-maskable-192.png",
+      sizes: "192x192",
+      type: "image/png",
+      purpose: "maskable",
+    },
+    {
       src: "/icon-maskable-512.png",
       sizes: "512x512",
       type: "image/png",
@@ -328,6 +373,48 @@ test("renders the manifest with the per-app name", () => {
   ]);
   assert.equal(manifest.background_color, "#f3eee6");
   assert.equal(manifest.theme_color, "#1E4D73");
+});
+
+/** IHDR plus the top-left pixel. (0,0) reconstructs from zeros for every filter. */
+function pngSizeAndCorner(buf) {
+  assert.equal(buf.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+  let off = 8;
+  let width = 0;
+  let height = 0;
+  let depth = 0;
+  let color = 0;
+  let interlace = 0;
+  const idat = [];
+  while (off + 12 <= buf.length) {
+    const len = buf.readUInt32BE(off);
+    const type = buf.toString("latin1", off + 4, off + 8);
+    const data = buf.subarray(off + 8, off + 8 + len);
+    if (type === "IHDR") {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      depth = data[8];
+      color = data[9];
+      interlace = data[12];
+    } else if (type === "IDAT") idat.push(data);
+    else if (type === "IEND") break;
+    off += 12 + len;
+  }
+  const raw = inflateSync(Buffer.concat(idat));
+  return { width, height, depth, color, interlace, corner: [raw[1], raw[2], raw[3]] };
+}
+
+test("#55: maskable 192 is 192x192, full-bleed, and precached", async () => {
+  const file = join(TEMPLATE_ROOT, "public/icon-maskable-192.png");
+  assert.equal(existsSync(file), true);
+  const png = pngSizeAndCorner(readFileSync(file));
+  assert.equal(png.width, 192);
+  assert.equal(png.height, 192);
+  assert.equal(png.depth, 8);
+  assert.equal(png.color, 2);
+  assert.equal(png.interlace, 0);
+  assert.deepEqual(png.corner, [0x1e, 0x4d, 0x73]);
+  const { urls } = await collectPrecache(join(TEMPLATE_ROOT, "public"));
+  assert.ok(urls.includes("/icon-maskable-192.png"));
 });
 
 test("theme-color fallback is the light/dark pair, and a present pair is left alone", () => {
@@ -381,6 +468,7 @@ test(
     }
     assert.match(manifest, /\/icon-192\.png/);
     assert.match(manifest, /\/icon-512\.png/);
+    assert.match(manifest, /\/icon-maskable-192\.png/);
     assert.match(manifest, /\/icon-maskable-512\.png/);
     assert.ok(pages.length > 0, "built html");
     for (const [rel, page] of pages) {
@@ -412,6 +500,14 @@ test("#28: the deployed middleware passes APP_NAME to the manifest, install page
   const middleware = readFileSync(join(TEMPLATE_ROOT, "server/middleware/grok-pwa.ts"), "utf8");
   assert.match(middleware, /renderWebManifest\(requestHost\(event\), APP_NAME\)/);
   assert.equal(middleware.match(/appName: APP_NAME/g)?.length, 2);
+});
+
+test("#55: neither middleware serves the manifest.json alias", () => {
+  for (const file of ["server/middleware/grok-pwa.ts", "scripts/grok-pwa-plugin.mjs"]) {
+    const text = readFileSync(join(TEMPLATE_ROOT, file), "utf8");
+    assert.equal(text.includes("manifest.json"), false, file);
+    assert.match(text, /\/__grok\/manifest\.webmanifest/);
+  }
 });
 
 test("#28: the injected extensions.js carries the CSP nonce", () => {

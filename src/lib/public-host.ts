@@ -1,6 +1,6 @@
 import { createIsomorphicFn } from "@tanstack/react-start";
 import { getRequestHost } from "@tanstack/react-start/server";
-import { resolvePublicHost } from "../../scripts/grok-pwa-shared.mjs";
+import { hostFromOgImage, resolvePublicHost } from "../../scripts/grok-pwa-shared.mjs";
 
 /**
  * Public host for share tags. On the server: wrangler var PUBLIC_HOSTNAME,
@@ -16,7 +16,8 @@ export const shareHost = createIsomorphicFn()
     }
   })
   .client((): string => {
+    // Inverse of ogImageUrl.
     const content =
       document.querySelector<HTMLMetaElement>('meta[property="og:image"]')?.content ?? "";
-    return /^https:\/\/([^/]+)\/og\.jpg(?:\?|$)/.exec(content)?.[1] ?? "";
+    return hostFromOgImage(content);
   });

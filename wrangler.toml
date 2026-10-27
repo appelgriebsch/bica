@@ -54,6 +54,8 @@ BICA_STAGE = "staging"
 TURNSTILE_HOSTNAMES = "bica-staging.appelgriebsch.workers.dev"
 # #51: og:image and the manifest id. Read at runtime, not baked into the build.
 PUBLIC_HOSTNAME = "bica-staging.appelgriebsch.workers.dev"
+# #55: enforce CSP here. Production stays Report-Only until a few clean days.
+CSP_ENFORCE = "1"
 
 # Chat burst limit (#13, keyed by client IP since #35), across isolates.
 # Cloudflare allows only period = 10 or 60. limit must match

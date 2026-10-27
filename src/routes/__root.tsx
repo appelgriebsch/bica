@@ -7,6 +7,7 @@ import { Toaster } from "sonner";
 import { APP_NAME } from "@/lib/app-name.mjs";
 import { shareHost } from "@/lib/public-host";
 import { BICA_THEME, BICA_THEME_DARK } from "../../scripts/bica-theme.mjs";
+import { ogImageUrl } from "../../scripts/grok-pwa-shared.mjs";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
@@ -15,7 +16,7 @@ export const Route = createRootRoute({
   staleTime: Number.POSITIVE_INFINITY,
   head: ({ loaderData }) => {
     const host = loaderData ?? "";
-    const ogImage = host ? `https://${host}/og.jpg` : undefined;
+    const ogImage = ogImageUrl(host);
     const xBanner = host
       ? `https://og.grok.me/v1/banner.png?host=${encodeURIComponent(host)}&title=${encodeURIComponent(APP_NAME)}&color=1E4D73`
       : undefined;

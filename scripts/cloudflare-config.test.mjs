@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { activePreset, buildOutput } from "./build-output.mjs";
+import { CHAT_TURN, SEND_CHAT } from "./chat-smoke.mjs";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -241,6 +242,178 @@ test("#31: header smoke retries HEAD+GET on / and /me, then fails loudly", () =>
   assert.match(step, /\[ "\$i" -lt 12 \] && sleep 5\n/);
   assert.match(step, /\n {10}echo "::error::\$out"\n {10}exit 1\s*$/);
 });
+
+test("#55: staging chat-gate smoke is release-only, between headers and summary", () => {
+  const staging = job("staging");
+  const headers = staging.indexOf("- name: Smoke security headers");
+  const chat = staging.indexOf("- name: Smoke chat gate");
+  const summary = staging.indexOf("- name: Summary");
+  assert.ok(headers >= 0 && chat > headers && summary > chat, "step order");
+  const st = step("staging", "Smoke chat gate");
+  // Release-only lives in the script. A step `if:` would skip the whole step, including on release.
+  assert.doesNotMatch(st, /^\s+if:/m);
+  assert.match(st, /timeout-minutes: 3/);
+  assert.match(st, /\[ "\$MODE" != release \]/);
+  assert.match(st, /\[ "\$code" = 403 \]/);
+  assert.match(st, /grep -q challenge_required/);
+  assert.match(st, /node scripts\/chat-smoke\.mjs id/);
+  assert.match(st, /node scripts\/chat-smoke\.mjs body/);
+  assert.doesNotMatch(st, /a6c1db12/);
+  assert.match(st, /MODE: \$\{\{ needs\.build\.outputs\.mode \}\}/);
+  assert.doesNotMatch(st, /secrets\.|CLOUDFLARE_|TOKEN|XAI_API_KEY|TURNSTILE/);
+  assert.match(st, /--max-time 10\b/);
+  // The request is the shared probe: this id, this body, same-origin.
+  assert.match(st, /-X POST "\$url\/_serverFn\/\$id"/);
+  assert.match(st, /-H "origin: \$url"/);
+  assert.match(st, /node scripts\/chat-smoke\.mjs body > \/tmp\/chat-turn\.json/);
+  assert.match(st, /--data-binary @\/tmp\/chat-turn\.json\)/);
+  // Only the redeploy skip and the 403 branch exit 0; anything else fails.
+  assert.equal(st.match(/exit 0/g).length, 2);
+  assert.match(st, /exit 1\s*$/);
+  assert.match(st, /404 means unknown server fn|unknown server fn id/);
+  const id = spawnSync(process.execPath, ["scripts/chat-smoke.mjs", "id"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  const body = spawnSync(process.execPath, ["scripts/chat-smoke.mjs", "body"], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  assert.equal(id.status, 0);
+  assert.equal(body.status, 0);
+  assert.equal(id.stdout, SEND_CHAT);
+  assert.equal(body.stdout, CHAT_TURN);
+  const built = readFileSync(join(root, "scripts/hardening-built.test.mjs"), "utf8");
+  assert.match(built, /from "\.\/chat-smoke\.mjs"/);
+  assert.doesNotMatch(built, /a6c1db121df31c78/);
+});
+
+/** The staging "Smoke chat gate" `run:` block, dedented the way Actions runs it. */
+function chatGateScript() {
+  const st = step("staging", "Smoke chat gate");
+  const at = st.indexOf("\n        run: |\n");
+  assert.ok(at >= 0, "chat gate run block");
+  return st
+    .slice(at + "\n        run: |\n".length)
+    .split("\n")
+    .map((line) => (line.startsWith("          ") ? line.slice(10) : line))
+    .join("\n");
+}
+
+test(
+  "#55: chat-gate smoke against a stub",
+  {
+    skip:
+      spawnSync("bash", ["-c", "command -v curl >/dev/null && command -v bash >/dev/null"])
+        .status !== 0,
+  },
+  async () => {
+    const script = chatGateScript();
+    const realCurl = spawnSync("bash", ["-c", "command -v curl"], {
+      encoding: "utf8",
+    }).stdout.trim();
+    assert.ok(realCurl, "curl");
+    const host = "https://bica-staging.test-acct.workers.dev";
+
+    const runCase = async (label, { mode, status, payload, code, hits: wantHits, match }) => {
+      let hits = 0;
+      const server = createServer(async (req, res) => {
+        hits += 1;
+        const chunks = [];
+        for await (const chunk of req) chunks.push(chunk);
+        const body = Buffer.concat(chunks).toString();
+        const type = String(req.headers["content-type"] ?? "")
+          .split(";")[0]
+          .trim();
+        const ok =
+          req.method === "POST" &&
+          req.url === `/_serverFn/${SEND_CHAT}` &&
+          req.headers["x-tsr-serverfn"] === "true" &&
+          type === "application/json" &&
+          req.headers.origin === host &&
+          req.headers["sec-fetch-site"] === "same-origin" &&
+          body === CHAT_TURN;
+        if (!ok) {
+          res.writeHead(400).end("bad");
+          return;
+        }
+        res.writeHead(status, { "content-type": "application/json" }).end(payload);
+      });
+      await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const port = server.address().port;
+      const dir = mkdtempSync(join(tmpdir(), "bica-chat-gate-"));
+      const shim = `#!/bin/bash
+prefix='${host}'
+stub='http://127.0.0.1:${port}'
+args=()
+for a in "$@"; do
+  if [[ "$a" == "$prefix"* ]]; then a="$stub\${a#"$prefix"}"; fi
+  args+=("$a")
+done
+exec '${realCurl}' "\${args[@]}"
+`;
+      writeFileSync(join(dir, "curl"), shim);
+      chmodSync(join(dir, "curl"), 0o755);
+      writeFileSync(join(dir, "deploy.log"), `https://bica-staging.test-acct.workers.dev\n`);
+      // execFile, not spawnSync: a sync child blocks this event loop, so the stub never answers.
+      const result = await new Promise((resolve) => {
+        execFile(
+          "bash",
+          ["-euo", "pipefail", "-c", script],
+          {
+            cwd: root,
+            env: {
+              ...process.env,
+              MODE: mode,
+              RUNNER_TEMP: dir,
+              PATH: `${dir}:${process.env.PATH}`,
+            },
+            encoding: "utf8",
+          },
+          (err, stdout, stderr) => resolve({ status: err ? (err.code ?? 1) : 0, stdout, stderr }),
+        );
+      });
+      await new Promise((resolve) => server.close(resolve));
+      rmSync(dir, { recursive: true, force: true });
+      assert.equal(result.status, code, `${label}\n${result.stdout}\n${result.stderr}`);
+      if (match) assert.match(`${result.stdout}\n${result.stderr}`, match, label);
+      if (wantHits !== undefined) assert.equal(hits, wantHits, label);
+    };
+
+    await runCase("403 challenge_required", {
+      mode: "release",
+      status: 403,
+      payload: '{"error":"challenge_required"}',
+      code: 0,
+    });
+    await runCase("403 other body", {
+      mode: "release",
+      status: 403,
+      payload: '{"error":"forbidden"}',
+      code: 1,
+    });
+    await runCase("200 challenge_required", {
+      mode: "release",
+      status: 200,
+      payload: '{"error":"challenge_required"}',
+      code: 1,
+    });
+    await runCase("404 unknown id", {
+      mode: "release",
+      status: 404,
+      payload: '{"error":"not_found"}',
+      code: 1,
+      match: /unknown server fn id/,
+    });
+    await runCase("redeploy", {
+      mode: "redeploy",
+      status: 403,
+      payload: '{"error":"challenge_required"}',
+      code: 0,
+      hits: 0,
+    });
+  },
+);
 
 test("#31: /api/health smoke fails with ::error:: when health never answers", () => {
   assert.match(smokeHealth, /echo "::error::\/api\/health never answered[^"]*"\n {2}exit 1/);
@@ -1006,6 +1179,18 @@ test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails l
   assert.match(step, /timeout-minutes: 6\b/);
   assert.match(prodJob, /\n {4}timeout-minutes: 20\n/);
   assert.doesNotMatch(step, /secrets\.|TOKEN/);
+});
+
+test("#55: staging sets CSP_ENFORCE; production does not yet", () => {
+  const block = (env) => {
+    const start = wrangler.indexOf(`[env.${env}.vars]`);
+    const rest = wrangler.slice(start + 1);
+    const next = rest.search(/\n\[/);
+    return wrangler.slice(start, next === -1 ? undefined : start + 1 + next);
+  };
+  assert.match(block("staging"), /^CSP_ENFORCE = "1"$/m);
+  assert.doesNotMatch(block("production"), /CSP_ENFORCE/);
+  assert.equal(wrangler.match(/^CSP_ENFORCE = "1"$/gm).length, 1);
 });
 
 test("#42 W1: PUBLIC_HOSTNAME equals TURNSTILE_HOSTNAMES; the build takes no public host", () => {

@@ -11,6 +11,8 @@ export { BICA_BACKGROUND, BICA_THEME, BICA_THEME_DARK };
 export const DEFAULT_APP_NAME = "Grok App";
 export const OG_SERVICE_URL_DEFAULT = "https://og.grok.me";
 export const OG_SITE_REL_PATH = "src/lib/og/site.json";
+/** Share-card path. `ogImageUrl` / `hostFromOgImage` are the only readers. */
+export const OG_IMAGE_PATH = "/og.jpg";
 
 const SHARE_META_KEYS = new Set([
   "og:title",
@@ -112,6 +114,25 @@ export function resolvePublicHost(hostHeader, sources) {
   return configured || publicAppHost(hostHeader);
 }
 
+/** `https://<host>/og.jpg`, or undefined when there is no host. */
+export function ogImageUrl(host) {
+  return host ? `https://${host}${OG_IMAGE_PATH}` : undefined;
+}
+
+/** Inverse of `ogImageUrl`. "" for anything that function did not produce. */
+export function hostFromOgImage(content) {
+  const value = String(content ?? "");
+  const prefix = "https://";
+  if (!value.startsWith(prefix)) return "";
+  const rest = value.slice(prefix.length);
+  const slash = rest.indexOf("/");
+  if (slash <= 0) return "";
+  const host = rest.slice(0, slash);
+  const after = rest.slice(slash);
+  if (after !== OG_IMAGE_PATH && !after.startsWith(`${OG_IMAGE_PATH}?`)) return "";
+  return host;
+}
+
 export function isInstallQuery(url) {
   const query = String(url ?? "").split("?", 2)[1] ?? "";
   const params = new URLSearchParams(query);
@@ -171,6 +192,12 @@ export function renderWebManifest(hostHeader, appName) {
       icons: [
         { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
         { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
+        {
+          src: "/icon-maskable-192.png",
+          sizes: "192x192",
+          type: "image/png",
+          purpose: "maskable",
+        },
         {
           src: "/icon-maskable-512.png",
           sizes: "512x512",

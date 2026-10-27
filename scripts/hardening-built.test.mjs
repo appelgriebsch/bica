@@ -16,19 +16,14 @@ import { fileURLToPath } from "node:url";
 import { STATIC_SECURITY_HEADERS } from "../src/lib/security-headers.mjs";
 import { buildOutput } from "./build-output.mjs";
 import { resolveBuildShaFull } from "./build-sha.mjs";
+import { CHAT_TURN, SEND_CHAT } from "./chat-smoke.mjs";
 
 const skip = !process.env.BICA_BUILT && "set BICA_BUILT=1 after bun run build:cf";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const HOST = "bica-staging.appelgriebsch.workers.dev";
 const PROD_HOST = "bica.appelgriebsch.org";
-// Server-function ids are content hashes of file + export name (stable across builds).
-// Since #33 sendChat is the only server function.
-const SEND_CHAT = "a6c1db121df31c780863651ffdf226f842441dec27cf2216ec61f708eb327331";
 // What the TanStack client (seroval) sends for `{ data: undefined }`.
 const NO_DATA = '{"t":{"t":10,"i":0,"p":{"k":["data"],"v":[{"t":2,"s":1}]},"o":0},"f":127,"m":[]}';
-// ...and for `{ data: { scenarioId: "pastelaria", messages: [{ role: "user", content: "Olá" }] } }`.
-const CHAT_TURN =
-  '{"t":{"t":10,"i":0,"p":{"k":["data"],"v":[{"t":10,"i":1,"p":{"k":["scenarioId","messages"],"v":[{"t":1,"s":"pastelaria"},{"t":9,"i":2,"a":[{"t":10,"i":3,"p":{"k":["role","content"],"v":[{"t":1,"s":"user"},{"t":1,"s":"Olá"}]},"o":0}],"o":0}]},"o":0}]},"o":0},"f":127,"m":[]}';
 
 let base, proc, state, prodBase, prodProc, prodState;
 
@@ -120,7 +115,12 @@ before(async () => {
   base = `http://127.0.0.1:${port}`;
   prodBase = `http://127.0.0.1:${prodPort}`;
   // Assign before the wait so after() can kill a worker that never becomes ready.
-  proc = spawnWorker(port, inspector, state, [`BICA_STAGE:staging`, `PUBLIC_HOSTNAME:${HOST}`]);
+  // wrangler dev here does not load [env.staging.vars]; pass the staging CSP flip.
+  proc = spawnWorker(port, inspector, state, [
+    `BICA_STAGE:staging`,
+    `PUBLIC_HOSTNAME:${HOST}`,
+    "CSP_ENFORCE:1",
+  ]);
   prodProc = spawnWorker(prodPort, prodInspector, prodState, [
     "BICA_STAGE:production",
     `PUBLIC_HOSTNAME:${PROD_HOST}`,
@@ -168,9 +168,9 @@ for (const path of ["/", "/me", "/practice"]) {
     for (const [k, v] of Object.entries(STATIC_SECURITY_HEADERS)) {
       assert.equal(res.headers.get(k), v, k);
     }
-    const csp = res.headers.get("content-security-policy-report-only");
-    assert.ok(csp, "Report-Only CSP");
-    assert.equal(res.headers.get("content-security-policy"), null, "not enforced on staging yet");
+    const csp = res.headers.get("content-security-policy");
+    assert.ok(csp, "enforced CSP");
+    assert.equal(res.headers.get("content-security-policy-report-only"), null);
     const nonce = /'nonce-([^']+)'/.exec(csp)?.[1];
     assert.ok(nonce);
     assert.match(csp, /worker-src 'self'/);
@@ -198,7 +198,8 @@ for (const path of ["/", "/me"]) {
     for (const [k, v] of Object.entries(STATIC_SECURITY_HEADERS)) {
       assert.equal(res.headers.get(k), v, k);
     }
-    assert.match(res.headers.get("content-security-policy-report-only") ?? "", /'nonce-[^']+'/);
+    assert.match(res.headers.get("content-security-policy") ?? "", /'nonce-[^']+'/);
+    assert.equal(res.headers.get("content-security-policy-report-only"), null);
   });
 }
 
@@ -214,9 +215,18 @@ test(
 );
 
 test("each response gets a fresh nonce", { skip }, async () => {
-  const a = (await get("/")).headers.get("content-security-policy-report-only");
-  const b = (await get("/")).headers.get("content-security-policy-report-only");
+  const a = (await get("/")).headers.get("content-security-policy");
+  const b = (await get("/")).headers.get("content-security-policy");
   assert.notEqual(a, b);
+});
+
+test("#55: production stays Report-Only", { skip }, async () => {
+  const res = await fetch(`${prodBase}/`, {
+    headers: { host: PROD_HOST, accept: "text/html" },
+  });
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-security-policy-report-only") ?? "", /'nonce-[^']+'/);
+  assert.equal(res.headers.get("content-security-policy"), null);
 });
 
 test("static assets get the _headers security headers", { skip }, async () => {
@@ -327,7 +337,19 @@ test("manifest is named Bica on a workers.dev host", { skip }, async () => {
   assert.equal(manifest.short_name, "Bica");
   assert.equal(manifest.background_color, "#f3eee6");
   assert.equal(manifest.theme_color, "#1E4D73");
+  assert.ok(manifest.icons.some((i) => i.src === "/icon-192.png" && i.purpose === undefined));
+  assert.ok(manifest.icons.some((i) => i.src === "/icon-512.png"));
+  assert.ok(manifest.icons.some((i) => i.src === "/icon-180.png"));
+  assert.ok(
+    manifest.icons.some((i) => i.src === "/icon-maskable-192.png" && i.purpose === "maskable"),
+  );
+  assert.ok(
+    manifest.icons.some((i) => i.src === "/icon-maskable-512.png" && i.purpose === "maskable"),
+  );
   assert.equal(res.headers.get("x-content-type-options"), "nosniff");
+  const alias = await get("/__grok/manifest.json", { accept: "*/*" });
+  assert.equal(alias.status, 404);
+  assert.equal((await alias.text()).includes('"short_name"'), false);
 });
 
 test("GET / serves both theme-color metas and no black one", { skip }, async () => {
@@ -372,7 +394,7 @@ test("#33: /login and /api/auth/* are 404 (GET and POST); / has no Sign in", { s
 
 test("#33: the CSP names no auth broker; COOP is plain same-origin", { skip }, async () => {
   const res = await get("/");
-  const csp = res.headers.get("content-security-policy-report-only") ?? "";
+  const csp = res.headers.get("content-security-policy") ?? "";
   assert.match(csp, /form-action 'self';/);
   assert.doesNotMatch(csp, /auth\.grok\.me/);
   assert.equal(res.headers.get("cross-origin-opener-policy"), "same-origin");
@@ -421,6 +443,14 @@ test(
       assert.equal(res.status, 400, bad);
       assert.deepEqual(await res.json(), { error: "invalid_input" });
     }
+    // Unknown id: TanStack's 500 is rewritten. No framework text in the body.
+    const unknown = await callFn("deadbeef", CHAT_TURN);
+    const unknownBody = await unknown.text();
+    assert.equal(unknown.status, 404, unknownBody);
+    assert.equal(unknown.headers.get("content-type"), "application/json");
+    assert.equal(unknown.headers.get("cache-control"), "no-store");
+    assert.deepEqual(JSON.parse(unknownBody), { error: "not_found" });
+    assert.doesNotMatch(unknownBody, /Server function|\$TSR/);
   },
 );
 
@@ -428,8 +458,7 @@ test(
   "#35: the CSP allows Turnstile (script, frame, connect) and no other third party",
   { skip },
   async () => {
-    const csp =
-      (await get("/speak/pastelaria")).headers.get("content-security-policy-report-only") ?? "";
+    const csp = (await get("/speak/pastelaria")).headers.get("content-security-policy") ?? "";
     assert.match(
       csp,
       /script-src 'self' 'nonce-[^']+' 'strict-dynamic' https:\/\/challenges\.cloudflare\.com;/,
@@ -443,6 +472,33 @@ test(
     ]);
   },
 );
+
+test("#55: unsupported methods are 405; GET, HEAD and POST stay", { skip }, async () => {
+  const denied = async (path, method, allow) => {
+    const res = await fetch(`${base}${path}`, { method, headers: { host: HOST } });
+    assert.equal(res.status, 405, `${method} ${path}`);
+    assert.equal(res.headers.get("allow"), allow, `${method} ${path}`);
+    assert.equal(res.headers.get("cache-control"), "no-store", `${method} ${path}`);
+    assert.equal(await res.text(), "", `${method} ${path}`);
+  };
+  await denied("/api/health", "POST", "GET, HEAD");
+  await denied("/api/ping", "POST", "GET, HEAD");
+  await denied("/api/csp-report", "GET", "POST");
+  const health = await fetch(`${base}/api/health`);
+  assert.equal(health.status, 200);
+  assert.match(await health.text(), /"ok":true/);
+  const head = await fetch(`${base}/api/health`, { method: "HEAD" });
+  assert.equal(head.status, 200);
+  assert.equal(await head.text(), "");
+  const ping = await fetch(`${base}/api/ping`);
+  assert.equal(ping.status, 204);
+  const report = await fetch(`${base}/api/csp-report`, {
+    method: "POST",
+    headers: { "content-type": "application/csp-report" },
+    body: JSON.stringify({ "csp-report": { "violated-directive": "script-src" } }),
+  });
+  assert.equal(report.status, 204);
+});
 
 test("CSP reports are accepted with 204", { skip }, async () => {
   const res = await fetch(`${base}/api/csp-report`, {

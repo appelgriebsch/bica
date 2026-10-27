@@ -27,3 +27,11 @@ export function classifyServerFnError(err) {
 export function isUndecodablePayloadError(body) {
   return /Seroval Error/.test(String(body ?? ""));
 }
+
+/**
+ * True for the 500 TanStack sends when the id is missing or server-only.
+ * `handleServerAction` throws this before function middleware runs.
+ */
+export function isUnknownServerFnError(body) {
+  return /Server function (info not found|not accessible from client)/.test(String(body ?? ""));
+}

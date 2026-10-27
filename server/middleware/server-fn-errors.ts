@@ -1,20 +1,22 @@
 /**
- * Server-function bodies that can't be decoded are a client mistake: 400, not
- * 500 (#28). TanStack decodes the payload (JSON, then Seroval) before any
- * function middleware runs, so `serverFnErrors` (src/lib/server-fn-errors.ts)
- * can't see it; this wraps the response instead. Only 500s are read, and only
- * Seroval decode failures are rewritten; a real server fault stays 500.
+ * Some server-function failures happen before function middleware runs (#28,
+ * #55). TanStack decodes the payload, then looks up the id, and serializes
+ * either miss as a 500. This wraps the response: an undecodable body is a
+ * 400, an unknown id is a 404. A real server fault stays 500.
  */
-import { isUndecodablePayloadError } from "../../src/lib/server-fn-status.mjs";
+import {
+  isUndecodablePayloadError,
+  isUnknownServerFnError,
+} from "../../src/lib/server-fn-status.mjs";
 
 interface ServerFnErrorsEvent {
   url: URL;
   req: Request;
 }
 
-const invalidInput = () =>
-  new Response(JSON.stringify({ error: "invalid_input" }), {
-    status: 400,
+const jsonError = (status: number, error: string) =>
+  new Response(JSON.stringify({ error }), {
+    status,
     headers: { "content-type": "application/json", "cache-control": "no-store" },
   });
 
@@ -30,12 +32,13 @@ export default async function serverFnErrorsMiddleware(
     try {
       JSON.parse(await event.req.clone().text());
     } catch {
-      return invalidInput();
+      return jsonError(400, "invalid_input");
     }
   }
   const result = await next();
   if (!(result instanceof Response) || result.status !== 500) return result;
   const body = await result.clone().text();
-  if (!isUndecodablePayloadError(body)) return result;
-  return invalidInput();
+  if (isUndecodablePayloadError(body)) return jsonError(400, "invalid_input");
+  if (isUnknownServerFnError(body)) return jsonError(404, "not_found");
+  return result;
 }

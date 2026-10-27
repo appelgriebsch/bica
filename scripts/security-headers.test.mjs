@@ -46,10 +46,7 @@ test("CSP: nonce scripts with strict-dynamic, no unsafe-inline scripts, locked f
   assert.equal(directives["object-src"], "'none'");
   assert.equal(directives["report-uri"], "/api/csp-report");
   assert.equal(directives["report-to"], "csp-endpoint");
-  assert.equal(
-    STATIC_SECURITY_HEADERS["reporting-endpoints"],
-    'csp-endpoint="/api/csp-report"',
-  );
+  assert.equal(STATIC_SECURITY_HEADERS["reporting-endpoints"], 'csp-endpoint="/api/csp-report"');
   assert.equal(nonceFromCsp(csp), "N0nce");
 });
 
@@ -59,6 +56,12 @@ test("Report-Only unless CSP_ENFORCE is 1/true", () => {
   }
   assert.equal(cspHeaderName("1"), CSP_HEADER);
   assert.equal(cspHeaderName("true"), CSP_HEADER);
+  // Enforce mode uses the same policy: reports, nonce and the Turnstile frame stay.
+  const enforced = buildCsp("N0nce");
+  assert.match(enforced, /'nonce-N0nce'/);
+  assert.match(enforced, /report-uri \/api\/csp-report/);
+  assert.match(enforced, /report-to csp-endpoint/);
+  assert.match(enforced, /frame-src https:\/\/challenges\.cloudflare\.com/);
 });
 
 test("nonces are fresh, 128-bit base64", () => {

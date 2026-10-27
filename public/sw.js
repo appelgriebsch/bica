@@ -146,6 +146,11 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  // The precached manifest is cache-first. Every other /__grok/ path stays network-only.
+  if (precached.has(url.pathname) && isNetworkOnly(url)) {
+    event.respondWith(cacheFirst(req, url.pathname));
+    return;
+  }
   if (isNetworkOnly(url)) return;
 
   // A router/preload fetch of an app route (Accept: text/html) is a page load too:

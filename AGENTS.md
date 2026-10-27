@@ -414,7 +414,7 @@ examples in `src/lib/progress-server.ts` and the `auth` skill.
 ### Stack (high level)
 
 React 19, TypeScript, Vite 8, TanStack Start / Router / Query / Table, Tailwind
-v4, core Radix set, zustand, zod + react-hook-form, lucide, sonner, cmdk, vaul,
+v4, core Radix set, zustand, zod, lucide, sonner, cmdk, vaul,
 recharts. Data + auth: Cloudflare D1 (binding `DB`) + self-hosted Better
 Auth federated to the shared Grok auth broker (Google, X; plus optional local
 email/password), pre-wired in `src/lib` — see "Data & auth" below.

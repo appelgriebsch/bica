@@ -67,26 +67,21 @@ export function injectManifest(sw, { urls, version }) {
 
 /** Root-only render (no route matched, no loader data) that hydrates any route client-side. */
 async function renderShell() {
-  // #51 W-1: the shell must be stage-neutral
-  const saved = process.env.PUBLIC_HOSTNAME;
-  delete process.env.PUBLIC_HOSTNAME;
-  try {
-    process.env.TSS_SHELL = "true";
-    const { loadBuildHandler } = await import("./serve-build.mjs");
-    const { handler } = await loadBuildHandler();
-    const res = await handler.fetch(
-      new Request("http://localhost/", { headers: { accept: "text/html" } }),
-      {},
-    );
-    if (!res.ok) throw new Error(`shell render failed: ${res.status}`);
-    return Buffer.from(await res.arrayBuffer());
-  } finally {
-    if (saved === undefined) delete process.env.PUBLIC_HOSTNAME;
-    else process.env.PUBLIC_HOSTNAME = saved;
-  }
+  // #51 W-1: stage-neutral. The CLI cleared PUBLIC_HOSTNAME before this runs.
+  process.env.TSS_SHELL = "true";
+  const { loadBuildHandler } = await import("./serve-build.mjs");
+  const { handler } = await loadBuildHandler();
+  const res = await handler.fetch(
+    new Request("http://localhost/", { headers: { accept: "text/html" } }),
+    {},
+  );
+  if (!res.ok) throw new Error(`shell render failed: ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  // ponytail: hashes the host-free manifest; the served one carries PUBLIC_HOSTNAME as id. A host-only change rolls with the next build's VERSION. Hash per host if a var-only change must refresh installed clients.
+  delete process.env.PUBLIC_HOSTNAME;
   const dir = join(process.cwd(), buildOutput().publicDir);
   const html = await renderShell();
   await writeFile(join(dir, SHELL), html);

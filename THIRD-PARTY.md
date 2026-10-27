@@ -124,6 +124,7 @@ These files are **Created with Grok** (AI-generated). The mark is drawn as SVG c
 - `public/icon-180.png`
 - `public/icon-192.png`
 - `public/icon-512.png`
+- `public/icon-maskable-192.png`
 - `public/icon-maskable-512.png`
 - `src/components/azulejo-mark.tsx`
 

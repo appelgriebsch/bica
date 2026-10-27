@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { inflateSync } from "node:zlib";
 import test from "node:test";
 import {
   appNameFromHost,
@@ -20,6 +21,7 @@ import {
 } from "./grok-pwa-shared.mjs";
 import { renderInstallPage } from "./grok-pwa-plugin.mjs";
 import { buildOutput } from "./build-output.mjs";
+import { collectPrecache } from "./precache.mjs";
 import { APP_NAME } from "../src/lib/app-name.mjs";
 
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -356,6 +358,12 @@ test("renders the manifest with the per-app name", () => {
     { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
     { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
     {
+      src: "/icon-maskable-192.png",
+      sizes: "192x192",
+      type: "image/png",
+      purpose: "maskable",
+    },
+    {
       src: "/icon-maskable-512.png",
       sizes: "512x512",
       type: "image/png",
@@ -365,6 +373,48 @@ test("renders the manifest with the per-app name", () => {
   ]);
   assert.equal(manifest.background_color, "#f3eee6");
   assert.equal(manifest.theme_color, "#1E4D73");
+});
+
+/** IHDR plus the top-left pixel. (0,0) reconstructs from zeros for every filter. */
+function pngSizeAndCorner(buf) {
+  assert.equal(buf.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+  let off = 8;
+  let width = 0;
+  let height = 0;
+  let depth = 0;
+  let color = 0;
+  let interlace = 0;
+  const idat = [];
+  while (off + 12 <= buf.length) {
+    const len = buf.readUInt32BE(off);
+    const type = buf.toString("latin1", off + 4, off + 8);
+    const data = buf.subarray(off + 8, off + 8 + len);
+    if (type === "IHDR") {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      depth = data[8];
+      color = data[9];
+      interlace = data[12];
+    } else if (type === "IDAT") idat.push(data);
+    else if (type === "IEND") break;
+    off += 12 + len;
+  }
+  const raw = inflateSync(Buffer.concat(idat));
+  return { width, height, depth, color, interlace, corner: [raw[1], raw[2], raw[3]] };
+}
+
+test("#55: maskable 192 is 192x192, full-bleed, and precached", async () => {
+  const file = join(TEMPLATE_ROOT, "public/icon-maskable-192.png");
+  assert.equal(existsSync(file), true);
+  const png = pngSizeAndCorner(readFileSync(file));
+  assert.equal(png.width, 192);
+  assert.equal(png.height, 192);
+  assert.equal(png.depth, 8);
+  assert.equal(png.color, 2);
+  assert.equal(png.interlace, 0);
+  assert.deepEqual(png.corner, [0x1e, 0x4d, 0x73]);
+  const { urls } = await collectPrecache(join(TEMPLATE_ROOT, "public"));
+  assert.ok(urls.includes("/icon-maskable-192.png"));
 });
 
 test("theme-color fallback is the light/dark pair, and a present pair is left alone", () => {
@@ -418,6 +468,7 @@ test(
     }
     assert.match(manifest, /\/icon-192\.png/);
     assert.match(manifest, /\/icon-512\.png/);
+    assert.match(manifest, /\/icon-maskable-192\.png/);
     assert.match(manifest, /\/icon-maskable-512\.png/);
     assert.ok(pages.length > 0, "built html");
     for (const [rel, page] of pages) {

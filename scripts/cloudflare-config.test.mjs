@@ -259,6 +259,14 @@ test("#55: staging chat-gate smoke is release-only, between headers and summary"
   assert.match(st, /MODE: \$\{\{ needs\.build\.outputs\.mode \}\}/);
   assert.doesNotMatch(st, /secrets\.|CLOUDFLARE_|TOKEN|XAI_API_KEY|TURNSTILE/);
   assert.match(st, /--max-time 10\b/);
+  // The request is the shared probe: this id, this body, same-origin.
+  assert.match(st, /-X POST "\$url\/_serverFn\/\$id"/);
+  assert.match(st, /-H "origin: \$url"/);
+  assert.match(st, /node scripts\/chat-smoke\.mjs body > \/tmp\/chat-turn\.json/);
+  assert.match(st, /--data-binary @\/tmp\/chat-turn\.json\)/);
+  // Only the redeploy skip and the 403 branch exit 0; anything else fails.
+  assert.equal(st.match(/exit 0/g).length, 2);
+  assert.match(st, /exit 1\s*$/);
   assert.match(st, /404 means unknown server fn|unknown server fn id/);
   const id = spawnSync(process.execPath, ["scripts/chat-smoke.mjs", "id"], {
     cwd: root,

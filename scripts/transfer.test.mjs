@@ -671,6 +671,31 @@ test("Update app: only an installed waiting worker, SKIP_WAITING on request, one
   assert.equal(await updateApp(), "none");
 });
 
+test("unlock: a result for a cleared or expired session comes back stale (Avery C1)", async () => {
+  const payload = { v: 1, snapshot: light() };
+  const frames = await T.encodeTransfer(payload, CODE);
+  // Cleared (Scan again, Cancel, leave) while the key derivation runs.
+  const s = collectAll(frames);
+  const pending = s.unlock(CODE);
+  s.clear();
+  await assert.rejects(pending, (e) => e.kind === "stale");
+  // A wrong code on a cleared session is stale too, and doesn't count as a failure.
+  const w = collectAll(frames);
+  const wrong = w.unlock("AAAAAAAA");
+  w.clear();
+  await assert.rejects(wrong, (e) => e.kind === "stale");
+  assert.equal(w.failures, 0);
+  // Expired before or during the unlock.
+  const old = new T.ReceiveSession(Date.now() - T.SESSION_MS);
+  for (const f of frames) old.collection = T.collect(old.collection, f).collection;
+  await assert.rejects(old.unlock(CODE), (e) => e.kind === "stale");
+  const late = new T.ReceiveSession(Date.now() - T.SESSION_MS + 20);
+  for (const f of frames) late.collection = T.collect(late.collection, f).collection;
+  await assert.rejects(late.unlock(CODE), (e) => e.kind === "stale", "600k PBKDF2 outlasts 20 ms");
+  // The live session still unlocks.
+  assert.deepEqual(await collectAll(frames).unlock(CODE), payload);
+});
+
 test("schema: times become canonical toISOString before the lexical floor merge (Avery C2)", () => {
   const schema = S.transferSchema(today);
   assert.equal(S.canonicalTime("2026-11-06T12:00:00Z"), "2026-11-06T12:00:00.000Z");

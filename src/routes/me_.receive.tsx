@@ -79,8 +79,13 @@ function ReceivePage() {
   const lastNew = useRef(0);
   const expiresAt = useRef(0);
 
-  const reset = useCallback(() => {
+  // Clearing (not just dropping) the session makes an unlock still in flight come back "stale".
+  const drop = () => {
+    session.current?.clear();
     session.current = null;
+  };
+  const reset = useCallback(() => {
+    drop();
     setRemote(null);
     setPreview(null);
   }, []);
@@ -90,6 +95,7 @@ function ReceivePage() {
 
   const begin = (fresh: boolean, restart = false) => {
     if (fresh || !session.current) {
+      drop();
       session.current = new ReceiveSession();
       expiresAt.current = session.current.expiresAt;
     }
@@ -105,7 +111,7 @@ function ReceivePage() {
     if (!s) return;
     const result = s.add(text);
     if (result === "version") {
-      session.current = null;
+      drop();
       setView("update");
     } else if (result === "foreign") {
       setForeign(true);
@@ -216,7 +222,7 @@ function ReceivePage() {
           onRescan={() => begin(true)}
           onUnlocked={(snapshot) => {
             const p = previewMerge(useProgress.getState().snapshot(), snapshot);
-            session.current = null; // ciphertext and code are no longer needed
+            drop(); // ciphertext and code are no longer needed
             if (p.changed) setRemote(snapshot); // a no-op keeps nothing transient
             setPreview(p);
             setReviewChanged(false);
@@ -536,6 +542,7 @@ function Unlock({
       onUnlocked(envelope.data.snapshot);
     } catch (err) {
       const kind = err instanceof TransferError ? err.kind : "malformed";
+      if (kind === "stale") return; // cancelled, rescanned or expired meanwhile: ignore
       if (kind === "discarded") return onDiscarded();
       if (kind !== "unlock") return onInvalid();
       setError(

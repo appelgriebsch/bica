@@ -90,6 +90,26 @@ const trackStreams = () => {
     };
 };
 /** Native decoder stub: returns the given texts in turn. */
+/** Hold every PBKDF2 key derivation while window.__hold is set; window.__release() lets them run. */
+const holdDeriveKey = () => {
+  const real = crypto.subtle.deriveKey.bind(crypto.subtle);
+  let waiting = [];
+  window.__hold = true;
+  window.__held = 0;
+  window.__release = () => {
+    window.__hold = false;
+    waiting.forEach((go) => go());
+    waiting = [];
+  };
+  crypto.subtle.deriveKey = async (...args) => {
+    if (window.__hold) {
+      window.__held++;
+      await new Promise((go) => waiting.push(go));
+    }
+    return real(...args);
+  };
+};
+
 const nativeStub = (texts) => {
   let i = 0;
   window.BarcodeDetector = class {
@@ -319,7 +339,10 @@ try {
     const said = await p
       .getByText(/No update available yet|Connect to the internet/)
       .waitFor({ timeout: 30000 })
-      .then(() => true, () => false);
+      .then(
+        () => true,
+        () => false,
+      );
     check(said, "newer format: Update state, no reload loop");
     await ctx.close();
   }
@@ -332,6 +355,47 @@ try {
     await p.getByRole("button", { name: "Retry" }).click();
     await p.getByRole("heading", { name: "Scanning" }).waitFor({ timeout: 10000 });
     check((await p.evaluate(() => window.__gum)) >= 2, "camera denied: Retry asks again");
+    await ctx.close();
+  }
+  // An unlock still deriving its key must not land after Scan again or expiry (Avery C1).
+  async function pendingUnlock(p) {
+    await scanToCode(p);
+    await p.getByLabel(/Transfer code/).fill(code);
+    await p.getByRole("button", { name: "Unlock progress" }).click();
+    await p.waitForFunction(() => window.__held > 0);
+  }
+  async function settles(p) {
+    await p.evaluate(() => window.__release());
+    await p.waitForTimeout(2000); // 600k PBKDF2 + inflate + parse finish well inside this
+    return !(await p.getByRole("heading", { name: /Ready to merge|Nothing new to merge/ }).count());
+  }
+  {
+    const { ctx, p } = await stubbed(frames, holdDeriveKey);
+    await pendingUnlock(p);
+    await p.getByRole("button", { name: "Scan again" }).click();
+    await p.getByRole("heading", { name: "Enter the transfer code" }).waitFor({ timeout: 30000 });
+    const ignored = await settles(p);
+    check(
+      ignored && (await p.getByRole("button", { name: "Unlock progress" }).isEnabled()),
+      "unlock pending across Scan again is ignored",
+    );
+    await p.getByLabel(/Transfer code/).fill(code);
+    await p.getByRole("button", { name: "Unlock progress" }).click();
+    await p.getByRole("heading", { name: "Ready to merge" }).waitFor({ timeout: 30000 });
+    check(true, "the new session still unlocks");
+    await ctx.close();
+  }
+  {
+    const { ctx, p } = await stubbed(frames, holdDeriveKey);
+    await p.clock.install();
+    await pendingUnlock(p);
+    await p.clock.fastForward("05:01");
+    await p.getByRole("heading", { name: "Code no longer usable" }).waitFor({ timeout: 5000 });
+    const ignored = await settles(p);
+    check(
+      ignored && (await p.getByRole("heading", { name: "Code no longer usable" }).isVisible()),
+      "unlock pending across expiry is ignored",
+    );
     await ctx.close();
   }
   if (frames.length > 1) {

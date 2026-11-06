@@ -163,7 +163,7 @@ async function deriveKey(code: string, salt: Uint8Array): Promise<CryptoKey> {
   );
 }
 
-export type TransferErrorKind = "too-large" | "unlock" | "malformed" | "discarded";
+export type TransferErrorKind = "too-large" | "unlock" | "malformed" | "discarded" | "stale";
 export class TransferError extends Error {
   constructor(readonly kind: TransferErrorKind) {
     super(kind);
@@ -313,13 +313,22 @@ export class ReceiveSession {
     this.collection = collection;
     return result;
   }
-  /** Decrypted JSON, or throws: "unlock" (try again), "discarded" (5th failure), "malformed". */
+  /**
+   * Decrypted JSON, or throws: "unlock" (try again), "discarded" (5th failure),
+   * "malformed", or "stale" when the session was cleared or expired while the
+   * key derivation ran: the caller must ignore that result entirely.
+   */
   async unlock(code: string): Promise<unknown> {
     const c = this.collection;
     if (!c || !isComplete(c)) throw new TransferError("malformed");
+    const live = () => this.collection === c && Date.now() < this.expiresAt;
+    if (!live()) throw new TransferError("stale");
     try {
-      return await decodeTransfer(joined(c), c.n, code);
+      const json = await decodeTransfer(joined(c), c.n, code);
+      if (!live()) throw new TransferError("stale");
+      return json;
     } catch (err) {
+      if (!live()) throw new TransferError("stale");
       if (!(err instanceof TransferError) || err.kind !== "unlock") throw err;
       if (++this.failures >= MAX_UNLOCK_ATTEMPTS) {
         this.clear();

@@ -670,3 +670,43 @@ test("Update app: only an installed waiting worker, SKIP_WAITING on request, one
   setup({ reg: undefined });
   assert.equal(await updateApp(), "none");
 });
+
+test("schema: times become canonical toISOString before the lexical floor merge (Avery C2)", () => {
+  const schema = S.transferSchema(today);
+  assert.equal(S.canonicalTime("2026-11-06T12:00:00Z"), "2026-11-06T12:00:00.000Z");
+  assert.equal(S.canonicalTime("2026-11-06T12:00:00.9Z"), "2026-11-06T12:00:00.900Z");
+  assert.equal(S.canonicalTime("2026-11-06T12:00:00.123Z"), "2026-11-06T12:00:00.123Z");
+  for (const bad of [
+    "2026-11-07T24:00:00.000Z",
+    "2026-02-30T00:00:00.000Z",
+    "2026-11-06T12:60:00Z",
+    "2026-11-06T12:00:60Z",
+    "2026-11-06T12:00:00.1234Z",
+    "2026-11-06T12:00:00+00:00",
+    "2026-11-06 12:00:00",
+  ]) {
+    assert.equal(S.canonicalTime(bad), null, bad);
+  }
+  // today + 1 at 24:00 would roll to today + 2: rejected rather than normalised past the bound.
+  assert.ok(
+    !schema.safeParse({
+      v: 1,
+      snapshot: { ...light(), floorUpdatedAt: `${S.addDayKey(today, 1)}T24:00:00.000Z` },
+    }).success,
+  );
+  const parsed = schema.parse({
+    v: 1,
+    snapshot: { ...light(), floor: "C1", floorUpdatedAt: `${today}T12:00:00Z` },
+  });
+  assert.equal(parsed.snapshot.floorUpdatedAt, `${today}T12:00:00.000Z`);
+  assert.equal(
+    parsed.snapshot.completed["a1-ola"].completedAt,
+    light().completed["a1-ola"].completedAt,
+  );
+  // Newer local 12:00:00.900Z keeps its floor against the older remote 12:00:00Z.
+  const merged = mergeProgress(
+    { ...light(), floor: "A1", floorUpdatedAt: `${today}T12:00:00.900Z` },
+    parsed.snapshot,
+  );
+  assert.equal(merged.floor, "A1");
+});

@@ -24,7 +24,7 @@ const LESSON_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 // `<lessonId>:<normalised Portuguese>`; no control characters.
 const CARD_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}:\P{Cc}{1,120}$/u;
 const PROTO_KEYS = new Set(["__proto__", "constructor", "prototype"]);
-const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+const ISO_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?Z$/;
 
 /** A real calendar day as YYYY-MM-DD (rejects 2026-02-30). */
 export function isDayKey(s: string): boolean {
@@ -32,6 +32,21 @@ export function isDayKey(s: string): boolean {
   if (!m) return false;
   const d = new Date(Date.UTC(+m[1]!, +m[2]! - 1, +m[3]!));
   return d.toISOString().slice(0, 10) === s;
+}
+
+/**
+ * A real UTC time in Date.toISOString() form, or null. Merges compare these
+ * strings lexically (floor recency), so every accepted time is rewritten to the
+ * one canonical form; out-of-range fields (T24:00, Feb 30) are rejected, not rolled over.
+ */
+export function canonicalTime(s: string): string | null {
+  const m = ISO_TIME.exec(s);
+  if (!m) return null;
+  const [y, mo, d, h, mi, se] = m.slice(1, 7).map(Number) as number[];
+  const ms = Number((m[7] ?? "").padEnd(3, "0"));
+  const t = new Date(Date.UTC(y!, mo! - 1, d!, h!, mi!, se!, ms));
+  const iso = t.toISOString();
+  return iso.slice(0, 19) === s.slice(0, 19) ? iso : null;
 }
 
 export function addDayKey(day: string, days: number): string {
@@ -56,8 +71,11 @@ export function transferSchema(today: string) {
   const observedDay = day.refine((d) => d <= observedMax, "in the future");
   const observedTime = z
     .string()
-    .regex(ISO_TIME)
-    .refine((s) => isDayKey(s.slice(0, 10)) && !Number.isNaN(Date.parse(s)), "not a time")
+    .transform((s, ctx) => {
+      const iso = canonicalTime(s);
+      if (!iso) ctx.addIssue({ code: "custom", message: "not a UTC time" });
+      return iso ?? "";
+    })
     .refine((s) => s.slice(0, 10) <= observedMax, "in the future");
 
   const lesson = z

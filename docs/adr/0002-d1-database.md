@@ -40,3 +40,7 @@ Bica has no sign-in. The decision (Andreas, 2026-10-14) removes the Grok broker 
 - Conversas has no identity to limit. #33 switched it off; #35 re-enabled it behind Turnstile, a per-IP burst limit, and global and per-IP daily caps in a Durable Object (`ChatBudget`), which replaces the D1 `chat_usage` counter.
 
 Everything above this addendum describes the D1 period (#19 to #33) and is kept as history.
+
+## Note 2026-11-06: #34 and #36 superseded (ADR 0005)
+
+The addendum above is kept as written. Since then, #36 replaced #34's JSON export/import with encrypted QR transfer between devices ([ADR 0005](0005-cross-device-qr-transfer.md)); there is no file export/import. #36 no longer brings a database back: no D1, KV or other server storage is planned. `mergeRemote` now serves the QR import.

@@ -4,11 +4,10 @@
  * static file of the build, including the SPA shell and all route chunks.
  * Install fills a fresh cache for that version and fails if any file fails, so
  * the previous worker (and its cache) keeps serving until a complete set of
- * matching HTML + chunks is in place. No skipWaiting: an open page keeps the
- * worker whose chunks it was built against.
- * ponytail: no update prompt — an installed iOS app that is never fully closed
- * can stay on the old build for days. Add "update ready, reload" (postMessage
- * SKIP_WAITING from the page) if that becomes a problem.
+ * matching HTML + chunks is in place. No automatic skipWaiting: an open page
+ * keeps the worker whose chunks it was built against. Only an explicit
+ * "Update app" tap (src/lib/app-update.ts, #36) posts SKIP_WAITING to an
+ * installed waiting worker; the page reloads once on controllerchange.
  *
  * Only precached (hashed) URLs are answered from cache. Unknown scripts go to
  * the network untouched — answering those is what made Safari report
@@ -49,6 +48,11 @@ self.addEventListener("install", (event) => {
       }
     })(),
   );
+});
+
+// Only ever sent after the user taps Update app (#36).
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {

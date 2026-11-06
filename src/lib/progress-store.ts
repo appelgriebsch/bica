@@ -63,6 +63,54 @@ function applyStreak(
   };
 }
 
+/**
+ * Field-wise merge, the same for preview and commit (#36): union of lesson and
+ * card IDs; best quiz score wins (a tie selects remote); card reps, then later
+ * due (an exact tie selects remote); XP is max; the streak goes with the later
+ * study day; the newer floor setting wins (#15). Nothing is deleted.
+ */
+export function mergeProgress(
+  local: Omit<ProgressSnapshot, "floorUpdatedAt"> & { floorUpdatedAt?: string | null },
+  remote: ProgressSnapshot,
+): Required<ProgressSnapshot> {
+  const completed = { ...(remote.completed ?? {}) };
+  for (const [id, row] of Object.entries(local.completed)) {
+    const other = completed[id];
+    if (!other || row.quizScore > other.quizScore) completed[id] = row;
+  }
+  const cards = { ...(remote.cards ?? {}) };
+  for (const [id, row] of Object.entries(local.cards)) {
+    const other = cards[id];
+    if (!other || row.reps > other.reps || (row.reps === other.reps && row.due > other.due)) {
+      cards[id] = row;
+    }
+  }
+  const localDay = asDayKey(local.lastStudyDate);
+  const remoteDay = asDayKey(remote.lastStudyDate);
+  // The streak goes with the later study day, so a broken streak can drop; max only on a tie.
+  const l = localDay ?? "";
+  const r = remoteDay ?? "";
+  const lastStudyDate = l > r ? localDay : remoteDay;
+  const streak =
+    l > r ? local.streak : l < r ? remote.streak : Math.max(local.streak, remote.streak);
+  // Floor: the newer setting wins (#15). A timestamp beats none; rank max only when neither side has one; a tie keeps local.
+  const remoteFloor = remote.floor ?? "A1";
+  const lt = local.floorUpdatedAt ?? "";
+  const rt = remote.floorUpdatedAt ?? "";
+  const remoteWins = lt || rt ? rt > lt : rank[remoteFloor] > rank[local.floor];
+  return {
+    completed,
+    cards,
+    xp: Math.max(local.xp, remote.xp),
+    streak,
+    lastStudyDate,
+    floor: remoteWins ? remoteFloor : local.floor,
+    floorUpdatedAt: remoteWins ? (remote.floorUpdatedAt ?? null) : (local.floorUpdatedAt ?? null),
+  };
+}
+
+export const PROGRESS_KEY = "bica.progress.v1";
+
 export const useProgress = create<ProgressState>()(
   persist(
     (set, get) => ({
@@ -129,45 +177,7 @@ export const useProgress = create<ProgressState>()(
           lastStudyDate,
         });
       },
-      mergeRemote: (remote) => {
-        const local = get();
-        const completed = { ...(remote.completed ?? {}) };
-        for (const [id, row] of Object.entries(local.completed)) {
-          const other = completed[id];
-          if (!other || row.quizScore > other.quizScore) completed[id] = row;
-        }
-        const cards = { ...(remote.cards ?? {}) };
-        for (const [id, row] of Object.entries(local.cards)) {
-          const other = cards[id];
-          if (!other || row.reps > other.reps || (row.reps === other.reps && row.due > other.due)) {
-            cards[id] = row;
-          }
-        }
-        const localDay = asDayKey(local.lastStudyDate);
-        const remoteDay = asDayKey(remote.lastStudyDate);
-        // The streak goes with the later study day, so a broken streak can drop; max only on a tie.
-        const l = localDay ?? "";
-        const r = remoteDay ?? "";
-        const lastStudyDate = l > r ? localDay : remoteDay;
-        const streak =
-          l > r ? local.streak : l < r ? remote.streak : Math.max(local.streak, remote.streak);
-        // Floor: the newer setting wins (#15). A timestamp beats none; rank max only when neither side has one; a tie keeps local.
-        const remoteFloor = remote.floor ?? "A1";
-        const lt = local.floorUpdatedAt ?? "";
-        const rt = remote.floorUpdatedAt ?? "";
-        const remoteWins = lt || rt ? rt > lt : rank[remoteFloor] > rank[local.floor];
-        const floor = remoteWins ? remoteFloor : local.floor;
-        const floorUpdatedAt = remoteWins ? (remote.floorUpdatedAt ?? null) : local.floorUpdatedAt;
-        set({
-          completed,
-          cards,
-          xp: Math.max(local.xp, remote.xp),
-          streak,
-          lastStudyDate,
-          floor,
-          floorUpdatedAt,
-        });
-      },
+      mergeRemote: (remote) => set(mergeProgress(get(), remote)),
       snapshot: () => {
         const s = get();
         return {
@@ -182,7 +192,7 @@ export const useProgress = create<ProgressState>()(
       },
     }),
     {
-      name: "bica.progress.v1",
+      name: PROGRESS_KEY,
       partialize: (s) => ({
         completed: s.completed,
         xp: s.xp,

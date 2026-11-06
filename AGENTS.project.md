@@ -4,7 +4,8 @@
   template's auth and D1 sections in AGENTS.md: there is no Better Auth, no
   `/login`, no `/api/auth/*`, no `DB` binding and no `@/lib/db`. Don't add them back.
 - Progress is device-only: `src/lib/progress-store.ts` (zustand persist,
-  localStorage). Export/import is #34.
+  localStorage). Moving it between devices is encrypted QR
+  transfer, no server (#36, ADR 0005).
 - Conversas (`sendChat`) is anonymous (#35): Turnstile + signed session cookie
   (`src/lib/chat-gate.ts`), per-IP burst `CHAT_RATE`, and daily global/per-IP caps
   in the `ChatBudget` Durable Object (`src/lib/chat-budget.mjs`). Never key limits

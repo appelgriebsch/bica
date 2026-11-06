@@ -19,8 +19,9 @@ export const STATIC_SECURITY_HEADERS = Object.freeze({
   "x-frame-options": "DENY",
   "referrer-policy": "strict-origin-when-cross-origin",
   "x-content-type-options": "nosniff",
-  // The mic is unused (speaking practice is text chat + speechSynthesis).
-  "permissions-policy": "camera=(), geolocation=(), microphone=()",
+  // Camera: same-origin only, for scanning progress QR codes (#36). The mic is
+  // unused (speaking practice is text chat + speechSynthesis).
+  "permissions-policy": "camera=(self), geolocation=(), microphone=()",
   // No sign-in popup since #33, so no opener allowance is needed.
   "cross-origin-opener-policy": "same-origin",
   // Reporting API endpoint for the CSP's `report-to` (report-uri stays for

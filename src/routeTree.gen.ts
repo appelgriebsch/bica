@@ -25,6 +25,8 @@ import { Route as GrammarIndexRouteImport } from './routes/grammar/index'
 import { Route as GrammarIdRouteImport } from './routes/grammar/$id'
 import { Route as LessonIdRouteImport } from './routes/lesson/$id'
 import { Route as ListenIdRouteImport } from './routes/listen/$id'
+import { Route as MeReceiveRouteImport } from './routes/me_.receive'
+import { Route as MeSendRouteImport } from './routes/me_.send'
 import { Route as ReadIdRouteImport } from './routes/read/$id'
 import { Route as SpeakIndexRouteImport } from './routes/speak/index'
 import { Route as SpeakIdRouteImport } from './routes/speak/$id'
@@ -111,6 +113,16 @@ const ListenIdRoute = ListenIdRouteImport.update({
   path: '/listen/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MeReceiveRoute = MeReceiveRouteImport.update({
+  id: '/me_/receive',
+  path: '/me/receive',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeSendRoute = MeSendRouteImport.update({
+  id: '/me_/send',
+  path: '/me/send',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReadIdRoute = ReadIdRouteImport.update({
   id: '/read/$id',
   path: '/read/$id',
@@ -153,6 +165,8 @@ export interface FileRoutesByFullPath {
   '/grammar/$id': typeof GrammarIdRoute
   '/lesson/$id': typeof LessonIdRoute
   '/listen/$id': typeof ListenIdRoute
+  '/me/receive': typeof MeReceiveRoute
+  '/me/send': typeof MeSendRoute
   '/read/$id': typeof ReadIdRoute
   '/speak/$id': typeof SpeakIdRoute
   '/verbs/$id': typeof VerbsIdRoute
@@ -173,6 +187,8 @@ export interface FileRoutesByTo {
   '/grammar/$id': typeof GrammarIdRoute
   '/lesson/$id': typeof LessonIdRoute
   '/listen/$id': typeof ListenIdRoute
+  '/me/receive': typeof MeReceiveRoute
+  '/me/send': typeof MeSendRoute
   '/read/$id': typeof ReadIdRoute
   '/speak/$id': typeof SpeakIdRoute
   '/verbs/$id': typeof VerbsIdRoute
@@ -197,6 +213,8 @@ export interface FileRoutesById {
   '/grammar/$id': typeof GrammarIdRoute
   '/lesson/$id': typeof LessonIdRoute
   '/listen/$id': typeof ListenIdRoute
+  '/me_/receive': typeof MeReceiveRoute
+  '/me_/send': typeof MeSendRoute
   '/read/$id': typeof ReadIdRoute
   '/speak/$id': typeof SpeakIdRoute
   '/verbs/$id': typeof VerbsIdRoute
@@ -222,6 +240,8 @@ export interface FileRouteTypes {
     | '/grammar/$id'
     | '/lesson/$id'
     | '/listen/$id'
+    | '/me/receive'
+    | '/me/send'
     | '/read/$id'
     | '/speak/$id'
     | '/verbs/$id'
@@ -242,6 +262,8 @@ export interface FileRouteTypes {
     | '/grammar/$id'
     | '/lesson/$id'
     | '/listen/$id'
+    | '/me/receive'
+    | '/me/send'
     | '/read/$id'
     | '/speak/$id'
     | '/verbs/$id'
@@ -265,6 +287,8 @@ export interface FileRouteTypes {
     | '/grammar/$id'
     | '/lesson/$id'
     | '/listen/$id'
+    | '/me_/receive'
+    | '/me_/send'
     | '/read/$id'
     | '/speak/$id'
     | '/verbs/$id'
@@ -288,6 +312,8 @@ export interface RootRouteChildren {
   ApiPingRoute: typeof ApiPingRoute
   LessonIdRoute: typeof LessonIdRoute
   ListenIdRoute: typeof ListenIdRoute
+  MeReceiveRoute: typeof MeReceiveRoute
+  MeSendRoute: typeof MeSendRoute
   ReadIdRoute: typeof ReadIdRoute
 }
 
@@ -405,6 +431,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ListenIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/me_/receive': {
+      id: '/me_/receive'
+      path: '/me/receive'
+      fullPath: '/me/receive'
+      preLoaderRoute: typeof MeReceiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/me_/send': {
+      id: '/me_/send'
+      path: '/me/send'
+      fullPath: '/me/send'
+      preLoaderRoute: typeof MeSendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/read/$id': {
       id: '/read/$id'
       path: '/read/$id'
@@ -495,6 +535,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPingRoute: ApiPingRoute,
   LessonIdRoute: LessonIdRoute,
   ListenIdRoute: ListenIdRoute,
+  MeReceiveRoute: MeReceiveRoute,
+  MeSendRoute: MeSendRoute,
   ReadIdRoute: ReadIdRoute,
 }
 export const routeTree = rootRouteImport

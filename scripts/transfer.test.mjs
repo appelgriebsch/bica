@@ -719,14 +719,13 @@ test("schema: times become canonical toISOString before the lexical floor merge 
       snapshot: { ...light(), floorUpdatedAt: `${S.addDayKey(today, 1)}T24:00:00.000Z` },
     }).success,
   );
-  const parsed = schema.parse({
-    v: 1,
-    snapshot: { ...light(), floor: "C1", floorUpdatedAt: `${today}T12:00:00Z` },
-  });
+  // One fixture: light() stamps wall-clock times, so a second call can differ by a millisecond.
+  const remote = { ...light(), floor: "C1", floorUpdatedAt: `${today}T12:00:00Z` };
+  const parsed = schema.parse({ v: 1, snapshot: remote });
   assert.equal(parsed.snapshot.floorUpdatedAt, `${today}T12:00:00.000Z`);
   assert.equal(
     parsed.snapshot.completed["a1-ola"].completedAt,
-    light().completed["a1-ola"].completedAt,
+    remote.completed["a1-ola"].completedAt, // already canonical: unchanged
   );
   // Newer local 12:00:00.900Z keeps its floor against the older remote 12:00:00Z.
   const merged = mergeProgress(

@@ -357,6 +357,44 @@ try {
     check((await p.evaluate(() => window.__gum)) >= 2, "camera denied: Retry asks again");
     await ctx.close();
   }
+  // Leaving while video.play() is pending must not start decoding afterwards (review W1).
+  {
+    const holdPlay = () => {
+      const real = HTMLMediaElement.prototype.play;
+      let waiting = [];
+      window.__plays = 0;
+      window.__detects = 0;
+      window.__releasePlay = () => waiting.splice(0).forEach((go) => go());
+      HTMLMediaElement.prototype.play = function () {
+        window.__plays++;
+        return new Promise((go) => waiting.push(go)).then(() => real.call(this));
+      };
+      const formats = window.BarcodeDetector.getSupportedFormats;
+      window.BarcodeDetector.getSupportedFormats = function () {
+        window.__detects++; // startDecoding() asks for formats right away
+        return formats.call(this);
+      };
+    };
+    const { ctx, p } = await stubbed(frames, holdPlay);
+    await p.goto(BASE + "/me/receive");
+    await p.getByRole("button", { name: "Allow camera" }).click();
+    await p.waitForFunction(() => window.__plays > 0);
+    await p.getByRole("link", { name: "Cancel" }).click(); // client-side: same window
+    await p.waitForURL(/\/me$/);
+    await p.evaluate(() => window.__releasePlay());
+    await p.waitForTimeout(500);
+    const after = await p.evaluate(() => ({
+      detects: window.__detects,
+      live: window.__streams.flatMap((s) => s.getTracks()).filter((t) => t.readyState === "live")
+        .length,
+    }));
+    check(
+      after.detects === 0 && after.live === 0,
+      "leaving during video.play() starts no decoder, stops tracks",
+      JSON.stringify(after),
+    );
+    await ctx.close();
+  }
   // An unlock still deriving its key must not land after Scan again or expiry (Avery C1).
   async function pendingUnlock(p) {
     await scanToCode(p);

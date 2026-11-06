@@ -71,6 +71,7 @@ export function startDecoding(video: HTMLVideoElement, onText: (text: string) =>
 
   const viaWorker = (img: ImageData) =>
     new Promise<string | null>((resolve) => {
+      if (stopped) return resolve(null); // never allocate a worker after stop()
       if (!worker) {
         worker = new Worker(new URL("./qr-worker.ts", import.meta.url), { type: "module" });
         worker.onmessage = (e) => pending?.(e.data);
@@ -91,12 +92,14 @@ export function startDecoding(video: HTMLVideoElement, onText: (text: string) =>
     canvas.width = canvas.height = side;
     ctx.drawImage(video, (w - crop) / 2, (h - crop) / 2, crop, crop, 0, 0, side, side);
     const native = await detector;
+    if (stopped) return null;
     if (native) {
       try {
         return (await native.detect(canvas))[0]?.rawValue ?? null;
       } catch {
         detector = Promise.resolve(null); // native decoding failed: jsQR from now on
       }
+      if (stopped) return null;
     }
     return viaWorker(ctx.getImageData(0, 0, side, side));
   }
@@ -122,6 +125,7 @@ export function startDecoding(video: HTMLVideoElement, onText: (text: string) =>
 
   return () => {
     stopped = true;
+    pending?.(null); // settle an in-flight decode so nothing waits on a dead worker
     pending = null;
     worker?.terminate();
     worker = null;

@@ -710,3 +710,48 @@ test("schema: times become canonical toISOString before the lexical floor merge 
   );
   assert.equal(merged.floor, "A1");
 });
+
+test("decoder: stop() during native detection never creates a worker (Avery W1)", async () => {
+  const { startDecoding } = await load("src/lib/qr-scan.ts");
+  let workers = 0;
+  let resolveFormats;
+  const saved = {
+    document: globalThis.document,
+    Worker: globalThis.Worker,
+    BD: globalThis.BarcodeDetector,
+  };
+  globalThis.document = {
+    createElement: () => ({
+      getContext: () => ({
+        drawImage() {},
+        getImageData: () => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 }),
+      }),
+    }),
+  };
+  globalThis.Worker = class {
+    constructor() {
+      workers++;
+    }
+    postMessage() {}
+    terminate() {}
+  };
+  globalThis.BarcodeDetector = class {
+    static getSupportedFormats() {
+      return new Promise((r) => (resolveFormats = r));
+    }
+  };
+  try {
+    const stop = startDecoding({ videoWidth: 640, videoHeight: 480 }, () => {});
+    await new Promise((r) => setTimeout(r, 150)); // first tick is waiting on detection
+    stop();
+    resolveFormats([]); // unsupported: the old code went on to the jsQR worker
+    await new Promise((r) => setTimeout(r, 250));
+    assert.equal(workers, 0);
+  } finally {
+    Object.assign(globalThis, {
+      document: saved.document,
+      Worker: saved.Worker,
+      BarcodeDetector: saved.BD,
+    });
+  }
+});

@@ -432,7 +432,7 @@ function Camera({
         const v = video.current!;
         v.srcObject = s;
         await v.play().catch(() => {});
-        stop = startDecoding(v, onText);
+        if (!gone) stop = startDecoding(v, onText); // cleanup may have run during play()
       })
       .catch((err) => !gone && onProblem(cameraProblem(err)));
     return () => {

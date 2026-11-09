@@ -106,6 +106,7 @@ test("#43: MIT license file and package.json field", () => {
     /^Copyright \(c\) .+$/m,
     "Copyright (c) <year> <copyright holders>",
   );
+  assert.match(lic, /^Copyright \(c\) 2026 Andreas Gerlach$/m);
   assert.equal(normalized, SPDX_MIT);
   const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
   assert.equal(pkg.license, "MIT");

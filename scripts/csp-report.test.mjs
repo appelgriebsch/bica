@@ -94,7 +94,7 @@ test("a body of exactly 8 KB is accepted", async () => {
   assert.equal((await handle(req)).status, 204);
 });
 
-test("21 concurrent reports log exactly 20", async () => {
+test("25 concurrent reports log exactly 20", async () => {
   const { logged, handle } = setup();
   const results = await Promise.all(Array.from({ length: 25 }, () => handle(report())));
   assert.equal(results.length, 25);
@@ -160,4 +160,29 @@ test("the log line is cut to 2048 characters", async () => {
   const req = new Request(URL_, { method: "POST", body: "y".repeat(3000) });
   assert.equal((await handle(req)).status, 204);
   assert.equal(logged[0][1], "y".repeat(2048));
+});
+
+test("a full window answers 204 without reading the body", async () => {
+  const { logged, handle } = setup();
+  for (let i = 0; i < 20; i++) await handle(report());
+  assert.equal(logged.length, 20);
+  let pulled = false;
+  const req = new Request(URL_, {
+    method: "POST",
+    // highWaterMark 0: pull() runs only when someone reads.
+    body: new ReadableStream(
+      {
+        pull(c) {
+          pulled = true;
+          c.enqueue(new TextEncoder().encode("{}"));
+          c.close();
+        },
+      },
+      { highWaterMark: 0 },
+    ),
+    duplex: "half",
+  });
+  assert.equal((await handle(req)).status, 204);
+  assert.equal(pulled, false);
+  assert.equal(logged.length, 20);
 });

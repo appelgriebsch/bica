@@ -1,8 +1,7 @@
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import { TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
-
-const RELOAD_KEY = "bica-module-reload";
+import { clearModuleReloadToken, takeReloadToken } from "@/lib/module-reload";
 
 function isModuleLoadError(error: unknown) {
   const msg = error instanceof Error ? error.message : String(error ?? "");
@@ -22,24 +21,6 @@ async function clearStuckClient() {
   }
 }
 
-function takeReloadToken() {
-  try {
-    if (sessionStorage.getItem(RELOAD_KEY) === "1") return false;
-    sessionStorage.setItem(RELOAD_KEY, "1");
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function clearModuleReloadToken() {
-  try {
-    sessionStorage.removeItem(RELOAD_KEY);
-  } catch {
-    /* private mode */
-  }
-}
-
 export function AppErrorComponent({ error }: ErrorComponentProps) {
   const [retrying, setRetrying] = useState(false);
   const chunkError = isModuleLoadError(error);
@@ -55,11 +36,7 @@ export function AppErrorComponent({ error }: ErrorComponentProps) {
 
   async function retry() {
     setRetrying(true);
-    try {
-      sessionStorage.removeItem(RELOAD_KEY);
-    } catch {
-      /* private mode */
-    }
+    clearModuleReloadToken();
     await clearStuckClient();
     window.location.reload();
   }

@@ -12,7 +12,7 @@ Bica’s staging host is a **Cloudflare Worker**, not Cloudflare Pages.
 | Public URL           | `https://bica-staging.<account-subdomain>.workers.dev` |
 | Stage binding        | `BICA_STAGE=staging`                                   |
 
-Account id comes from `wrangler login` or `CLOUDFLARE_ACCOUNT_ID`. It is not committed.
+Account id comes from `wrangler login` or `CLOUDFLARE_ACCOUNT_ID`. It is not committed. The workers.dev name embeds this account's subdomain. Moving to a different Cloudflare account means changing `PUBLIC_HOSTNAME` and `TURNSTILE_HOSTNAMES` together (same host in `[env.*.vars]`).
 
 ## Health
 
@@ -50,7 +50,7 @@ Chat has no identity, so `sendChat` is protected anonymously. Order per turn: ke
 - The CSP allows exactly one third-party origin for this, `https://challenges.cloudflare.com`, in `script-src`, `frame-src` and `connect-src`.
 - Keeps #13's 20 s xAI timeout and input caps (16 messages, 2000 chars each, 8000 total).
 
-Local dev and tests use Cloudflare's [test keys](https://developers.cloudflare.com/turnstile/troubleshooting/testing/) (site key `1x00000000000000000000AA`; put `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`, any `CHAT_SESSION_SECRET` and your own `TURNSTILE_HOSTNAMES` in your shell or the git-ignored `.dev.vars`; never commit real ones). Note: test-key siteverify answers report `hostname: "example.com"` and no `action`, so the strict action check refuses them; unit tests mock siteverify instead.
+Local dev and tests use Cloudflare's [test keys](https://developers.cloudflare.com/turnstile/troubleshooting/testing/) (site key `1x00000000000000000000AA`; put `TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA`, any `CHAT_SESSION_SECRET` and your own `TURNSTILE_HOSTNAMES` in your shell or the git-ignored `.dev.vars`; never commit real ones). Live chat does not work locally with those test keys: siteverify returns no `action` (and `hostname: "example.com"`), so the strict check answers 403. That is by design — there is no dev bypass. Unit tests mock siteverify.
 
 ### Ops checklist per environment
 
@@ -110,7 +110,7 @@ Settings → Rules → Rulesets → New branch ruleset: target the default branc
 
 There is no `deploy` script. Top-level `wrangler deploy` (no `--env`) is not wired. The top-level Wrangler config sets `workers_dev = false`, has no routes, and does not set `BICA_STAGE` or `PUBLIC_HOSTNAME`, so an accidental publish has no public hostname and health fails closed.
 
-Nitro may write `.output/server/wrangler.json` and warn that `main` / `assets` in that generated file are overridden. Deploy with `--config wrangler.toml` so `[env.staging]` from the root file is the config that ships. Do not let a generated file replace the root config.
+Nitro may write `.output/server/wrangler.json` and warn that `main` / `assets` in that generated file are overridden. Deploy with `--config wrangler.toml` so `[env.staging]` from the root file is the config that ships. Do not let a generated file replace the root config. Local dev of the built worker is `wrangler dev -c wrangler.toml` from the repo root. Plain `wrangler dev` fails: that generated file has an `env.staging` block.
 
 `build:cf` runs `scripts/precache.mjs` on `.output/public` (so `sw.js` gets the build's `VERSION`, the full `PRECACHE` list and `/_shell`), then writes `.output/server/staging-entry.mjs`, which re-exports only the default fetch handler from `.output/server/index.mjs` plus the `ChatBudget` Durable Object class (#35, from a copy of `src/lib/chat-budget.mjs` as `chat-budget-do.mjs`). The Nitro bundle also has named exports; Workers would treat those as handlers and refuse to start. Wrangler `main` points at that generated entry. All of these paths come from the `cloudflare-module` entry in `scripts/build-output.mjs`.
 

@@ -12,6 +12,8 @@ Staging now runs on Cloudflare Workers (ADR 0001). The schema is small: the four
 
 ## Decision
 
+Historical (#19 to #33). Superseded by the [addendum](#addendum-2026-10-14-no-accounts-33): no Better Auth, no D1, no `pg`.
+
 - **D1** is the only database. The Worker gets it as the `DB` binding (`[[d1_databases]]` in `wrangler.toml`; `migrations/` is the `wrangler d1 migrations` directory). `bun run dev` uses wrangler's local D1 (`getPlatformProxy`) and applies `migrations/` on first use. There is nothing to configure.
 - **Better Auth** gets the D1 binding directly. Its Kysely adapter detects D1 and uses `batch()`. Auth is built once per isolate around a shim that resolves the binding on every call, so no request's binding is captured at module scope.
 - **Batches, not transactions.** D1 has no interactive transactions. A progress snapshot is one `batch()` of three statements, independent of how many lessons or cards it carries. Each merge rule lives in a single SQL statement (`json_each` over one JSON parameter, `json_group_object`, and `json_patch` with only the winning cards).

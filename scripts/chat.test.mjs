@@ -352,6 +352,8 @@ test("TURNSTILE_HOSTNAMES parsing: comma list, trimmed, lower-cased, empty → n
   assert.deepEqual([...m.parseHostnames(` ${HOST} , Example.com,,`)], [HOST, "example.com"]);
   assert.equal(m.parseHostnames(undefined).size, 0);
   assert.equal(m.parseHostnames(" , ").size, 0);
+  // Spaces are not separators: the whole string is one token, so neither host matches.
+  assert.deepEqual([...m.parseHostnames("a.example b.example")], ["a.example b.example"]);
 });
 
 test("session cookie: signed, expires, tamper-proof", async () => {

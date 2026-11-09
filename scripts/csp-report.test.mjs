@@ -1,7 +1,12 @@
 /** #28: /api/csp-report rate cap (20/60 s) and 8 KB body cap. */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAX_BODY_BYTES, createCspReportHandler } from "../src/lib/csp-report.mjs";
+import {
+  MAX_BODY_BYTES,
+  WINDOW_MS,
+  createCspReportHandler,
+  readCapped,
+} from "../src/lib/csp-report.mjs";
 
 const URL_ = "https://bica.test/api/csp-report";
 const report = () =>
@@ -87,4 +92,97 @@ test("a body of exactly 8 KB is accepted", async () => {
   const { handle } = setup();
   const req = new Request(URL_, { method: "POST", body: "x".repeat(MAX_BODY_BYTES) });
   assert.equal((await handle(req)).status, 204);
+});
+
+test("25 concurrent reports log exactly 20", async () => {
+  const { logged, handle } = setup();
+  const results = await Promise.all(Array.from({ length: 25 }, () => handle(report())));
+  assert.equal(results.length, 25);
+  assert.ok(results.every((r) => r.status === 204));
+  assert.equal(logged.length, 20);
+});
+
+test("oversized streams do not consume a rate-limit slot", async () => {
+  const { logged, handle } = setup();
+  const big = () =>
+    new Request(URL_, {
+      method: "POST",
+      headers: { "content-length": "10" },
+      body: new ReadableStream({
+        pull(c) {
+          c.enqueue(new Uint8Array(4096));
+        },
+      }),
+      duplex: "half",
+    });
+  for (let i = 0; i < 25; i++) assert.equal((await handle(big())).status, 413);
+  assert.equal((await handle(report())).status, 204);
+  assert.equal(logged.length, 1);
+});
+
+test("readCapped cancels the reader once the stream passes 8 KB", async () => {
+  let cancelled = false;
+  let reads = 0;
+  const body = await readCapped({
+    body: {
+      getReader() {
+        return {
+          async read() {
+            reads++;
+            return { done: false, value: new Uint8Array(4096) };
+          },
+          async cancel() {
+            cancelled = true;
+          },
+        };
+      },
+    },
+  });
+  assert.equal(body, null);
+  assert.equal(cancelled, true);
+  assert.ok(reads <= 3, `read ${reads} times`);
+});
+
+test("the window does not reset at exactly WINDOW_MS (`>` not `>=`)", async () => {
+  const { logged, handle, advance } = setup();
+  for (let i = 0; i < 20; i++) assert.equal((await handle(report())).status, 204);
+  assert.equal(logged.length, 20);
+  advance(WINDOW_MS);
+  await handle(report());
+  assert.equal(logged.length, 20);
+  advance(1);
+  await handle(report());
+  assert.equal(logged.length, 21);
+});
+
+test("the log line is cut to 2048 characters", async () => {
+  const { logged, handle } = setup();
+  const req = new Request(URL_, { method: "POST", body: "y".repeat(3000) });
+  assert.equal((await handle(req)).status, 204);
+  assert.equal(logged[0][1], "y".repeat(2048));
+});
+
+test("a full window answers 204 without reading the body", async () => {
+  const { logged, handle } = setup();
+  for (let i = 0; i < 20; i++) await handle(report());
+  assert.equal(logged.length, 20);
+  let pulled = false;
+  const req = new Request(URL_, {
+    method: "POST",
+    // highWaterMark 0: pull() runs only when someone reads.
+    body: new ReadableStream(
+      {
+        pull(c) {
+          pulled = true;
+          c.enqueue(new TextEncoder().encode("{}"));
+          c.close();
+        },
+      },
+      { highWaterMark: 0 },
+    ),
+    duplex: "half",
+  });
+  assert.equal((await handle(req)).status, 204);
+  assert.equal(pulled, false);
+  assert.equal(logged.length, 20);
 });

@@ -15,7 +15,7 @@ export const TURNS_PER_VERIFY = 10;
 export const SITEVERIFY_TIMEOUT_MS = 10_000;
 export const MAX_TOKEN_LENGTH = 2048;
 
-/** TURNSTILE_HOSTNAMES: comma-separated frontend hostnames siteverify may report. */
+/** TURNSTILE_HOSTNAMES: comma-separated hostnames siteverify may report. Spaces are not separators, so "a b" is one token and fails closed. */
 export function parseHostnames(v: string | undefined): Set<string> {
   return new Set(
     (v ?? "")

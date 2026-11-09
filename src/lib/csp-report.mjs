@@ -4,7 +4,8 @@
  * isolate (20 per 60 s) so a noisy page can't flood the logs, and the body is
  * capped at 8 KB: 413 on a larger content-length, and the stream is read only
  * until it passes the cap (a missing or lying content-length can't make us
- * buffer more). The logged text is cut to 2 KB.
+ * buffer more). A 413 does not take a rate-limit slot. The logged text is cut
+ * to 2 KB.
  */
 export const WINDOW_MS = 60_000;
 export const MAX_PER_WINDOW = 20;
@@ -51,9 +52,13 @@ export function createCspReportHandler({ log = console.warn, now = Date.now } = 
       windowStart = t;
       count = 0;
     }
-    if (++count > MAX_PER_WINDOW) return noContent();
+    // Don't read once the window is full. The slot is taken only after the
+    // body is within the cap; the increment is after the await so overlap
+    // still logs at most MAX_PER_WINDOW.
+    if (count >= MAX_PER_WINDOW) return noContent();
     const body = await readCapped(request).catch(() => "");
     if (body === null) return tooLarge();
+    if (++count > MAX_PER_WINDOW) return noContent();
     log("[bica] csp-report", body.slice(0, 2048));
     return noContent();
   };

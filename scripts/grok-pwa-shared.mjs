@@ -59,31 +59,12 @@ function placeholderCardColor(site = {}) {
 }
 
 /**
- * "wild-race.grok.me" → "Wild Race". Legacy helper for hosts that encode the
- * display name in the first label. Preview / guest hosts are image origins
- * only — slugifying them produced internal names like "Hds Abc 3000 Xy".
- * Bica itself is not published on *.grok.me (Workers only, #17).
+ * The template default. Bica is Workers-only and is never served from
+ * *.grok.me, so the host is not a display name (#32). Callers pass the
+ * configured app name; this is only the fallback when they don't.
  */
-export function appNameFromHost(hostHeader) {
-  const host = String(hostHeader ?? "")
-    .split(",")[0]
-    .trim()
-    .split(":")[0]
-    .toLowerCase();
-  if (!host.endsWith(".grok.me")) {
-    return DEFAULT_APP_NAME;
-  }
-  const slug = host.split(".")[0] ?? "";
-  if (!slug || slug === "www" || !/^[a-z0-9-]{1,63}$/.test(slug)) {
-    return DEFAULT_APP_NAME;
-  }
-  return (
-    slug
-      .split("-")
-      .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(" ") || DEFAULT_APP_NAME
-  );
+export function appNameFromHost(_hostHeader) {
+  return DEFAULT_APP_NAME;
 }
 
 /** Hostname suitable for absolute og:image URLs. Preview guests (X-Forwarded-Host) are allowed. */
@@ -333,15 +314,13 @@ export function titleFromDocument(html) {
 export function resolveOgTitle(
   site = {},
   appName = DEFAULT_APP_NAME,
-  host = "",
+  _host = "",
   documentTitle = "",
 ) {
   const fromSite = String(site.title ?? "").trim();
   if (fromSite) return fromSite;
   const fromDoc = String(documentTitle ?? "").trim();
   if (fromDoc) return fromDoc;
-  const fromHost = appNameFromHost(host);
-  if (fromHost && fromHost !== DEFAULT_APP_NAME) return fromHost;
   const fromArg = String(appName ?? "").trim();
   return fromArg || DEFAULT_APP_NAME;
 }

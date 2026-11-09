@@ -289,7 +289,9 @@ jobs:
       # build sha (checked above); retry this header check for up to ~60 s. A
       # version that really lacks a header still fails after the last attempt.
       - name: Smoke security headers
-        timeout-minutes: 3
+        # 12 attempts × 4 requests × 10s, plus 11 × 5s sleep, is ~535s.
+        # Stay above that so a full hang still reaches ::error::.
+        timeout-minutes: 10
         run: |
           url=$(grep -oE 'https://bica-staging\.[a-z0-9-]+\.workers\.dev' "$RUNNER_TEMP/deploy.log" | head -n 1 || true)
           [ -n "$url" ] || { echo "::error::No bica-staging workers.dev URL in deploy.log"; exit 1; }
@@ -314,7 +316,8 @@ jobs:
           for i in $(seq 1 12); do
             if out=$(check); then echo "security headers ok (attempt $i)"; exit 0; fi
             echo "attempt $i: $out"
-            [ "$i" -lt 12 ] && sleep 5
+            # An `&&` list does not trip `set -e`; `|| true` keeps status 0 if this line is last.
+            [ "$i" -lt 12 ] && sleep 5 || true
           done
           echo "::error::$out"
           exit 1
@@ -519,26 +522,30 @@ jobs:
           echo "uploaded=true" >> "$GITHUB_OUTPUT"
       # The custom domain can lag behind `wrangler deploy`: DNS may not resolve
       # yet (exit code 6) and / can answer 500 while it warms up (run
-      # 38581413999). Both checks retry for ~60 s (12 x 5 s, 10 s per request);
-      # a failed request inside the && chain never trips `set -e`.
+      # 38581413999). Both checks retry for ~60 s (12 x 5 s, 10 s per request).
+      # The last GET / keeps headers and body for the dump (no extra request).
+      # A status of 000 means nothing answered. Worst case is ~6 min; the step allows 7.
       - name: Smoke /api/health and /
-        timeout-minutes: 6
+        timeout-minutes: 7
         env:
           SHA: ${{ needs.build.outputs.sha }}
         run: |
           url=https://bica.appelgriebsch.org
           bash scripts/smoke-health.sh "$url" production "$SHA"
           for i in $(seq 1 12); do
-            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$url/" || true)
+            if [ "$i" -eq 12 ]; then
+              code=$(curl -sS -D /tmp/headers -o /tmp/body -w '%{http_code}' --max-time 10 "$url/" || true)
+            else
+              code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$url/" || true)
+            fi
+            if [ "$code" = 000 ]; then code="no response"; fi
             [ "$code" = 200 ] && { echo "GET / 200 (attempt $i)"; exit 0; }
-            echo "GET / attempt $i: ${code:-no response}"
-            [ "$i" -lt 12 ] && sleep 5
+            echo "GET / attempt $i: $code"
+            [ "$i" -lt 12 ] && sleep 5 || true
           done
-          # Still failing: show status, headers and the first 2 KB of the body.
-          curl -sS -D /tmp/headers -o /tmp/body --max-time 10 "$url/" || true
           echo "--- headers"; cat /tmp/headers 2>/dev/null || true
           echo "--- body (truncated)"; head -c 2048 /tmp/body 2>/dev/null || true; echo
-          echo "::error::GET / never returned 200 at $url (last: ${code:-no response})"
+          echo "::error::GET / never returned 200 at $url (last: $code)"
           exit 1
       - name: Summary
         if: always()

@@ -230,7 +230,7 @@ test("#31: header smoke retries HEAD+GET on / and /me, then fails loudly", () =>
   const start = staging.indexOf("- name: Smoke security headers");
   const end = staging.indexOf("\n      - ", start + 1);
   const step = staging.slice(start, end === -1 ? undefined : end);
-  assert.match(step, /\n {8}timeout-minutes: 3\n/);
+  assert.match(step, /\n {8}timeout-minutes: 10\n/);
   assert.match(step, /for path in \/ \/me; do/);
   assert.doesNotMatch(step, /\/login|\/api\/auth/); // #33: both 404 now
   assert.match(step, /for method in HEAD GET; do/);
@@ -239,7 +239,7 @@ test("#31: header smoke retries HEAD+GET on / and /me, then fails loudly", () =>
     /for h in strict-transport-security x-frame-options referrer-policy x-content-type-options permissions-policy cross-origin-opener-policy; do/,
   );
   assert.match(step, /for i in \$\(seq 1 12\); do/);
-  assert.match(step, /\[ "\$i" -lt 12 \] && sleep 5\n/);
+  assert.match(step, /\[ "\$i" -lt 12 \] && sleep 5 \|\| true\n/);
   assert.match(step, /\n {10}echo "::error::\$out"\n {10}exit 1\s*$/);
 });
 
@@ -562,6 +562,14 @@ test("#52: Cloudflare secrets only in wrangler steps of staging and production",
     }
   }
   assert.deepEqual(names, ["Deploy bica-staging", "Record live version", "Deploy bica-production"]);
+  for (const [jobName, stepName] of [
+    ["staging", "Deploy bica-staging"],
+    ["production", "Deploy bica-production"],
+  ]) {
+    const env = step(jobName, stepName).match(/\n {8}env:\n((?: {10}\S.*\n)+)/)[1];
+    const keys = [...env.matchAll(/^ {10}([A-Z0-9_]+):/gm)].map((m) => m[1]);
+    assert.deepEqual(keys, ["SHA", "MODE", "CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]);
+  }
   assert.doesNotMatch(deploy, /^ {4}env:/m);
   const secretLines = deploy.split("\n").filter((l) => l.includes("secrets."));
   assert.ok(secretLines.length > 0);
@@ -1169,14 +1177,20 @@ test("prod smoke retries health and GET / ~60 s, tolerates DNS lag, then fails l
     /code=\$\(curl -sS -o \/dev\/null -w '%\{http_code\}' --max-time 10 "\$url\/" \|\| true\)/,
   );
   assert.match(step, /\[ "\$code" = 200 \] && \{ echo "GET \/ 200 \(attempt \$i\)"; exit 0; \}/);
-  // diagnostics: headers and a truncated body, then fail
-  assert.match(step, /curl -sS -D \/tmp\/headers -o \/tmp\/body --max-time 10/);
+  // diagnostics come from the last loop attempt, not a fresh request
+  assert.match(step, /if \[ "\$i" -eq 12 \]; then/);
+  assert.match(
+    step,
+    /code=\$\(curl -sS -D \/tmp\/headers -o \/tmp\/body -w '%\{http_code\}' --max-time 10 "\$url\/" \|\| true\)/,
+  );
+  assert.equal((step.match(/curl -sS -D \/tmp\/headers/g) ?? []).length, 1);
+  assert.match(step, /if \[ "\$code" = 000 \]; then code="no response"; fi/);
   assert.match(step, /head -c 2048 \/tmp\/body/);
   assert.match(step, /::error::GET \/ never returned 200[^\n]*\n\s+exit 1/);
   for (const c of step.match(/curl [^\n]*/g)) assert.match(c, /--max-time 10\b/, c);
   for (const c of smokeHealth.match(/curl [^\n]*/g)) assert.match(c, /--max-time 10\b/, c);
-  // health (~60 s) plus GET / (~60 s) fits the step and job timeouts
-  assert.match(step, /timeout-minutes: 6\b/);
+  // health (~60 s) plus GET / (~60 s) fits the step (7 min) and the job (20 min)
+  assert.match(step, /timeout-minutes: 7\b/);
   assert.match(prodJob, /\n {4}timeout-minutes: 20\n/);
   assert.doesNotMatch(step, /secrets\.|TOKEN/);
 });
@@ -1211,7 +1225,10 @@ test("#42 W1: PUBLIC_HOSTNAME equals TURNSTILE_HOSTNAMES; the build takes no pub
   assert.doesNotMatch(deploy + ci, /VITE_PUBLIC_HOSTNAME/);
   assert.doesNotMatch(deploy, /PUBLIC_HOSTNAME/);
   assert.match(deploy, /BICA_BUILD_SHA: \$\{\{ steps\.resolve\.outputs\.sha \}\}/);
-  assert.match(`https://${pub("staging")}`, /^https:\/\/bica-staging\.[a-z0-9-]+\.workers\.dev$/);
+  const smokeUrl = [...deploy.matchAll(/grep -oE '([^']+)'/g)].map((m) => m[1]);
+  assert.ok(smokeUrl.length >= 1);
+  assert.equal(new Set(smokeUrl).size, 1);
+  assert.match(`https://${pub("staging")}`, new RegExp(`^${smokeUrl[0]}$`));
   assert.match(
     job("production"),
     new RegExp(`url=https://${pub("production").replace(/\./g, "\\.")}\n`),

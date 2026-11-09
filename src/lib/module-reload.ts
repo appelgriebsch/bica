@@ -1,3 +1,4 @@
+// Also hard-coded in the inline script in src/routes/__root.tsx; keep in sync.
 const RELOAD_KEY = "bica-module-reload";
 
 export function takeReloadToken() {

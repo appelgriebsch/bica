@@ -20,6 +20,8 @@ const ROUTES = [
   "/path",
   "/practice",
   "/me",
+  "/me/send",
+  "/me/receive",
   "/about",
   "/review",
   "/grammar",

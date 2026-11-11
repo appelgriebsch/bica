@@ -46,6 +46,10 @@ function loadSw({
     location: { origin: ORIGIN },
     addEventListener: (type, fn) => (listeners[type] = fn),
     clients: {},
+    skipped: 0,
+    skipWaiting() {
+      this.skipped++;
+    },
   };
   vm.runInNewContext(code, {
     self,
@@ -59,7 +63,7 @@ function loadSw({
     setTimeout: (fn, ms) => setTimeout(fn, ms).unref(),
     console,
   });
-  return { listeners, runtime };
+  return { listeners, runtime, self };
 }
 
 /** Dispatch a fetch event; returns what respondWith got (undefined if not called). */
@@ -178,4 +182,16 @@ test("#35: Turnstile (cross-origin) and the sendChat POST are never cached or an
   sw.listeners.fetch({ request: post, respondWith: (p) => (responded = p) });
   assert.equal(responded, undefined);
   assert.doesNotMatch(SOURCE, /challenges\.cloudflare\.com/);
+});
+
+test("#36: skipWaiting only on an explicit SKIP_WAITING message, never on install", async () => {
+  const sw = loadSw({ online: true, cached: { "/_shell": SHELL_HTML } });
+  let installing;
+  sw.listeners.install({ waitUntil: (p) => (installing = p) });
+  await installing.catch(() => {}); // the fake cache has no addAll; only skipWaiting matters
+  sw.listeners.message({ data: { type: "PING" } });
+  sw.listeners.message({ data: null });
+  assert.equal(sw.self.skipped, 0);
+  sw.listeners.message({ data: { type: "SKIP_WAITING" } });
+  assert.equal(sw.self.skipped, 1);
 });

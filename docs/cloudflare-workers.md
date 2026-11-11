@@ -68,7 +68,7 @@ Without any secrets, staging serves `/api/health`, every app page, the precached
 
 ## No database
 
-The D1 binding and its CI provisioning were removed in #33. `migrations/` stays in the repo as history of what staging's old `bica-staging` D1 database got; nothing applies it any more. That database is no longer bound and can be deleted by hand (`wrangler d1 delete bica-staging`). #36 reintroduces a database only if it's built.
+The D1 binding and its CI provisioning were removed in #33. `migrations/` stays in the repo as history of what staging's old `bica-staging` D1 database got; nothing applies it any more. That database is no longer bound and can be deleted by hand (`wrangler d1 delete bica-staging`). #36 became QR transfer without a server (ADR 0005), so no database is planned.
 
 ### API token scopes
 
@@ -178,7 +178,7 @@ Harden it: give it an expiry (TTL, e.g. 90 days, and rotate). Client IP filterin
 
 ### Cutover
 
-Done in #8 / #40: DNS for `bica.appelgriebsch.org` now points at the Workers custom domain. Progress stayed on the device under the same origin, so localStorage was kept. **If the prod hostname ever changes, users must export on the old origin and import on the new one (#34).**
+Done in #8 / #40: DNS for `bica.appelgriebsch.org` now points at the Workers custom domain. Progress stayed on the device under the same origin, so localStorage was kept. **If the prod hostname ever changes, users must export on the old origin and import on the new one (#34).** (2026-11-06: #34 was superseded; users send with QR transfer from the old origin on one device and receive on the new origin on another, #36 / ADR 0005.)
 
 ### Rollback
 

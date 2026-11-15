@@ -52,7 +52,8 @@ BICA_STAGE = "staging"
 # localhost. The public site key is a build-time constant
 # (src/lib/turnstile-keys.mjs); TURNSTILE_SECRET_KEY is a Worker secret.
 TURNSTILE_HOSTNAMES = "bica-staging.appelgriebsch.workers.dev"
-# #51: og:image and the manifest id. Read at runtime, not baked into the build.
+# #51: the og:image host. Read at runtime, not baked into the build (the PWA
+# manifest is a static file, public/manifest.webmanifest, with a pinned id).
 PUBLIC_HOSTNAME = "bica-staging.appelgriebsch.workers.dev"
 # #55: enforce CSP here. Production stays Report-Only until a few clean days.
 CSP_ENFORCE = "1"

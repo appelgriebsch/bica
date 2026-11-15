@@ -1,13 +1,11 @@
 import { createRootRoute, HeadContent, Outlet, Scripts, useRouter } from "@tanstack/react-router";
-import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { PwaRegister } from "@/components/pwa";
 import { PtVoiceNotice } from "@/components/pt-voice-notice";
 import { OfflineStatus } from "@/components/offline-status";
 import { Toaster } from "sonner";
 import { APP_NAME } from "@/lib/app-name.mjs";
-import { shareHost } from "@/lib/public-host";
+import { ogImageUrl, shareHost } from "@/lib/public-host";
 import { BICA_THEME, BICA_THEME_DARK } from "../../scripts/bica-theme.mjs";
-import { ogImageUrl } from "../../scripts/grok-pwa-shared.mjs";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
@@ -17,9 +15,6 @@ export const Route = createRootRoute({
   head: ({ loaderData }) => {
     const host = loaderData ?? "";
     const ogImage = ogImageUrl(host);
-    const xBanner = host
-      ? `https://og.grok.me/v1/banner.png?host=${encodeURIComponent(host)}&title=${encodeURIComponent(APP_NAME)}&color=1E4D73`
-      : undefined;
     return {
       meta: [
         { charSet: "utf-8" },
@@ -31,6 +26,7 @@ export const Route = createRootRoute({
             "European Portuguese in sips — byte-sized lessons from A1 to C1, with quizzes and café conversations.",
         },
         { name: "apple-mobile-web-app-title", content: APP_NAME },
+        { name: "apple-mobile-web-app-status-bar-style", content: "black" },
         { name: "twitter:card", content: "summary_large_image" },
         { property: "og:type", content: "website" },
         { property: "og:title", content: APP_NAME },
@@ -48,18 +44,11 @@ export const Route = createRootRoute({
               { name: "twitter:title", content: APP_NAME },
             ]
           : []),
-        ...(xBanner
-          ? [
-              { property: "x:game:image", content: xBanner },
-              { property: "x:game:image:width", content: "1200" },
-              { property: "x:game:image:height", content: "264" },
-            ]
-          : []),
       ],
       links: [
         { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
         { rel: "stylesheet", href: appCss },
-        { rel: "manifest", href: "/__grok/manifest.webmanifest" },
+        { rel: "manifest", href: "/manifest.webmanifest" },
         { rel: "apple-touch-icon", href: "/icon-180.png", sizes: "180x180" },
       ],
       scripts: [
@@ -93,7 +82,6 @@ function RootDocument() {
             __html: `(function(){var k="bica-module-reload";function stuck(m){return /importing a module script failed|failed to fetch dynamically imported module|failed to load module script/i.test(String(m||""))}function go(){try{if(sessionStorage.getItem(k)==="1")return;sessionStorage.setItem(k,"1")}catch(e){return}var done=function(){location.reload()};var t=[];if(navigator.serviceWorker){t.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister()}))}))}if(window.caches){t.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(x){return caches.delete(x)}))}))}Promise.all(t).then(done,done)}window.addEventListener("error",function(e){if(stuck(e&&e.message))go()});window.addEventListener("unhandledrejection",function(e){var r=e&&e.reason;if(stuck(r&&(r.message||r)))go()})})();`,
           }}
         />
-        <PreviewHostBridge />
         <PwaRegister />
         <PtVoiceNotice />
         <OfflineStatus />

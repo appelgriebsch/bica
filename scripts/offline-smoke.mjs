@@ -95,9 +95,9 @@ try {
   if (scenes !== 20) failures.push("scenes");
   const manifest = await page.evaluate(async (v) => {
     const cache = await caches.open(v);
-    const hit = await cache.match("/__grok/manifest.webmanifest");
-    const alias = await cache.match("/__grok/manifest.json");
-    const res = await fetch("/__grok/manifest.webmanifest");
+    const hit = await cache.match("/manifest.webmanifest");
+    const alias = await cache.match("/manifest.json");
+    const res = await fetch("/manifest.webmanifest");
     const body = await res.json();
     return { cached: Boolean(hit), alias: Boolean(alias), status: res.status, name: body.name };
   }, version);

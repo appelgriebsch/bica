@@ -22,7 +22,7 @@ async function fakeBuild() {
     "assets/styles-1.css": "css",
     "scenes/cafe.jpg": "cafe",
     "scenes/tram.jpg": "tram",
-    "__grok/install/styles.css": "tutorial",
+    "manifest.webmanifest": "manifest",
   };
   for (const [name, body] of Object.entries(files)) {
     await mkdir(join(dir, name, ".."), { recursive: true });
@@ -31,13 +31,14 @@ async function fakeBuild() {
   return dir;
 }
 
-test("manifest lists shell, every chunk and scene; skips sw.js, _headers and __grok", async () => {
+test("manifest lists shell, every chunk, scene and the static webmanifest; skips sw.js and _headers", async () => {
   const dir = await fakeBuild();
   try {
     const { urls } = await collectPrecache(dir);
     for (const u of [
       SHELL,
       "/og.jpg",
+      "/manifest.webmanifest",
       "/assets/lesson-player-abc.js",
       "/assets/grammar-def.js",
       "/assets/styles-1.css",
@@ -48,8 +49,6 @@ test("manifest lists shell, every chunk and scene; skips sw.js, _headers and __g
     }
     assert.ok(!urls.includes("/sw.js"));
     assert.ok(!urls.includes("/_headers"));
-    assert.ok(urls.includes("/__grok/manifest.webmanifest"));
-    assert.ok(!urls.some((u) => u.startsWith("/__grok/") && u !== "/__grok/manifest.webmanifest"));
   } finally {
     await rm(dir, { recursive: true });
   }
@@ -63,7 +62,8 @@ test("version changes when any asset changes", async () => {
     await writeFile(join(dir, "scenes/cafe.jpg"), "cafe2");
     const changed = (await collectPrecache(dir)).version;
     assert.notEqual(changed, a);
-    assert.notEqual((await collectPrecache(dir, "not the manifest")).version, changed);
+    await writeFile(join(dir, "manifest.webmanifest"), "manifest2");
+    assert.notEqual((await collectPrecache(dir)).version, changed);
   } finally {
     await rm(dir, { recursive: true });
   }
@@ -125,7 +125,7 @@ test("shell path has no .html (Workers auto-trailing-slash would redirect it)", 
   assert.ok(!SHELL.endsWith(".html"));
 });
 
-/** Tiny build output the CLI hashes. The server stub ignores the host; the manifest does not. */
+/** Tiny build output the CLI hashes. The server stub and the hashed file list both ignore the host. */
 async function cliFixture() {
   const cwd = await mkdtemp(join(tmpdir(), "bica-precache-cli-"));
   const pub = join(cwd, buildOutput().publicDir);
@@ -141,7 +141,7 @@ async function cliFixture() {
   return cwd;
 }
 
-test("CLI hashes a host-free manifest", async () => {
+test("CLI output does not depend on PUBLIC_HOSTNAME", async () => {
   const dirs = [];
   try {
     const versions = [];

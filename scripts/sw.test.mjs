@@ -138,18 +138,18 @@ test("network-only and unknown scripts are left to the browser", async () => {
   const sw = loadSw();
   assert.equal(await dispatch(sw, "/api/ping", { accept: "text/html" }), undefined);
   assert.equal(await dispatch(sw, "/other.js", { destination: "script" }), undefined);
-  assert.equal(await dispatch(sw, "/__grok/install/styles.css"), undefined);
+  assert.equal(await dispatch(sw, "/sw.js"), undefined);
 });
 
-test("#55: a precached manifest is cache-first while offline", async () => {
-  const path = "/__grok/manifest.webmanifest";
+test("#55: the precached static manifest is cache-first while offline", async () => {
+  const path = "/manifest.webmanifest";
   const sw = loadSw({
     precache: ["/_shell", path],
     cached: { [path]: '{"name":"Bica"}' },
   });
   const hit = await dispatch(sw, path);
   assert.equal(await hit.text(), '{"name":"Bica"}');
-  assert.equal(await dispatch(sw, "/__grok/install/styles.css"), undefined);
+  assert.equal(await dispatch(sw, "/sw.js"), undefined);
 });
 
 test("an HTML fetch of an app route is network-first, not a stale runtime-cache hit", async () => {

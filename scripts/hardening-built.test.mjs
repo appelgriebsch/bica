@@ -177,7 +177,7 @@ for (const path of ["/", "/me", "/practice"]) {
     assert.match(csp, /frame-ancestors 'none'/);
     const html = await res.text();
     const scripts = html.match(/<script\b[^>]*>/g) ?? [];
-    assert.ok(scripts.length >= 3, "inline + module scripts present");
+    assert.ok(scripts.length >= 2, "inline + module scripts present");
     for (const tag of scripts) assert.ok(tag.includes(`nonce="${nonce}"`), tag);
     assert.doesNotMatch(html, /Grok App/);
     // Zod's eval probe is off before any module script runs (no CSP eval report).
@@ -264,11 +264,14 @@ test(
         new RegExp(`property="og:image" content="https://${publicHost}/og\\.jpg"`),
         stage,
       );
-      const manifest = await httpGet(`${origin}/__grok/manifest.webmanifest`, {
+      // The manifest is a static file (public/manifest.webmanifest): served from
+      // assets with the pinned id "/", identical on every host.
+      const manifest = await httpGet(`${origin}/manifest.webmanifest`, {
         host: "not-the-public.example",
         accept: "*/*",
       });
-      assert.equal(JSON.parse(manifest.body).id, `https://${publicHost}/`, stage);
+      assert.equal(manifest.status, 200, stage);
+      assert.equal(JSON.parse(manifest.body).id, "/", stage);
     }
   },
 );
@@ -304,15 +307,9 @@ test("#62: document share tags survive and stay on this stage's host", { skip },
     const image = one("twitter:image");
     assert.equal(image, `https://${host}/og.jpg`, host);
     assert.equal(one("og:image"), image, host);
-    assert.ok(
-      one("x:game:image")
-        .replaceAll("&amp;", "&")
-        .startsWith(`https://og.grok.me/v1/banner.png?host=${host}`),
-      host,
-    );
-    assert.equal(one("x:game:image:width"), "1200", host);
-    assert.equal(one("x:game:image:height"), "264", host);
     assert.equal(one("og:type"), "website", host);
+    // No x:game:* feed-card tags any more (ADR 0007).
+    assert.equal(meta.get("x:game:image"), undefined, host);
     for (const [key, values] of meta) {
       if (!/^(?:og:|twitter:|x:game:)/.test(key)) continue;
       // ponytail: a legitimately repeated OGP key (a second og:image, og:locale:alternate)
@@ -330,11 +327,13 @@ test("#51 W-1: the precached shell bakes no public host", { skip }, () => {
   assert.equal(shell.includes("bica.appelgriebsch.org"), false);
 });
 
-test("manifest is named Bica on a workers.dev host", { skip }, async () => {
-  const res = await get("/__grok/manifest.webmanifest", { accept: "*/*" });
+test("the static manifest is served at /manifest.webmanifest and named Bica", { skip }, async () => {
+  const res = await get("/manifest.webmanifest", { accept: "*/*" });
+  assert.equal(res.status, 200);
   const manifest = await res.json();
   assert.equal(manifest.name, "Bica");
   assert.equal(manifest.short_name, "Bica");
+  assert.equal(manifest.id, "/");
   assert.equal(manifest.background_color, "#f3eee6");
   assert.equal(manifest.theme_color, "#1E4D73");
   assert.ok(manifest.icons.some((i) => i.src === "/icon-192.png" && i.purpose === undefined));
@@ -347,7 +346,7 @@ test("manifest is named Bica on a workers.dev host", { skip }, async () => {
     manifest.icons.some((i) => i.src === "/icon-maskable-512.png" && i.purpose === "maskable"),
   );
   assert.equal(res.headers.get("x-content-type-options"), "nosniff");
-  const alias = await get("/__grok/manifest.json", { accept: "*/*" });
+  const alias = await get("/manifest.json", { accept: "*/*" });
   assert.equal(alias.status, 404);
   assert.equal((await alias.text()).includes('"short_name"'), false);
 });
@@ -466,10 +465,7 @@ test(
     assert.match(csp, /frame-src https:\/\/challenges\.cloudflare\.com;/);
     assert.match(csp, /connect-src 'self' https:\/\/challenges\.cloudflare\.com;/);
     const hosts = new Set(csp.match(/https:\/\/[^\s;]+/g));
-    assert.deepEqual([...hosts].sort(), [
-      "https://challenges.cloudflare.com",
-      "https://og.grok.me",
-    ]);
+    assert.deepEqual([...hosts].sort(), ["https://challenges.cloudflare.com"]);
   },
 );
 

@@ -134,48 +134,21 @@ test("stopSpeaking resolves the pending utterance", async () => {
   assert.equal(s.spoken.length, 1);
 });
 
-// Guard (ADR 0006, epic #91): the tracked tree carries no xAI runtime call and
-// no Grok platform chrome. Allowlisted paths, each owned by a later ticket:
-//   docs/adr/    ADR history mentions xAI/Grok (0001, 0006)
-//   .grok/       platform skill docs, deleted by M2 (ADR 0007)
+// Guard (ADR 0006/0007, epic #91): the tracked tree carries no xAI runtime
+// call and no Grok platform chrome (M2 removed it, ADR 0007). Allowlisted
+// paths, each owned by a later ticket:
+//   docs/adr/    ADR history mentions xAI/Grok (0001, 0006, 0007)
 //   AGENTS.md, THIRD-PARTY.md  workspace contract / Grok image attribution, swept by M3
 //   artifacts/   Grok-generated scene images stay with attribution (ADR 0008)
 //   scripts/cloudflare-config.test.mjs  asserts the workflow has no secret names (regex literals)
 const GUARD_EXCLUDE = [
   ".",
   ":!docs/adr/",
-  ":!.grok/",
   ":!AGENTS.md",
   ":!THIRD-PARTY.md",
   ":!artifacts/",
   ":!scripts/tts.test.mjs",
   ":!scripts/cloudflare-config.test.mjs",
-];
-// M2 (ADR 0007) owns the Grok App Builder platform chrome: the PWA plugin,
-// install page, brand-check, precache/sw, the preview bridge, the vite plugin,
-// __root.tsx, and the CSP's og.grok.me / extensions.js mentions.
-const M2_CHROME_EXCLUDE = [
-  ":!scripts/grok-pwa-plugin.mjs",
-  ":!scripts/grok-pwa-plugin.test.mjs",
-  ":!scripts/grok-pwa-shared.mjs",
-  ":!scripts/grok-pwa-shared.d.mts",
-  ":!scripts/install-page.html",
-  ":!scripts/brand-check.mjs",
-  ":!scripts/brand-check.test.mjs",
-  ":!scripts/precache.mjs",
-  ":!scripts/precache.test.mjs",
-  ":!scripts/sw.test.mjs",
-  ":!scripts/offline-smoke.mjs",
-  ":!scripts/hardening-built.test.mjs",
-  ":!scripts/security-headers.test.mjs",
-  ":!server/middleware/grok-pwa.ts",
-  ":!public/sw.js",
-  ":!public/__grok/",
-  ":!vite.config.ts",
-  ":!src/routes/__root.tsx",
-  ":!src/lib/preview-host-bridge.ts",
-  ":!src/lib/preview-embedder-origin.ts",
-  ":!src/lib/security-headers.mjs",
 ];
 
 function guardGrep(pattern, extraExcludes = []) {
@@ -195,11 +168,8 @@ test("no xAI runtime references (api.x.ai, XAI_API_KEY, xAI TTS) in the tracked 
   assert.equal(guardGrep("api\\.x\\.ai|XAI_API_KEY|synthesizePt"), "");
 });
 
-test("no Grok platform chrome references outside the M2-owned files", () => {
-  assert.equal(
-    guardGrep("og\\.grok\\.me|__grok|grokPwa|extensions\\.js|grok\\.com", M2_CHROME_EXCLUDE),
-    "",
-  );
+test("no Grok platform chrome references outside docs/adr/ and the M3-owned files", () => {
+  assert.equal(guardGrep("og\\.grok\\.me|__grok|grokPwa|extensions\\.js|grok\\.com"), "");
 });
 
 test("offline: an online-only pt-PT voice counts as none; back online it is used", async () => {

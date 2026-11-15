@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -9,15 +9,19 @@ import { buildOutput } from "./build-output.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const about = readFileSync(join(root, "src/routes/about.tsx"), "utf8");
 
-test("about page credits Grok and bakes the build SHA", () => {
+test("about page credits Grok for the icon and bakes the build SHA", () => {
   assert.match(about, /Created with Grok/);
   assert.match(about, /__BICA_BUILD_SHA__/);
   assert.match(about, /blob\/main\/LICENSE/);
   assert.match(about, /blob\/main\/THIRD-PARTY\.md/);
 });
 
-test("about page credits Mistral AI for the Conversas replies (ADR 0006/0008)", () => {
-  assert.match(about, /AI-generated.*Mistral AI/);
+test("about page credits Mistral AI with its mark icon for the scenes and the Conversas replies (ADR 0006/0009)", () => {
+  assert.match(about, /Scene illustrations: AI-generated with <MistralCredit \/>/);
+  assert.match(about, /Conversas: Replies are AI-generated with <MistralCredit \/>/);
+  assert.match(about, /src="\/brand\/mistral-mark\.svg"/);
+  assert.match(about, />Mistral AI</);
+  assert.ok(existsSync(join(root, "public/brand/mistral-mark.svg")), "public/brand/mistral-mark.svg ships");
 });
 
 test("me links to about", () => {
@@ -30,7 +34,7 @@ test("about links back to You", () => {
   assert.match(about, /<Link to="\/me">/);
 });
 
-test("THIRD-PARTY.md names scenes, og.jpg, and the app mark", () => {
+test("THIRD-PARTY.md names scenes, og.jpg, and the app mark with the right attributions", () => {
   const md = readFileSync(join(root, "THIRD-PARTY.md"), "utf8");
   const scenes = readdirSync(join(root, "public/scenes")).filter((f) => f.endsWith(".jpg"));
   assert.ok(scenes.length >= 20, String(scenes.length));
@@ -40,6 +44,7 @@ test("THIRD-PARTY.md names scenes, og.jpg, and the app mark", () => {
   const paths = [
     "public/og.jpg",
     "public/favicon.svg",
+    "public/brand/mistral-mark.svg",
     "src/components/azulejo-mark.tsx",
     ...scenes.map((f) => `public/scenes/${f}`),
     ...icons,
@@ -50,9 +55,15 @@ test("THIRD-PARTY.md names scenes, og.jpg, and the app mark", () => {
     [],
   );
   const section = (heading) => md.split(heading)[1]?.split("\n### ")[0] ?? "";
-  assert.match(section("### Images"), /Created with Grok/);
+  // ADR 0009 / #102: the 20 scenes are Mistral-generated; og.jpg and the icon stay Grok-attributed.
+  const shareCard = section("### Share card image");
+  assert.match(shareCard, /Created with Grok/);
+  assert.ok(!shareCard.includes("public/scenes/"), "scenes left the Grok section");
+  const sceneSection = section("### Scene illustrations");
+  assert.match(sceneSection, /Mistral AI/);
+  assert.ok(!/Created with Grok/.test(sceneSection), "scenes are not Grok-attributed anymore");
   assert.match(section("### App icon and mark"), /Created with Grok/);
-  assert.match(about, /app icon:[\s\S]{0,80}Created with Grok/);
+  assert.match(about, /app icon[\s\S]{0,120}Created with Grok/i);
 });
 
 test(

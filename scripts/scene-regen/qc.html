@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bica scene replacement — side-by-side QC (#93)</title>
+<style>
+  :root { color-scheme: light dark; --line: #d6d0c4; --muted: #6b675f; --accent: #1e4d73; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; font: 14px/1.5 system-ui, sans-serif; background: #faf8f4; color: #26241f; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0; }
+  .sub { color: var(--muted); margin-bottom: 16px; }
+  .criteria { border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 20px; background: #fff; }
+  .criteria li { margin: 2px 0; }
+  .scene { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 14px; margin-bottom: 18px; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .col h2 { display: flex; justify-content: space-between; gap: 8px; }
+  .tag { font-size: 11px; color: var(--muted); font-weight: 400; text-align: right; }
+  .crop { aspect-ratio: 16 / 9; width: 100%; object-fit: cover; border-radius: 12px; box-shadow: 0 1px 3px rgb(0 0 0 / .18); background: #eee; }
+  .row { display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; }
+  .thumb { height: 96px; width: 84px; object-fit: cover; border-radius: 8px; flex: none; background: #eee; }
+  .meta { font-size: 12px; color: var(--muted); }
+  .verdict { margin-top: 8px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .verdict label { font-size: 13px; cursor: pointer; }
+  .notes { margin-top: 8px; width: 100%; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 13px; }
+  .missing { color: #a33; font-size: 12px; }
+  #summary { position: sticky; bottom: 0; background: #26241f; color: #f5f2ea; border-radius: 10px; padding: 10px 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--accent); color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>Scene replacement — side-by-side visual QC (#93)</h1>
+<p class="sub">First column: current <code>public/scenes/*.jpg</code> (Grok-generated). Then one column per regenerated
+style (Mistral <code>image_generation</code>, BFL FLUX1.1 [pro] Ultra). Same file name; every image is shown at the app's
+real crops: the lesson-player hero (16:9, <code>object-cover</code>) and the practice-card thumb (84×96, <code>object-cover</code>).</p>
+
+<div class="criteria">
+  <strong>Pass criteria per scene per style (all must hold):</strong>
+  <ul>
+    <li>Style consistency within the set: warm Lisbon cues (azulejos, cobblestones, terracotta roofs), coherent palette across all 20 scenes.</li>
+    <li>Subject matches the scene's role in <code>src/lib/scene-image.ts</code> and is recognizable at the 16:9 center crop (safe margins).</li>
+    <li>No watermark, logo, signature, or gibberish text; any signage lettering must be legible or absent.</li>
+    <li>No people unless the current scene has them (only <code>market</code> has blurred background shoppers); no distorted anatomy.</li>
+    <li>License clean: output assigned to us by Mistral ToS; AI-generated disclosure stays (EU AI Act Art. 50). No attribution phrase required.</li>
+    <li>File size in the same ballpark as current (≈90–260 KB at 1200px q82).</li>
+    <li>Then pick ONE style for the whole set (photo keeps the current product look; illustration is the azulejo-branded alternative) — record the choice in ADR 0009.</li>
+  </ul>
+</div>
+
+<div id="scenes"></div>
+<div id="summary">
+  <span id="counts"></span>
+  <button id="copy">Copy QC summary as markdown</button>
+  <span id="copied"></span>
+</div>
+
+<script>
+// Injected by regen-scenes.mjs (replaces the /*__STYLES__*/ … [ … ] span):
+// [{id:"photo",label:"…"}, …]
+const STYLES = /*__STYLES__*/[{"id":"photo","label":"photoreal (current look)"}];
+const NAMES = ["balcony","books","cafe","dinner","doorway","farmacia","kitchen-radio","market","miradouro","office","padaria","pastelaria","phone","radio","stairwell","street","tasca","terrace","ticket","tram"];
+const ROLES = {
+  balcony: "balcony view (dusk)", books: "bookshop / novel", cafe: "café counter, espresso",
+  dinner: "dinner table, wine", doorway: "building entrance / lift", farmacia: "pharmacy",
+  "kitchen-radio": "kitchen radio / news", market: "Mercado da Ribeira stall", miradouro: "viewpoint bench",
+  office: "office kitchenette", padaria: "bakery counter", pastelaria: "pastelaria, pastel de nata",
+  phone: "phone chat + bica", radio: "radio on windowsill", stairwell: "building stairwell",
+  street: "steep Alfama street (fallback)", tasca: "tasca interior", terrace: "terrace table, vinho",
+  ticket: "museum ticket office", tram: "elétrico 28",
+};
+const wrap = document.getElementById("scenes");
+const state = {}; // key `${style}:${name}` -> {verdict, notes}
+
+function colHtml(title, tag, imgSrc, verdictName, missText) {
+  return `<div class="col"><h2>${title} <span class="tag">${tag}</span></h2>
+    <img class="crop" src="${imgSrc}" alt="" loading="lazy" />
+    <div class="miss missing"></div>
+    <div class="row"><img class="thumb" src="${imgSrc}" alt="" loading="lazy" />
+    <div class="meta">hero crop (lesson player)<br/>thumb crop (practice card)</div></div>
+    <div class="verdict">
+      <label><input type="radio" name="${verdictName}" value="pass" /> pass</label>
+      <label><input type="radio" name="${verdictName}" value="fail" /> fail</label>
+    </div></div>`;
+}
+
+for (const name of NAMES) {
+  state[`current:${name}`] = { verdict: "", notes: "" };
+  let cols = colHtml("current", "public/scenes", `current/${name}.jpg`, `v-current-${name}`);
+  for (const st of STYLES) {
+    const key = `${st.id}:${name}`;
+    state[key] = { verdict: "", notes: "" };
+    cols += colHtml(st.id, st.label, `styles/${st.id}/${name}.jpg`, `v-${st.id}-${name}`);
+  }
+  const el = document.createElement("section");
+  el.className = "scene";
+  el.innerHTML = `<h2 style="margin-bottom:10px">${name}.jpg <span class="tag">${ROLES[name]}</span></h2>
+    <div class="pair">${cols}</div>
+    <input class="notes" data-notes="${name}" placeholder="notes (style, text, crop, watermark…)" />`;
+  wrap.appendChild(el);
+  for (const st of ["current", ...STYLES.map((s) => s.id)]) {
+    el.querySelectorAll(`input[name="v-${st}-${name}"]`).forEach((r) =>
+      r.addEventListener("change", () => { state[`${st}:${name}`].verdict = r.value; render(); }));
+  }
+  el.querySelector(`[data-notes="${name}"]`).addEventListener("input", (e) => {
+    for (const st of ["current", ...STYLES.map((s) => s.id)]) state[`${st}:${name}`].notes = e.target.value;
+  });
+}
+
+function render() {
+  const parts = STYLES.map((st) => {
+    const vals = NAMES.map((n) => state[`${st.id}:${n}`]);
+    const p = vals.filter((s) => s.verdict === "pass").length;
+    const f = vals.filter((s) => s.verdict === "fail").length;
+    return `${st.id}: pass ${p} · fail ${f} · unmarked ${vals.length - p - f}`;
+  });
+  document.getElementById("counts").textContent = parts.join("   |   ");
+}
+
+document.getElementById("copy").addEventListener("click", async () => {
+  const head = ["| scene |", ...STYLES.map((s) => `${s.id} |`), "notes |"].join(" ");
+  const sep = "|" + "---|".repeat(STYLES.length + 2);
+  const lines = [head, sep];
+  for (const n of NAMES) {
+    const cells = STYLES.map((st) => (state[`${st.id}:${n}`].verdict || "—"));
+    const notes = (state[`${STYLES[0].id}:${n}`].notes || "").replace(/\|/g, "\\|");
+    lines.push(`| ${n}.jpg | ${cells.join(" | ")} | ${notes} |`);
+  }
+  const md = `# Scene replacement QC (#93) — ${new Date().toISOString().slice(0, 10)}\n\n` + lines.join("\n");
+  await navigator.clipboard.writeText(md);
+  document.getElementById("copied").textContent = "copied";
+});
+render();
+</script>
+</body>
+</html>

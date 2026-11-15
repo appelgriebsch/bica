@@ -87,13 +87,22 @@ Cells marked `not checked` were not queried.
 
 Checked against the xAI legal pages on 2026-10-14. Credit the publisher as SpaceXAI LLC (xAI). Bica does not use xAI or Grok logos and does not claim endorsement.
 
-### Images
+### Share card image
 
-These 21 files are AI-generated illustrations. **Created with Grok.**
+`public/og.jpg` is an AI-generated illustration. **Created with Grok.**
 
 The [Brand Guidelines](https://x.ai/legal/brand-guidelines) (dated 2025-02-14), Content Attribution, require one of these phrases, legible and noticeable, wherever Grok-generated material is published: "Written with Grok" / "Created with Grok". The [Consumer Terms of Service](https://x.ai/legal/terms-of-service) (updated 2026-10-12) §4 require that attribution, and an AI-generated disclosure when Output is published. Do not remove a Grok watermark where one exists.
 
-- `public/og.jpg`
+### Scene illustrations (Mistral AI)
+
+These 20 files in `public/scenes/` are AI-generated illustrations, produced on
+2026-11-15 with Mistral AI — BFL FLUX1.1 [pro] Ultra via the la plateforme
+`image_generation` built-in tool (ADR 0009, issue #93/#102). The [Mistral
+Terms of Use](https://mistral.ai/terms-of-use/) assign all intellectual
+property rights in the output to the user and require no attribution phrase;
+Bica discloses them as AI-generated (EU AI Act Art. 50). They replaced the
+former Grok-generated scenes in the same change.
+
 - `public/scenes/balcony.jpg`
 - `public/scenes/books.jpg`
 - `public/scenes/cafe.jpg`
@@ -126,6 +135,15 @@ These files are **Created with Grok** (AI-generated). The mark is drawn as SVG c
 - `public/icon-maskable-192.png`
 - `public/icon-maskable-512.png`
 - `src/components/azulejo-mark.tsx`
+
+### Mistral AI mark
+
+- `public/brand/mistral-mark.svg`
+
+The Mistral AI logo (trademark of Mistral AI, © Mistral AI), vendored from the
+hiato project and shown inline next to the "Mistral AI" credits on the About
+page. Used for attribution only; Bica does not claim endorsement. The
+Conversas API itself is a service, not an asset (see below).
 
 ### Fonts and icons
 

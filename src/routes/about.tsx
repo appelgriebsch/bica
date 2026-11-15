@@ -29,6 +29,23 @@ function GitHubLink({ href, label, children }: { href: string; label: string; ch
   );
 }
 
+/** Mistral AI logo next to the credit name, hiato-style (public/brand/mistral-mark.svg). */
+function MistralCredit() {
+  return (
+    <span className="whitespace-nowrap">
+      <img
+        src="/brand/mistral-mark.svg"
+        alt=""
+        width={12}
+        height={12}
+        className="mr-1 inline-block h-3 w-3 select-none align-[-2px]"
+        draggable={false}
+      />
+      <span className="font-medium text-fg">Mistral AI</span>
+    </span>
+  );
+}
+
 function AboutPage() {
   return (
     <AppShell>
@@ -61,13 +78,18 @@ function AboutPage() {
 
       <Band title="Credits">
         <p>
-          Illustrations and app icon:{" "}
+          Scene illustrations: AI-generated with <MistralCredit /> (ADR 0009).
+        </p>
+        <p>
+          App icon and mark:{" "}
           <span className="font-medium text-fg">Created with Grok</span> (AI-generated).
         </p>
         <p>Fonts: Figtree and Fraunces (OFL-1.1).</p>
         <p>Icons: Lucide (ISC).</p>
         <p>Speech: Uses your device's Portuguese voice.</p>
-        <p>Conversas: Replies are AI-generated with Mistral AI.</p>
+        <p>
+          Conversas: Replies are AI-generated with <MistralCredit />.
+        </p>
       </Band>
 
       <Band title="Links">

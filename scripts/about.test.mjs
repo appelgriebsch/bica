@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -16,9 +16,12 @@ test("about page credits Grok for the icon and bakes the build SHA", () => {
   assert.match(about, /blob\/main\/THIRD-PARTY\.md/);
 });
 
-test("about page credits Mistral AI for the scenes and the Conversas replies (ADR 0006/0009)", () => {
-  assert.match(about, /Scene illustrations: AI-generated with Mistral AI/);
-  assert.match(about, /AI-generated.*Mistral AI/);
+test("about page credits Mistral AI with its mark icon for the scenes and the Conversas replies (ADR 0006/0009)", () => {
+  assert.match(about, /Scene illustrations: AI-generated with <MistralCredit \/>/);
+  assert.match(about, /Conversas: Replies are AI-generated with <MistralCredit \/>/);
+  assert.match(about, /src="\/brand\/mistral-mark\.svg"/);
+  assert.match(about, />Mistral AI</);
+  assert.ok(existsSync(join(root, "public/brand/mistral-mark.svg")), "public/brand/mistral-mark.svg ships");
 });
 
 test("me links to about", () => {
@@ -41,6 +44,7 @@ test("THIRD-PARTY.md names scenes, og.jpg, and the app mark with the right attri
   const paths = [
     "public/og.jpg",
     "public/favicon.svg",
+    "public/brand/mistral-mark.svg",
     "src/components/azulejo-mark.tsx",
     ...scenes.map((f) => `public/scenes/${f}`),
     ...icons,

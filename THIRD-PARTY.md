@@ -136,6 +136,15 @@ These files are **Created with Grok** (AI-generated). The mark is drawn as SVG c
 - `public/icon-maskable-512.png`
 - `src/components/azulejo-mark.tsx`
 
+### Mistral AI mark
+
+- `public/brand/mistral-mark.svg`
+
+The Mistral AI logo (trademark of Mistral AI, © Mistral AI), vendored from the
+hiato project and shown inline next to the "Mistral AI" credits on the About
+page. Used for attribution only; Bica does not claim endorsement. The
+Conversas API itself is a service, not an asset (see below).
+
 ### Fonts and icons
 
 - Figtree and Fraunces (`@fontsource-variable/figtree`, `@fontsource-variable/fraunces`) are OFL-1.1, bundled and self-hosted.

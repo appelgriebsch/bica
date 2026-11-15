@@ -16,6 +16,10 @@ test("about page credits Grok and bakes the build SHA", () => {
   assert.match(about, /blob\/main\/THIRD-PARTY\.md/);
 });
 
+test("about page credits Mistral AI for the Conversas replies (ADR 0006/0008)", () => {
+  assert.match(about, /AI-generated.*Mistral AI/);
+});
+
 test("me links to about", () => {
   const me = readFileSync(join(root, "src/routes/me.tsx"), "utf8");
   assert.match(me, /to="\/about"/);

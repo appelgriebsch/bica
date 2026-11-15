@@ -67,7 +67,7 @@ function AboutPage() {
         <p>Fonts: Figtree and Fraunces (OFL-1.1).</p>
         <p>Icons: Lucide (ISC).</p>
         <p>Speech: Uses your device's Portuguese voice.</p>
-        <p>Conversas: Replies are AI-generated, written with Grok.</p>
+        <p>Conversas: Replies are AI-generated with Mistral AI.</p>
       </Band>
 
       <Band title="Links">

@@ -4,7 +4,6 @@ Review of `main` at `188691f` after the in-range dependency update in this PR.
 Direct dependencies are the lockfile resolution of `package.json`.
 `h3` and `nf3` are transitives of Nitro. `@electric-sql/pglite` left the lockfile with the Nitro bump (#48). `better-auth` and its transitives (`better-call`, `jose`, `kysely`, `pg`, `pg-connection-string`) left the lockfile with sign-in (#33).
 The app no longer imports `pg`, `kysely`, or PGLite since the D1 move (#19), and `@types/pg` is gone from the lockfile.
-`numpy` and `pillow` are imported by `.grok/skills/**/*.py` and are not pinned.
 `package.json` overrides `undici` to 7.30.1, recorded in `bun.lock`; remove the override once miniflare ships undici >= 7.30.1.
 CVE cells marked `none found` are OSV lookups for that exact version on 2026-10-13; `jsqr` 1.4.0 and `uqr` 0.1.3 (#36) were looked up on 2026-11-06. `license-checker-rseidelsohn` 4.4.2 and its transitives were looked up on 2026-10-20. `h3` 2.0.7 and `nitro` 3.0.260903-beta were looked up on 2026-10-20. `wrangler` 4.150.0, miniflare 5.20261006.2-beta, undici 7.30.1 and sharp 0.35.5 were looked up on 2026-10-20.
 Cells marked `not checked` were not queried.
@@ -137,8 +136,7 @@ These files are **Created with Grok** (AI-generated). The mark is drawn as SVG c
 
 - Lesson, verb, grammar, reading, and radio texts in `src/data/*.ts` are original course content under the repo MIT license. No corpus or third-party word list was copied. Station names in `src/data/radio.ts` (Antena 1, Antena 2, TSF, Rádio Municipal, Carris) are references only.
 - `src/lib/tts.ts` ships no voices. Speech uses the Web Speech API and a European Portuguese voice provided by the device. No license row.
-- Conversas calls the xAI API (`XAI_API_KEY`). That is a service, not an asset. Replies are AI-generated, written with Grok.
-- `numpy` (BSD-3-Clause) and `pillow` (MIT-CMU) are imported only by `.grok/skills/**/*.py` and are listed in the table above. They are not pinned.
+- Conversas calls the Mistral AI API (`MISTRAL_API_KEY`; global endpoint by default, EU-only processing via `MISTRAL_API_BASE=https://api.eu.mistral.ai/v1`, console-signed DPA — ADR 0006). That is a service, not an asset. Replies are AI-generated with Mistral AI.
 
 ### Notable licenses
 

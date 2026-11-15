@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "app-builder-workspace",
+      "name": "bica",
       "dependencies": {
         "@fontsource-variable/figtree": "^5.3.0",
         "@fontsource-variable/fraunces": "^5.3.0",

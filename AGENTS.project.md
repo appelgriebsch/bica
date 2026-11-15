@@ -1,8 +1,8 @@
 # Bica project rules (override AGENTS.md)
 
-- **No sign-in, no accounts, no database (#33, ADR 0002 addendum).** Ignore the
-  template's auth and D1 sections in AGENTS.md: there is no Better Auth, no
-  `/login`, no `/api/auth/*`, no `DB` binding and no `@/lib/db`. Don't add them back.
+- **No sign-in, no accounts, no database (#33, ADR 0002 addendum).** There is
+  no Better Auth, no `/login`, no `/api/auth/*`, no `DB` binding and no
+  `@/lib/db`. Don't add them back.
 - Progress is device-only: `src/lib/progress-store.ts` (zustand persist,
   localStorage). Moving it between devices is encrypted QR
   transfer, no server (#36, ADR 0005).
@@ -10,3 +10,6 @@
   (`src/lib/chat-gate.ts`), per-IP burst `CHAT_RATE`, and daily global/per-IP caps
   in the `ChatBudget` Durable Object (`src/lib/chat-budget.mjs`). Never key limits
   on identity; see docs/cloudflare-workers.md for the secrets.
+- **Conversas uses Mistral** (`MISTRAL_API_KEY`, ADR 0006); **xAI is fully
+  removed** (#91). The only remaining Grok references are the "Created with
+  Grok" attributions on the AI-generated images, kept per ADR 0008.

@@ -134,17 +134,16 @@ test("stopSpeaking resolves the pending utterance", async () => {
   assert.equal(s.spoken.length, 1);
 });
 
-// Guard (ADR 0006/0007, epic #91): the tracked tree carries no xAI runtime
-// call and no Grok platform chrome (M2 removed it, ADR 0007). Allowlisted
-// paths, each owned by a later ticket:
-//   docs/adr/    ADR history mentions xAI/Grok (0001, 0006, 0007)
-//   AGENTS.md, THIRD-PARTY.md  workspace contract / Grok image attribution, swept by M3
+// Guard (ADR 0006/0007/0008, epic #91): the tracked tree carries no xAI runtime
+// call and no Grok platform chrome (M2 removed the chrome, ADR 0007; M3 swept
+// the remaining UI/docs). The "Created with Grok" image attribution in
+// THIRD-PARTY.md and about.tsx stays per ADR 0008 — these patterns do not match
+// it. Allowlisted paths:
+//   docs/adr/    ADR history mentions xAI/Grok (0001, 0006, 0007, 0008)
 //   scripts/cloudflare-config.test.mjs  asserts the workflow has no secret names (regex literals)
 const GUARD_EXCLUDE = [
   ".",
   ":!docs/adr/",
-  ":!AGENTS.md",
-  ":!THIRD-PARTY.md",
   ":!scripts/tts.test.mjs",
   ":!scripts/cloudflare-config.test.mjs",
 ];
@@ -166,7 +165,7 @@ test("no xAI runtime references (api.x.ai, XAI_API_KEY, xAI TTS) in the tracked 
   assert.equal(guardGrep("api\\.x\\.ai|XAI_API_KEY|synthesizePt"), "");
 });
 
-test("no Grok platform chrome references outside docs/adr/ and the M3-owned files", () => {
+test("no Grok platform chrome references outside docs/adr/", () => {
   assert.equal(guardGrep("og\\.grok\\.me|__grok|grokPwa|extensions\\.js|grok\\.com"), "");
 });
 

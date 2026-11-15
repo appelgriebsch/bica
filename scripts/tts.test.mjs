@@ -139,14 +139,12 @@ test("stopSpeaking resolves the pending utterance", async () => {
 // paths, each owned by a later ticket:
 //   docs/adr/    ADR history mentions xAI/Grok (0001, 0006, 0007)
 //   AGENTS.md, THIRD-PARTY.md  workspace contract / Grok image attribution, swept by M3
-//   artifacts/   Grok-generated scene images stay with attribution (ADR 0008)
 //   scripts/cloudflare-config.test.mjs  asserts the workflow has no secret names (regex literals)
 const GUARD_EXCLUDE = [
   ".",
   ":!docs/adr/",
   ":!AGENTS.md",
   ":!THIRD-PARTY.md",
-  ":!artifacts/",
   ":!scripts/tts.test.mjs",
   ":!scripts/cloudflare-config.test.mjs",
 ];

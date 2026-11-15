@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button";
 
 const REPO = "https://github.com/appelgriebsch/bica";
 const linkClass = "font-medium text-accent no-underline hover:underline";
-// ponytail: hidden until export/import ships; flip when #34 lands.
-const SHOW_EXPORT_IMPORT = false;
 
 export const Route = createFileRoute("/about")({ component: AboutPage });
 
@@ -45,13 +43,6 @@ function AboutPage() {
 
       <Band title="App">
         <p>Bica, European Portuguese, offline-first. Progress stays on this device.</p>
-        {SHOW_EXPORT_IMPORT && (
-          <p>
-            <Link to="/me" className={linkClass}>
-              Export and import
-            </Link>
-          </p>
-        )}
       </Band>
 
       <Band title="Version">

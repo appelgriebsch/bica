@@ -35,7 +35,7 @@ export async function updateApp(): Promise<UpdateResult> {
     if (reloading) return;
     reloading = true;
     location.reload();
-  });
+  }, { once: true });
   waiting.postMessage({ type: "SKIP_WAITING" });
   return "reloading";
 }

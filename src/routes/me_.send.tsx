@@ -127,7 +127,7 @@ function SendPage() {
 
   const left = Math.max(0, session.expiresAt - now);
   const mmss = `${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, "0")}`;
-  const svg = renderSVG(session.frames[part]!, { border: 4, boostEcc: true, pixelSize: 8 });
+  const svg = renderSVG(session.frames[part]!, { border: 4, boostEcc: false, pixelSize: 8 });
   return (
     <AppShell hideNav>
       <div className="short-landscape:-mt-4 short-landscape:grid short-landscape:grid-cols-[280px_1fr] short-landscape:gap-x-6">

@@ -615,7 +615,11 @@ test("Update app: only an installed waiting worker, SKIP_WAITING on request, one
         onLine,
         serviceWorker: {
           getRegistration: async () => reg,
-          addEventListener: (type, fn) => type === "controllerchange" && changes.push(fn),
+          addEventListener: (type, fn, opts) => {
+            if (type !== "controllerchange") return;
+            assert.deepEqual(opts, { once: true });
+            changes.push(fn);
+          },
         },
       },
     });

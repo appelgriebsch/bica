@@ -21,11 +21,6 @@ test("me links to about", () => {
   assert.match(me, /to="\/about"/);
 });
 
-test("export/import stays behind a false flag", () => {
-  assert.match(about, /const SHOW_EXPORT_IMPORT = false/);
-  assert.match(about, /SHOW_EXPORT_IMPORT && \([\s\S]*?Export and import/);
-});
-
 test("about links back to You", () => {
   assert.match(about, /aria-label="Back to You"/);
   assert.match(about, /<Link to="\/me">/);

@@ -10,12 +10,16 @@ const ogImage = host ? \`https://\${host}/og.jpg\` : undefined;
 meta: [{ property: "og:image", content: ogImage }],
 `;
 
-function makeWorkspace({ rootTsx, cardFile, cardBytes = 200 * 1024 } = {}) {
+function makeWorkspace({ rootTsx, publicHost, cardFile, cardBytes = 200 * 1024 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "brand-check-"));
   mkdirSync(join(root, "public"), { recursive: true });
   mkdirSync(join(root, "src/routes"), { recursive: true });
+  mkdirSync(join(root, "src/lib"), { recursive: true });
   if (rootTsx !== undefined) {
     writeFileSync(join(root, "src/routes/__root.tsx"), rootTsx);
+  }
+  if (publicHost !== undefined) {
+    writeFileSync(join(root, "src/lib/public-host.ts"), publicHost);
   }
   if (cardFile !== undefined) {
     writeFileSync(join(root, "public", cardFile), Buffer.alloc(cardBytes, 7));
@@ -47,6 +51,20 @@ test("card exists but og:image is not wired to it warns", () => {
   assert.equal(warnings.length, 1);
   assert.match(warnings[0], /^BRAND WARNING:/);
   assert.match(warnings[0], /does not wire og:image/);
+});
+
+test("wiring split across __root.tsx (ogImageUrl call) and public-host.ts (path literal) is silent", () => {
+  const root = makeWorkspace({
+    rootTsx: 'import { ogImageUrl } from "@/lib/public-host";\nconst ogImage = ogImageUrl(host);',
+    publicHost: 'const OG_IMAGE_PATH = "/og.jpg";\nexport function ogImageUrl(host) { return host ? `https://${host}${OG_IMAGE_PATH}` : undefined; }',
+    cardFile: "og.jpg",
+  });
+  assert.deepEqual(computeBrandWarnings({ workspaceRoot: root }), []);
+});
+
+test("no-arg call judges the real repo (default workspaceRoot is the module's repo root) and is silent", () => {
+  // public/og.jpg exists and the wiring exists, so the shipped gate must not fire.
+  assert.deepEqual(computeBrandWarnings(), []);
 });
 
 test("oversized card warns on the scraper budget (jpg and legacy png)", () => {

@@ -6,15 +6,23 @@
  */
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // Over this, link scrapers (X card previews included) time out or skip the
 // image, so the card silently fails to unfurl. The JPEG contract
 // (ffmpeg -q:v 4, ~150-300 KB) exists precisely to stay under it.
 export const MAX_CARD_BYTES = 600 * 1024;
 
-export function computeBrandWarnings({ workspaceRoot = process.cwd() } = {}) {
-  const rootTsxPath = join(workspaceRoot, "src/routes/__root.tsx");
-  const rootTsx = existsSync(rootTsxPath) ? readFileSync(rootTsxPath, "utf8") : "";
+export function computeBrandWarnings({
+  workspaceRoot = fileURLToPath(new URL("..", import.meta.url)),
+} = {}) {
+  // The card URL may live in the root route itself or in the public-host
+  // helper it calls (ogImageUrl/OG_IMAGE_PATH) — judge both.
+  const sources = ["src/routes/__root.tsx", "src/lib/public-host.ts"]
+    .map((rel) => join(workspaceRoot, rel))
+    .filter(existsSync)
+    .map((p) => readFileSync(p, "utf8"))
+    .join("\n");
   const cardPath = [
     join(workspaceRoot, "public/og.jpg"),
     join(workspaceRoot, "public/og.png"),
@@ -23,9 +31,9 @@ export function computeBrandWarnings({ workspaceRoot = process.cwd() } = {}) {
 
   if (cardPath !== undefined) {
     const cardUrl = cardPath.endsWith(".png") ? "/og.png" : "/og.jpg";
-    if (!rootTsx.includes(cardUrl)) {
+    if (!sources.includes(cardUrl)) {
       warnings.push(
-        `BRAND WARNING: ${cardPath} exists but src/routes/__root.tsx does not wire og:image to "https://\${host}${cardUrl}".`,
+        `BRAND WARNING: ${cardPath} exists but the root head does not wire og:image to "https://\${host}${cardUrl}".`,
       );
     } else if (statSync(cardPath).size > MAX_CARD_BYTES) {
       warnings.push(

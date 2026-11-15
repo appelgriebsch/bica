@@ -8,20 +8,18 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import { APP_NAME } from "../src/lib/app-name.mjs";
 import { buildOutput } from "./build-output.mjs";
-import { renderWebManifest } from "./grok-pwa-shared.mjs";
 
 // No .html: Workers' html_handling (auto-trailing-slash) would redirect it, and a
 // cached redirect can't answer a navigation. sw.js serves it as text/html.
 export const SHELL = "/_shell";
 
 /**
- * Every file under `dir` as a URL path, minus the worker itself, _headers and
- * the install tutorial, plus the rendered web manifest (not a file; addAll
- * fetches it from the Worker). `manifestText` overrides that text in tests.
+ * Every file under `dir` as a URL path, minus the worker itself and _headers.
+ * The web manifest is a static file (public/manifest.webmanifest) and is
+ * collected like any other asset.
  */
-export async function collectPrecache(dir, manifestText) {
+export async function collectPrecache(dir) {
   const files = await readdir(dir, { recursive: true, withFileTypes: true });
   const entries = [];
   for (const f of files) {
@@ -29,13 +27,9 @@ export async function collectPrecache(dir, manifestText) {
     const abs = join(f.parentPath ?? f.path, f.name);
     const url = "/" + relative(dir, abs).split(sep).join("/");
     // _headers is host config (Workers consume it, never serve it): precaching it would 404.
-    if (url === "/sw.js" || url === "/_headers" || url.startsWith("/__grok/")) continue;
+    if (url === "/sw.js" || url === "/_headers") continue;
     entries.push({ url, bytes: await readFile(abs) });
   }
-  entries.push({
-    url: "/__grok/manifest.webmanifest",
-    bytes: Buffer.from(manifestText ?? renderWebManifest(undefined, APP_NAME)),
-  });
   entries.sort((a, b) => (a.url < b.url ? -1 : 1));
   const hash = createHash("sha256");
   for (const e of entries) hash.update(e.url).update("\0").update(e.bytes).update("\0");
@@ -80,7 +74,9 @@ async function renderShell() {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  // ponytail: hashes the host-free manifest; the served one carries PUBLIC_HOSTNAME as id. A host-only change rolls with the next build's VERSION. Hash per host if a var-only change must refresh installed clients.
+  // The shell renders host-free (PUBLIC_HOSTNAME cleared, #51 W-1), so one build
+  // serves every public host; the static manifest is a file like any other and
+  // rolls with this build's VERSION.
   delete process.env.PUBLIC_HOSTNAME;
   const dir = join(process.cwd(), buildOutput().publicDir);
   const html = await renderShell();

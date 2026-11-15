@@ -216,20 +216,22 @@ test("#33 acceptance: no auth leftovers in src, server, scripts, docs or .github
     [
       "grep",
       "-nIiE",
-      // The ticket's grep; [h]/[w] stop this file matching itself.
-      "better-aut[h]|grok_previe[w]|auth[.]grok[.]me|GROK_AUT[H]|BETTER_AUT[H]",
+      // The ticket's grep plus the M2 chrome patterns (ADR 0007);
+      // [h]/[w]/[k]/[a]/[j]/[m]/[c] stop this file matching itself.
+      "better-aut[h]|grok_previe[w]|auth[.]grok[.]me|GROK_AUT[H]|BETTER_AUT[H]|__gro[k]|grokPw[a]|extensions[.]j[s]|og[.]grok[.]m[e]|grok[.]co[m]",
       "--",
       "src",
       "server",
       "scripts",
       "docs",
       ".github",
+      ":!scripts/tts.test.mjs",
     ],
     { cwd: root, encoding: "utf8" },
   );
   const hits = r.stdout.trim().split("\n").filter(Boolean);
-  assert.ok(hits.length > 0, "the ADR history note should mention what was removed");
-  for (const h of hits) assert.match(h, /^docs\/adr\/0002-d1-database\.md:/, h);
+  assert.ok(hits.length > 0, "the ADR history notes should mention what was removed");
+  for (const h of hits) assert.match(h, /^docs\/adr\//, h);
   const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
   const lock = JSON.parse(
     readFileSync(join(root, "bun.lock"), "utf8").replace(/,(\s*[}\]])/g, "$1"),

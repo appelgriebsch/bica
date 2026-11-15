@@ -8,8 +8,7 @@
  *   in sync.
  * - The CSP carries a per-request nonce, so only the Worker can send it. The
  *   router (src/router.tsx) mints the nonce, sets the header and hands the
- *   nonce to TanStack's scripts; the PWA middleware reads it back from the
- *   header for the extensions.js tag it injects.
+ *   nonce to TanStack's scripts.
  * - Report-Only unless CSP_ENFORCE=1. Staging sets that var; production stays
  *   Report-Only until the same flip (no code change).
  */
@@ -53,15 +52,13 @@ export function newNonce() {
 export function buildCsp(nonce) {
   return [
     "default-src 'self'",
-    // 'strict-dynamic': chunks loaded by a nonced script are trusted; host
-    // allowlists are ignored, so extensions.js gets the nonce too.
-    // challenges.cloudflare.com: Turnstile (#35). Under 'strict-dynamic' the
-    // nonced bundle's inserted script is what's trusted; the host is the
-    // fallback for browsers without it.
+    // 'strict-dynamic': chunks inserted by a nonced script are trusted; host
+    // allowlists are ignored. challenges.cloudflare.com: Turnstile (#35), the
+    // fallback host for browsers without 'strict-dynamic'.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${TURNSTILE_ORIGIN}`,
     // ponytail: Tailwind/sonner inline styles; tighten if styles get a nonce.
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://og.grok.me",
+    "img-src 'self' data: blob:",
     "font-src 'self'",
     // Server fns, /api/*, ping, Turnstile. Mistral is called server-side.
     `connect-src 'self' ${TURNSTILE_ORIGIN}`,

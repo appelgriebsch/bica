@@ -52,7 +52,7 @@ try {
 
   // Brand-asset gate (best-effort heuristic, never changes the exit code) —
   // logic lives in brand-check.mjs so it is unit-testable without a browser.
-  const brandWarnings = computeBrandWarnings({ hasCanvas });
+  const brandWarnings = computeBrandWarnings({});
 
   console.log(
     JSON.stringify(

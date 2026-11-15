@@ -3,9 +3,6 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
-// @ts-expect-error JS plugin alongside the TS vite config
-import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
-import { APP_NAME } from "./src/lib/app-name.mjs";
 import { siteKeyForBuild } from "./src/lib/turnstile-keys.mjs";
 // @ts-expect-error JS module alongside the TS vite config
 import { activePreset } from "./scripts/build-output.mjs";
@@ -35,17 +32,15 @@ export default defineConfig(({ command }) => ({
     __BICA_BUILD_SHA_FULL__: JSON.stringify(resolveBuildShaFull()),
   },
   plugins: [
-    // PWA head + ?install=1 tutorial page; runs before Start/Nitro.
-    grokPwaPlugin({ appName: APP_NAME }),
     tailwindcss(),
     tanstackStart(),
     ...(command === "build"
       ? [
           nitro({
             preset: nitroPreset,
-            // Auto-registers server/middleware/* (the PWA install page +
-            // manifest + head-tag middleware). Nitro v3 defaults serverDir to
-            // false, so removing this silently unwires /?install=1 on deploys.
+            // Auto-registers server/middleware/* (00-security-headers,
+            // server-fn-errors). Nitro v3 defaults serverDir to false, so
+            // removing this silently unwires the Worker middleware on deploys.
             serverDir: "./server",
           }),
         ]

@@ -45,8 +45,8 @@ test("CSP: nonce scripts with strict-dynamic, no unsafe-inline scripts, locked f
   assert.equal(directives["connect-src"], "'self' https://challenges.cloudflare.com");
   assert.equal(directives["frame-src"], "https://challenges.cloudflare.com");
   assert.equal(directives["default-src"], "'self'");
-  const thirdParty = csp.match(/https:\/\/[^\s;]+/g).filter((u) => u !== "https://og.grok.me");
-  assert.deepEqual(thirdParty, Array(3).fill("https://challenges.cloudflare.com"));
+  assert.equal(directives["img-src"], "'self' data: blob:");
+  assert.deepEqual(csp.match(/https:\/\/[^\s;]+/g), Array(3).fill("https://challenges.cloudflare.com"));
   assert.equal(directives["object-src"], "'none'");
   assert.equal(directives["report-uri"], "/api/csp-report");
   assert.equal(directives["report-to"], "csp-endpoint");

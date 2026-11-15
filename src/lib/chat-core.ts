@@ -1,7 +1,7 @@
 /**
  * The chat turn behind `sendChat` (#13, #35): input caps, the Turnstile gate,
- * per-IP and daily limits, and an xAI call with a deadline that never throws
- * to the client.
+ * per-IP and daily limits, and a Mistral AI call (ADR 0006) with a deadline
+ * that never throws to the client.
  */
 import { z } from "zod";
 import { speakScenarios } from "@/data/curriculum";
@@ -15,7 +15,25 @@ import {
 } from "@/lib/chat-limit";
 
 export const MAX_TOTAL_CHARS = 8000;
-export const XAI_TIMEOUT_MS = 20_000;
+export const CHAT_TIMEOUT_MS = 20_000;
+/** Mistral EU endpoint (ADR 0006); the plain var MISTRAL_API_BASE overrides it. */
+export const CHAT_API_BASE = "https://api.eu.mistral.ai/v1";
+/** ADR 0006; the plain var MISTRAL_MODEL overrides it. */
+export const CHAT_MODEL = "mistral-small-latest";
+
+/**
+ * Vendored from hiato (ADR 0006): `choices[0].message.content` may be a string
+ * or an array of blocks; join the text blocks and ignore the rest.
+ */
+export function messageContentToString(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter((b) => b && typeof b === "object" && (b as { type?: unknown }).type === "text")
+    .map((b) => String((b as { text?: unknown }).text ?? ""))
+    .join("");
+}
+
 export const BUSY = "The conversation partner is busy. Try again.";
 export const BAD_REPLY = "Unexpected reply. Try again.";
 export const UNAVAILABLE = "Practice chat is unavailable right now.";
@@ -50,15 +68,21 @@ export type ChatResult =
 export async function chatTurn({
   data,
   apiKey,
+  apiBase = CHAT_API_BASE,
+  model = CHAT_MODEL,
   gate,
   limit,
   fetch: f = fetch,
-  timeoutMs = XAI_TIMEOUT_MS,
+  timeoutMs = CHAT_TIMEOUT_MS,
 }: {
   data: ChatInput;
   /** Undefined (no key, or no Turnstile secret) refuses before anything else. */
   apiKey: string | undefined;
-  /** Turnstile token or session cookie; false → challenge_required, no limiter, no xAI. */
+  /** Endpoint base; MISTRAL_API_BASE overrides the EU default (ADR 0006). */
+  apiBase?: string;
+  /** Model; MISTRAL_MODEL overrides the default (ADR 0006). */
+  model?: string;
+  /** Turnstile token or session cookie; false → challenge_required, no limiter, no upstream. */
   gate: () => Promise<boolean>;
   limit: () => Promise<Verdict>;
   fetch?: typeof fetch;
@@ -69,8 +93,8 @@ export async function chatTurn({
   if (!scenario) return { ok: false, error: "Unknown scene." };
   // Before the limiter: an unverified caller can't use up an IP's turns.
   if (!(await gate())) return { ok: false, error: CHALLENGE_REQUIRED };
-  // Taken before the xAI call on purpose: a turn that then fails upstream still
-  // counts, so retrying a timeout can't bypass the cap (each attempt may bill).
+  // Taken before the upstream call on purpose: a turn that then fails upstream
+  // still counts, so retrying a timeout can't bypass the cap (each attempt may bill).
   const verdict = await limit();
   if (!verdict.ok) {
     return {
@@ -97,11 +121,11 @@ export async function chatTurn({
   const signal = AbortSignal.timeout(timeoutMs);
   let res: Response;
   try {
-    res = await f("https://api.x.ai/v1/chat/completions", {
+    res = await f(`${apiBase.replace(/\/+$/, "")}/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: "grok-4.5",
+        model,
         max_tokens: 280,
         temperature: 0.7,
         messages: [
@@ -122,8 +146,7 @@ export async function chatTurn({
   } catch {
     return { ok: false, error: signal.aborted ? BUSY : BAD_REPLY };
   }
-  const content = body?.choices?.[0]?.message?.content;
-  const text = typeof content === "string" ? content.trim() : "";
+  const text = messageContentToString(body?.choices?.[0]?.message?.content).trim();
   if (!text) return { ok: false, error: "Empty reply. Try a shorter line." };
   return { ok: true, text };
 }
@@ -139,10 +162,10 @@ export type ChatRequest = {
 };
 
 /**
- * What `sendChat` runs. Fails closed without XAI_API_KEY or
+ * What `sendChat` runs. Fails closed without MISTRAL_API_KEY or
  * TURNSTILE_SECRET_KEY, or with a CHAT_SESSION_SECRET under 32 bytes. TURNSTILE_HOSTNAMES lists the hostnames siteverify may
  * report (empty → every token fails). 403 without a valid token or session cookie, 429 (with
- * retry-after) from the per-IP burst or a daily cap; neither reaches xAI.
+ * retry-after) from the per-IP burst or a daily cap; neither reaches Mistral.
  */
 export async function sendChatHandler(
   data: ChatInput,
@@ -160,7 +183,10 @@ export async function sendChatHandler(
   const result = await chatTurn({
     data: input,
     // Fails closed without the Turnstile secret or a 32-byte session secret.
-    apiKey: secret && sessionSecretOk(sessionSecret) ? env.XAI_API_KEY : undefined,
+    apiKey: secret && sessionSecretOk(sessionSecret) ? env.MISTRAL_API_KEY : undefined,
+    // ADR 0006: optional plain vars override endpoint and model.
+    apiBase: env.MISTRAL_API_BASE,
+    model: env.MISTRAL_MODEL,
     gate: async () => {
       const g = await checkGate({
         token: turnstileToken,

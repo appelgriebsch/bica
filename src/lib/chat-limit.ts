@@ -1,6 +1,6 @@
 /**
  * Anonymous chat limits (#35, replacing #13's per-user limits); every turn is
- * billed to XAI_API_KEY. Keyed by client IP (`cf-connecting-ip`, IPv6 by /64),
+ * billed to MISTRAL_API_KEY. Keyed by client IP (`cf-connecting-ip`, IPv6 by /64),
  * never by identity.
  * - Burst: the Rate Limiting binding CHAT_RATE (wrangler.toml, 6 per 60 s,
  *   across isolates). Without it (local / tests), per isolate in memory.

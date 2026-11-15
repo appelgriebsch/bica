@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>Bica icon/mark replacement — visual QC (#96)</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --line: #d6d0c4;
+        --muted: #6b675f;
+        --accent: #1e4d73;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+        background: #faf8f4;
+        color: #26241f;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 15px;
+        margin: 0 0 8px;
+      }
+      .sub {
+        color: var(--muted);
+        margin-bottom: 16px;
+        max-width: 90ch;
+      }
+      .criteria {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        background: #fff;
+      }
+      .criteria li {
+        margin: 2px 0;
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        padding: 14px;
+        margin-bottom: 18px;
+      }
+      .pair {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+      }
+      .col h2 {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .tag {
+        font-size: 11px;
+        color: var(--muted);
+        font-weight: 400;
+        text-align: right;
+      }
+      .meta {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 6px;
+        white-space: pre-line;
+      }
+      img.px {
+        image-rendering: auto;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+      }
+      .sizes {
+        display: flex;
+        gap: 14px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+      }
+      .sizes figure {
+        margin: 0;
+        text-align: center;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .tabbar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        background: #e7e2d8;
+        border: 1px solid var(--line);
+        border-bottom: none;
+        border-radius: 10px 10px 0 0;
+        padding: 6px 10px;
+        width: fit-content;
+      }
+      .tab {
+        display: flex;
+        gap: 7px;
+        align-items: center;
+        background: #faf8f4;
+        border: 1px solid var(--line);
+        border-radius: 8px 8px 0 0;
+        padding: 5px 12px 5px 8px;
+        font-size: 12px;
+      }
+      .maskwrap {
+        position: relative;
+        width: 256px;
+        height: 256px;
+      }
+      .maskwrap img {
+        width: 256px;
+        height: 256px;
+        display: block;
+      }
+      .safezone {
+        position: absolute;
+        inset: 0;
+        border: 2px dashed #d33;
+        border-radius: 50%;
+        width: 80%;
+        height: 80%;
+        left: 10%;
+        top: 10%;
+        pointer-events: none;
+      }
+      .maskprev {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      .maskprev img {
+        width: 96px;
+        height: 96px;
+        display: block;
+        border: 1px solid var(--line);
+      }
+      .mask-circle img {
+        border-radius: 50%;
+      }
+      .mask-round img {
+        border-radius: 22%;
+      }
+      .mask-squircle img {
+        border-radius: 30%;
+      }
+      table {
+        border-collapse: collapse;
+        font-size: 12px;
+      }
+      td,
+      th {
+        border: 1px solid var(--line);
+        padding: 4px 8px;
+        text-align: left;
+      }
+      .pass {
+        color: #187018;
+        font-weight: 600;
+      }
+      .fail {
+        color: #a33;
+        font-weight: 600;
+      }
+      #summary {
+        position: sticky;
+        bottom: 0;
+        background: #26241f;
+        color: #f5f2ea;
+        border-radius: 10px;
+        padding: 10px 16px;
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      button {
+        font: inherit;
+        padding: 6px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: var(--accent);
+        color: #fff;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Icon/mark replacement — visual QC (#96, ADR 0010)</h1>
+    <p class="sub">
+      Prototype arm: <strong id="arm"></strong>. Left/top column: current <code>public/</code> files
+      (Grok-generated, "Created with Grok"). Right/bottom: the replacement prototype from
+      <code>icon-regen-out/</code>. Open this page over HTTP (not <code>file://</code>) so the
+      tab-strip favicon at 16&nbsp;px is exercised via <code>&lt;link rel="icon"&gt;</code>.
+    </p>
+
+    <div class="criteria">
+      <strong>Pass criteria (issue #96 acceptance criteria):</strong>
+      <ul>
+        <li>
+          Mark reads clearly at 180 / 192 / 512 px, and as a favicon at 16–48 px (browser chrome).
+        </li>
+        <li>
+          Maskable variants keep all ink inside the 80% safe-zone circle (dashed red overlay) and
+          survive the common OS masks (circle, rounded square, squircle previews below).
+        </li>
+        <li>
+          Palette stays on the manifest theme colors (cobalt <code>#1E4D73</code>, cream
+          <code>#F6F1E8</code>, background <code>#f3eee6</code>).
+        </li>
+        <li>
+          No watermark / AI artifacts; original hand-authored geometry (or, for the Mistral arm,
+          license-clean output per Mistral ToS — no attribution phrase).
+        </li>
+        <li>
+          PNG dimensions exact (180/192/512, square), regular icons opaque, byte size in the same
+          ballpark as current (8–24 KB).
+        </li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Browser tab (favicon at 16 px, served as <code>image/svg+xml</code>)</h2>
+      <div class="tabbar">
+        <div class="tab">
+          <img src="./current/favicon.svg" width="16" height="16" alt="" /><span
+            >current — Bica</span
+          >
+        </div>
+        <div class="tab">
+          <img src="./favicon.svg" width="16" height="16" alt="" /><span>prototype — Bica</span>
+        </div>
+      </div>
+      <div class="sizes" style="margin-top: 10px">
+        <figure>
+          <img class="px" src="./current/favicon.svg" width="16" height="16" alt="" />
+          <figcaption>current 16</figcaption>
+        </figure>
+        <figure>
+          <img class="px" src="./favicon.svg" width="16" height="16" alt="" />
+          <figcaption>proto 16</figcaption>
+        </figure>
+        <figure>
+          <img class="px" src="./current/favicon.svg" width="24" height="24" alt="" />
+          <figcaption>current 24</figcaption>
+        </figure>
+        <figure>
+          <img class="px" src="./favicon.svg" width="24" height="24" alt="" />
+          <figcaption>proto 24</figcaption>
+        </figure>
+        <figure>
+          <img class="px" src="./current/favicon.svg" width="32" height="32" alt="" />
+          <figcaption>current 32</figcaption>
+        </figure>
+        <figure>
+          <img class="px" src="./favicon.svg" width="32" height="32" alt="" />
+          <figcaption>proto 32</figcaption>
+        </figure>
+        <figure>
+          <img class="px" src="./current/favicon.svg" width="48" height="48" alt="" />
+          <figcaption>current 48</figcaption>
+        </figure>
+        <figure>
+          <img class="px" src="./favicon.svg" width="48" height="48" alt="" />
+          <figcaption>proto 48</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>App icons — current vs prototype</h2>
+      <div class="pair">
+        <div class="col">
+          <h2>current (Grok)</h2>
+          <div class="sizes">
+            <figure>
+              <img class="px" src="./current/icon-512.png" width="256" height="256" alt="" />
+              <figcaption>icon-512.png</figcaption>
+            </figure>
+            <figure>
+              <img class="px" src="./current/icon-192.png" width="96" height="96" alt="" />
+              <figcaption>icon-192.png</figcaption>
+            </figure>
+            <figure>
+              <img class="px" src="./current/icon-180.png" width="90" height="90" alt="" />
+              <figcaption>icon-180.png</figcaption>
+            </figure>
+          </div>
+        </div>
+        <div class="col">
+          <h2>prototype</h2>
+          <div class="sizes">
+            <figure>
+              <img class="px" src="./icon-512.png" width="256" height="256" alt="" />
+              <figcaption>icon-512.png</figcaption>
+            </figure>
+            <figure>
+              <img class="px" src="./icon-192.png" width="96" height="96" alt="" />
+              <figcaption>icon-192.png</figcaption>
+            </figure>
+            <figure>
+              <img class="px" src="./icon-180.png" width="90" height="90" alt="" />
+              <figcaption>icon-180.png</figcaption>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Maskable — safe-zone overlay (dashed circle = 80% diameter) and OS mask previews</h2>
+      <div class="pair">
+        <div class="col">
+          <h2>current (Grok)</h2>
+          <div class="maskwrap">
+            <img src="./current/icon-maskable-512.png" alt="" />
+            <div class="safezone"></div>
+          </div>
+          <div class="maskprev">
+            <span class="mask-circle"
+              ><img src="./current/icon-maskable-512.png" alt="circle mask"
+            /></span>
+            <span class="mask-round"
+              ><img src="./current/icon-maskable-512.png" alt="rounded mask"
+            /></span>
+            <span class="mask-squircle"
+              ><img src="./current/icon-maskable-512.png" alt="squircle mask"
+            /></span>
+          </div>
+        </div>
+        <div class="col">
+          <h2>prototype</h2>
+          <div class="maskwrap">
+            <img src="./icon-maskable-512.png" alt="" />
+            <div class="safezone"></div>
+          </div>
+          <div class="maskprev">
+            <span class="mask-circle"><img src="./icon-maskable-512.png" alt="circle mask" /></span>
+            <span class="mask-round"><img src="./icon-maskable-512.png" alt="rounded mask" /></span>
+            <span class="mask-squircle"
+              ><img src="./icon-maskable-512.png" alt="squircle mask"
+            /></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Programmatic QC (from <code>regen-log.json</code>, injected by regen-icons.mjs)</h2>
+      <table id="qc">
+        <thead>
+          <tr>
+            <th>file</th>
+            <th>size</th>
+            <th>bytes</th>
+            <th>checks</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="summary">
+      <span id="verdict"></span>
+      <button id="copy">Copy QC summary as markdown</button>
+      <span id="copied"></span>
+    </div>
+
+    <script>
+      // Injected by regen-icons.mjs (replaces the /*__QC__*/ … { … } span):
+      // { arm, armNote, files: [{ name, width, height, bytes, sizeOk, opaque?, safeZone? }] }
+      const QC = /*__QC__*/ {};
+      document.getElementById("arm").textContent = QC.arm + " — " + QC.armNote;
+      const tb = document.querySelector("#qc tbody");
+      for (const f of QC.files) {
+        const tr = document.createElement("tr");
+        const checks = [];
+        if (f.sizeOk !== undefined)
+          checks.push(
+            f.sizeOk ? '<span class="pass">dims OK</span>' : '<span class="fail">dims FAIL</span>',
+          );
+        if (f.opaque !== undefined)
+          checks.push(
+            f.opaque ? '<span class="pass">opaque</span>' : '<span class="fail">has alpha</span>',
+          );
+        if (f.safeZone)
+          checks.push(
+            `safe-zone ${f.safeZone.maxInkRadiusPx}/${f.safeZone.limitPx}px ` +
+              (f.safeZone.pass
+                ? '<span class="pass">PASS</span>'
+                : '<span class="fail">FAIL</span>'),
+          );
+        tr.innerHTML = `<td>${f.name}</td><td>${f.width ? f.width + "x" + f.height : "—"}</td><td>${f.bytes}</td><td>${checks.join(", ") || f.note || ""}</td>`;
+        tb.appendChild(tr);
+      }
+      const pass = QC.files.every(
+        (f) => (f.safeZone ? f.safeZone.pass : true) && (f.sizeOk ?? true),
+      );
+      document.getElementById("verdict").textContent =
+        "programmatic QC: " + (pass ? "PASS" : "FAIL");
+      document.getElementById("copy").addEventListener("click", async () => {
+        const lines = ["| file | size | bytes | checks |", "| --- | --- | --- | --- |"];
+        for (const f of QC.files) {
+          const checks = [];
+          if (f.sizeOk !== undefined) checks.push("dims " + (f.sizeOk ? "OK" : "FAIL"));
+          if (f.opaque !== undefined) checks.push(f.opaque ? "opaque" : "alpha");
+          if (f.safeZone)
+            checks.push(
+              `safe-zone ${f.safeZone.maxInkRadiusPx}/${f.safeZone.limitPx}px ${f.safeZone.pass ? "PASS" : "FAIL"}`,
+            );
+          lines.push(
+            `| ${f.name} | ${f.width ? f.width + "x" + f.height : "—"} | ${f.bytes} | ${checks.join(", ") || f.note || ""} |`,
+          );
+        }
+        await navigator.clipboard.writeText(lines.join("\n"));
+        document.getElementById("copied").textContent = "copied";
+      });
+    </script>
+  </body>
+</html>

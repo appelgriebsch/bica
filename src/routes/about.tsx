@@ -60,8 +60,9 @@ function AboutPage() {
       </Band>
 
       <Band title="Credits">
+        <p>Scene illustrations: AI-generated with Mistral AI (ADR 0009).</p>
         <p>
-          Illustrations and app icon:{" "}
+          App icon and mark:{" "}
           <span className="font-medium text-fg">Created with Grok</span> (AI-generated).
         </p>
         <p>Fonts: Figtree and Fraunces (OFL-1.1).</p>

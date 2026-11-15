@@ -1,6 +1,6 @@
 /**
  * Map a dialogue / scenario setting string to a local scene illustration under /scenes/*.
- * Images are original Grok Imagine photos (not the low-contrast SVG placeholders).
+ * Images are AI-generated illustrations (Mistral AI, ADR 0009) — not the old Grok photos.
  */
 export function sceneImageFor(setting: string): string {
   const s = setting.toLowerCase();

@@ -7,3 +7,5 @@ node_modules/
 .wrangler/
 .nitro/
 .dev.vars
+scene-regen-out/
+icon-regen-out/

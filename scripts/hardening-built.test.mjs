@@ -53,9 +53,9 @@ function spawnWorker(port, inspectorPort, dir, extraVars) {
       dir,
       "--show-interactive-dev-session=false",
       // #35: fake key + Cloudflare's always-fails Turnstile test secret, so
-      // sendChat reaches the gate (and can never reach xAI).
+      // sendChat reaches the gate (and can never reach Mistral).
       "--var",
-      "XAI_API_KEY:sk-test-not-a-real-key",
+      "MISTRAL_API_KEY:sk-test-not-a-real-key",
       "--var",
       "TURNSTILE_SECRET_KEY:2x0000000000000000000000000000000AA",
       "--var",
@@ -404,7 +404,7 @@ test(
   "#35: sendChat without a Turnstile token or cookie → 403; bad tokens 403; bad bodies 400",
   { skip },
   async () => {
-    // No token, no cookie: the gate refuses before the limiter and xAI.
+    // No token, no cookie: the gate refuses before the limiter and Mistral.
     const res = await callFn(SEND_CHAT, CHAT_TURN);
     const text = await res.text();
     assert.equal(res.status, 403, text);

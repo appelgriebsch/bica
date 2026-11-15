@@ -260,7 +260,7 @@ test("#55: staging chat-gate smoke is release-only, between headers and summary"
   assert.match(st, /node scripts\/chat-smoke\.mjs body/);
   assert.doesNotMatch(st, /a6c1db12/);
   assert.match(st, /MODE: \$\{\{ needs\.build\.outputs\.mode \}\}/);
-  assert.doesNotMatch(st, /secrets\.|CLOUDFLARE_|TOKEN|XAI_API_KEY|TURNSTILE/);
+  assert.doesNotMatch(st, /secrets\.|CLOUDFLARE_|TOKEN|XAI_API_KEY|MISTRAL_API_KEY|TURNSTILE/);
   assert.match(st, /--max-time 10\b/);
   // The request is the shared probe: this id, this body, same-origin.
   assert.match(st, /-X POST "\$url\/_serverFn\/\$id"/);
@@ -660,7 +660,9 @@ test("#35: CHAT_RATE and the ChatBudget DO binding for staging, one sqlite migra
     "TURNSTILE_SECRET_KEY",
     "CHAT_SESSION_SECRET",
     "TURNSTILE_SITE_KEY",
-    "XAI_API_KEY",
+    "MISTRAL_API_KEY",
+    "MISTRAL_MODEL",
+    "MISTRAL_API_BASE",
     "CHAT_DAILY_GLOBAL",
     "CHAT_DAILY_PER_IP",
   ]) {

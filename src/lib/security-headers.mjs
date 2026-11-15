@@ -63,7 +63,7 @@ export function buildCsp(nonce) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://og.grok.me",
     "font-src 'self'",
-    // Server fns, /api/*, ping, Turnstile. xAI is called server-side.
+    // Server fns, /api/*, ping, Turnstile. Mistral is called server-side.
     `connect-src 'self' ${TURNSTILE_ORIGIN}`,
     // The Turnstile widget iframe (#35); nothing else is framed.
     `frame-src ${TURNSTILE_ORIGIN}`,

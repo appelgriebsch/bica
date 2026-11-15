@@ -1,7 +1,7 @@
 /**
  * Conversas (#13, #35): the per-IP burst and daily budget (Durable Object
  * logic), the Turnstile gate and session cookie, sendChat end to end with a
- * mocked siteverify / xAI / bindings, chatTurn's timeout and caps, and the
+ * mocked siteverify / Mistral / bindings, chatTurn's timeout and caps, and the
  * input validator. TS sources bundled with rolldown.
  */
 import assert from "node:assert/strict";
@@ -416,11 +416,12 @@ test("gate: without CHAT_SESSION_SECRET every turn needs a token and no cookie i
   });
 });
 
-// ---- sendChat end to end (mocked siteverify, xAI and bindings) ----------
+// ---- sendChat end to end (mocked siteverify, Mistral and bindings) ----------
 
-const XAI = "https://api.x.ai/v1/chat/completions";
+const MISTRAL = "https://api.mistral.ai/v1/chat/completions";
+const MISTRAL_EU = "https://api.eu.mistral.ai/v1/chat/completions";
 const ENV = {
-  XAI_API_KEY: "sk-test",
+  MISTRAL_API_KEY: "sk-test",
   TURNSTILE_SECRET_KEY: SECRET,
   CHAT_SESSION_SECRET: SESSION,
   TURNSTILE_HOSTNAMES: HOST,
@@ -443,7 +444,7 @@ async function send({
   globalThis.fetch = async (url, init) => {
     calls.push(String(url));
     if (String(url) === m.SITEVERIFY_URL) return siteverify(url, init);
-    if (String(url) === XAI) return reply();
+    if (String(url) === MISTRAL) return reply();
     return assert.fail(`unexpected fetch ${url}`);
   };
   if (bindings) globalThis.__env__ = bindings;
@@ -465,7 +466,7 @@ async function send({
     delete globalThis.__env__;
   }
   out.calls = calls;
-  out.xai = calls.filter((u) => u === XAI).length;
+  out.mistral = calls.filter((u) => u === MISTRAL).length;
   return out;
 }
 const refuseLimiter = {
@@ -473,9 +474,9 @@ const refuseLimiter = {
   CHAT_BUDGET: { idFromName: () => assert.fail("budget reached") },
 };
 
-test("sendChat: no XAI_API_KEY or no TURNSTILE_SECRET_KEY → unavailable, nothing called", async () => {
+test("sendChat: no MISTRAL_API_KEY or no TURNSTILE_SECRET_KEY → unavailable, nothing called", async () => {
   for (const env of [
-    { ...ENV, XAI_API_KEY: undefined },
+    { ...ENV, MISTRAL_API_KEY: undefined },
     { ...ENV, TURNSTILE_SECRET_KEY: undefined },
     {},
   ]) {
@@ -485,7 +486,18 @@ test("sendChat: no XAI_API_KEY or no TURNSTILE_SECRET_KEY → unavailable, nothi
   }
 });
 
-test("sendChat: missing token → 403, no limiter, no xAI", async () => {
+test("sendChat: a non-Mistral MISTRAL_API_BASE fails closed before gate, limiter and upstream", async () => {
+  const r = await send({
+    token: "good",
+    bindings: refuseLimiter,
+    env: { ...ENV, MISTRAL_API_BASE: "https://evil.example.com/v1" },
+  });
+  assert.deepEqual(r.result, { ok: false, error: m.UNAVAILABLE });
+  assert.deepEqual(r.calls, []);
+  assert.equal(r.status, 200);
+});
+
+test("sendChat: missing token → 403, no limiter, no Mistral", async () => {
   const r = await send({ bindings: refuseLimiter });
   assert.deepEqual(r.result, { ok: false, error: "challenge_required" });
   assert.equal(r.status, 403);
@@ -521,7 +533,7 @@ test("sendChat: Turnstile replay: the second use of a token gets timeout-or-dupl
   const replay = await send({ token: "once", siteverify, ip: "198.51.100.201", bindings: refuseLimiter });
   assert.equal(replay.status, 403);
   assert.deepEqual(replay.result, { ok: false, error: "challenge_required" });
-  assert.equal(replay.xai, 0);
+  assert.equal(replay.mistral, 0);
   assert.equal(replay.cookie, undefined);
 });
 
@@ -564,17 +576,17 @@ test("sendChat: remoteip sent to siteverify is the CF-Connecting-IP; the secret 
   assert.ok(!logs.some((l) => l.includes(SECRET)), "secret logged");
 });
 
-test("sendChat: invalid token → 403 after siteverify, no xAI", async () => {
+test("sendChat: invalid token → 403 after siteverify, no Mistral", async () => {
   const r = await send({ token: "bad", siteverify: verifyNo, bindings: refuseLimiter });
   assert.equal(r.status, 403);
   assert.deepEqual(r.calls, [m.SITEVERIFY_URL]);
 });
 
-test("sendChat: valid token → cookie set, xAI answers; later turns ride the cookie", async () => {
+test("sendChat: valid token → cookie set, Mistral answers; later turns ride the cookie", async () => {
   const r = await send({ token: "good" });
   assert.deepEqual(r.result, { ok: true, text: "Olá!" });
   assert.equal(r.status, 200);
-  assert.deepEqual(r.calls, [m.SITEVERIFY_URL, XAI]);
+  assert.deepEqual(r.calls, [m.SITEVERIFY_URL, MISTRAL]);
   assert.deepEqual(await m.readSession(SESSION, r.cookie, T0, IP), { exp: T0 + 30 * 60_000, n: 1 });
   const turn2 = {
     ...data,
@@ -585,7 +597,7 @@ test("sendChat: valid token → cookie set, xAI answers; later turns ride the co
     ],
   };
   const r2 = await send({ data: turn2, cookie: r.cookie });
-  assert.deepEqual(r2.calls, [XAI]); // no siteverify
+  assert.deepEqual(r2.calls, [MISTRAL]); // no siteverify
   assert.equal((await m.readSession(SESSION, r2.cookie, T0, IP)).n, 2);
   // a new conversation (one user line) needs a token even with the cookie
   const fresh = await send({ cookie: r.cookie, bindings: refuseLimiter });
@@ -593,7 +605,7 @@ test("sendChat: valid token → cookie set, xAI answers; later turns ride the co
   assert.deepEqual(fresh.calls, []);
 });
 
-test("S1: sendChat takes the limiter: a burst refusal → 429 + retry-after, keyed by IP/64, no xAI", async () => {
+test("S1: sendChat takes the limiter: a burst refusal → 429 + retry-after, keyed by IP/64, no Mistral", async () => {
   const keys = [];
   const r = await send({
     token: "good",
@@ -604,7 +616,7 @@ test("S1: sendChat takes the limiter: a burst refusal → 429 + retry-after, key
   assert.equal(r.status, 429);
   assert.deepEqual(r.headers, { "retry-after": "60" });
   assert.deepEqual(keys, ["2001:db8:1:2::/64"]);
-  assert.equal(r.xai, 0);
+  assert.equal(r.mistral, 0);
 });
 
 test("S1: the limiter runs once per allowed turn, after the gate, with the IP key", async () => {
@@ -648,7 +660,7 @@ test("sendChat: per-IP daily cap → 429 with the reset time; another IP still p
     scope: "ip_day",
   });
   assert.deepEqual(r.headers, { "retry-after": String(TO_MIDNIGHT - 180) });
-  assert.equal(r.xai, 0);
+  assert.equal(r.mistral, 0);
   assert.equal((await send({ token: "t", ip: "198.51.100.11", env, now: at(4) })).status, 200);
   // day rollover: the same IP passes again after 00:00 UTC
   assert.equal((await send({ token: "t", ip, env, now: MIDNIGHT + 1 })).status, 200);
@@ -662,7 +674,7 @@ test("sendChat: global daily cap → 429 global_day for every IP", async () => {
   const r = await send({ token: "t", ip: "192.0.2.200", env, now: day + 10 });
   assert.equal(r.status, 429);
   assert.equal(r.result.scope, "global_day");
-  assert.equal(r.xai, 0);
+  assert.equal(r.mistral, 0);
   assert.equal(
     (await send({ token: "t", ip: "192.0.2.200", env, now: day + 86_400_000 })).status,
     200,
@@ -675,7 +687,7 @@ test("chatTurn: the gate runs before the limiter; refused → challenge_required
     apiKey: "k",
     gate: async () => false,
     limit: () => assert.fail("limit taken"),
-    fetch: () => assert.fail("xAI called"),
+    fetch: () => assert.fail("Mistral called"),
   });
   assert.deepEqual(r, { ok: false, error: "challenge_required" });
 });
@@ -734,8 +746,8 @@ const yes = async () => true;
 const turn = (fetch, o = {}) =>
   m.chatTurn({ data, apiKey: "k", gate: yes, limit: ok, fetch, ...o });
 
-test("chatTurn: over the limit returns rate_limited without calling xAI", async () => {
-  const r = await turn(() => assert.fail("xAI called"), {
+test("chatTurn: over the limit returns rate_limited without calling Mistral", async () => {
+  const r = await turn(() => assert.fail("Mistral called"), {
     limit: async () => ({ ok: false, retryAfter: 300, scope: "ip_day" }),
   });
   assert.deepEqual(r, { ok: false, error: "rate_limited", retryAfter: 300, scope: "ip_day" });
@@ -770,7 +782,7 @@ test("chatTurn: a hung upstream returns BUSY within the timeout", async () => {
       { headers: { "content-type": "application/json" } },
     );
   assert.deepEqual(await within(turn(slowBody, { timeoutMs: 100 })), { ok: false, error: m.BUSY });
-  assert.equal(m.XAI_TIMEOUT_MS, 20_000);
+  assert.equal(m.CHAT_TIMEOUT_MS, 20_000);
 });
 
 test("chatTurn: HTML, 500, bad JSON, odd shapes and network errors never throw", async () => {
@@ -789,6 +801,124 @@ test("chatTurn: HTML, 500, bad JSON, odd shapes and network errors never throw",
     json({ choices: [{ message: { content: " Olá! \n(Hi!) " } }] }),
   );
   assert.deepEqual(good, { ok: true, text: "Olá! \n(Hi!)" });
+});
+
+test("chatTurn: Mistral request shape — global endpoint, mistral-small-latest, Bearer key, caps", async () => {
+  const seen = [];
+  const spy = async (url, init) => (
+    seen.push({ url: String(url), init }),
+    json({ choices: [{ message: { content: "Olá!" } }] })
+  );
+  const r = await turn(spy);
+  assert.deepEqual(r, { ok: true, text: "Olá!" });
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].url, "https://api.mistral.ai/v1/chat/completions");
+  assert.equal(seen[0].init.method, "POST");
+  assert.equal(seen[0].init.headers.Authorization, "Bearer k");
+  const body = JSON.parse(seen[0].init.body);
+  assert.equal(body.model, "mistral-small-latest");
+  assert.equal(body.max_tokens, 280);
+  assert.equal(body.temperature, 0.7);
+  assert.equal(body.messages[0].role, "system");
+  assert.equal(body.messages.at(-1).role, "user");
+  assert.equal(m.CHAT_API_BASE, "https://api.mistral.ai/v1");
+  assert.equal(m.CHAT_MODEL, "mistral-small-latest");
+  // apiBase / model params override (a trailing slash is stripped)
+  const r2 = await turn(spy, { apiBase: "https://api.eu.mistral.ai/v1/", model: "mistral-large-latest" });
+  assert.deepEqual(r2, { ok: true, text: "Olá!" });
+  assert.equal(seen[1].url, "https://api.eu.mistral.ai/v1/chat/completions");
+  assert.equal(JSON.parse(seen[1].init.body).model, "mistral-large-latest");
+});
+
+test("chatTurn: a non-Mistral apiBase fails closed and never sends the Bearer key", async () => {
+  for (const apiBase of [
+    "https://evil.example.com/v1",
+    "https://api.mistral.ai.evil.example.com/v1",
+    "https://evilmistral.ai/v1",
+    "not a url",
+    "",
+  ]) {
+    const r = await turn(() => assert.fail(`Mistral called for ${apiBase}`), { apiBase });
+    assert.deepEqual(r, { ok: false, error: m.UNAVAILABLE }, apiBase);
+  }
+  // the EU regional host is a Mistral host and stays allowed
+  const seen = [];
+  const spy = async (url) => (seen.push(String(url)), json({ choices: [{ message: { content: "Olá!" } }] }));
+  assert.deepEqual(await turn(spy, { apiBase: "https://api.eu.mistral.ai/v1" }), { ok: true, text: "Olá!" });
+  assert.deepEqual(seen, [MISTRAL_EU]);
+});
+
+test("chatTurn: content as a blocks array (Mistral) is joined; non-text blocks ignored", async () => {
+  // ADR 0006: choices[0].message.content may be [{ type: "text", text }] blocks.
+  assert.equal(
+    m.messageContentToString("plain"),
+    "plain",
+  );
+  assert.equal(
+    m.messageContentToString([
+      { type: "text", text: " Olá! " },
+      { type: "image_url", image_url: { url: "https://x" } },
+      { type: "text", text: "(Hi!)" },
+      "not-a-block",
+      null,
+    ]),
+    " Olá! (Hi!)",
+  );
+  assert.equal(m.messageContentToString(42), "");
+  assert.equal(m.messageContentToString(undefined), "");
+  assert.equal(m.messageContentToString([{ type: "text" }]), "");
+  const blocks = async () =>
+    json({
+      choices: [
+        {
+          message: {
+            content: [
+              { type: "text", text: " Olá! " },
+              { type: "text", text: "(Hi!) " },
+            ],
+          },
+        },
+      ],
+    });
+  assert.deepEqual(await turn(blocks), { ok: true, text: "Olá! (Hi!)" });
+  // blocks with no text at all → empty reply, not a crash
+  const emptyBlocks = async () =>
+    json({ choices: [{ message: { content: [{ type: "image_url", image_url: {} }] } }] });
+  assert.deepEqual(await turn(emptyBlocks), {
+    ok: false,
+    error: "Empty reply. Try a shorter line.",
+  });
+});
+
+test("sendChat: MISTRAL_API_BASE / MISTRAL_MODEL (plain vars) override endpoint and model", async () => {
+  const seen = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (String(url) === m.SITEVERIFY_URL) return verifyOk();
+    seen.push({ url: String(url), init });
+    return reply();
+  };
+  try {
+    const out = { status: 200, headers: {}, cookie: undefined };
+    const result = await m.sendChatHandler(
+      { ...data, turnstileToken: "good" },
+      {
+        ip: "203.0.113.7",
+        cookie: undefined,
+        setCookie: (v) => (out.cookie = v),
+        setStatus: (s, h = {}) => ((out.status = s), Object.assign(out.headers, h)),
+      },
+      T0,
+      { ...ENV, MISTRAL_API_BASE: "https://api.eu.mistral.ai/v1/", MISTRAL_MODEL: "mistral-large-latest" },
+    );
+    assert.deepEqual(result, { ok: true, text: "Olá!" });
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].url, "https://api.eu.mistral.ai/v1/chat/completions");
+  assert.equal(JSON.parse(seen[0].init.body).model, "mistral-large-latest");
+  assert.equal(seen[0].init.headers.Authorization, "Bearer sk-test");
 });
 
 test("validator: known scene, at most 16 messages, 8000 chars in total", () => {
@@ -864,7 +994,7 @@ test("S1: the session cookie is bound to the client IP (IPv4, or IPv6 /64)", asy
   const turn2 = { ...data, messages: [...data.messages, { role: "assistant", content: "Olá" }, { role: "user", content: "Um café" }] };
   const same = await send({ data: turn2, cookie: r.cookie, ip: "198.51.100.70" });
   assert.equal(same.result.ok, true);
-  assert.deepEqual(same.calls, [XAI]);
+  assert.deepEqual(same.calls, [MISTRAL]);
   const moved = await send({ data: turn2, cookie: r.cookie, ip: "198.51.100.71", bindings: refuseLimiter });
   assert.equal(moved.status, 403);
   assert.deepEqual(moved.result, { ok: false, error: "challenge_required" });

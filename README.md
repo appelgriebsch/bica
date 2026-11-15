@@ -25,7 +25,7 @@ bun install --frozen-lockfile
 bun run dev   # http://localhost:8080
 ```
 
-Conversas needs the local secrets `XAI_API_KEY`, `TURNSTILE_SECRET_KEY` and `CHAT_SESSION_SECRET`, plus a `TURNSTILE_HOSTNAMES` var for your local host (committed per env in `wrangler.toml`), in your shell or a git-ignored `.dev.vars`. Use Cloudflare's Turnstile test keys locally; see [docs/cloudflare-workers.md](docs/cloudflare-workers.md). Never commit real values.
+Conversas needs the local secrets `MISTRAL_API_KEY`, `TURNSTILE_SECRET_KEY` and `CHAT_SESSION_SECRET`, plus a `TURNSTILE_HOSTNAMES` var for your local host (committed per env in `wrangler.toml`), in your shell or a git-ignored `.dev.vars`. Use Cloudflare's Turnstile test keys locally; see [docs/cloudflare-workers.md](docs/cloudflare-workers.md). Never commit real values.
 
 ## Tests and CI
 

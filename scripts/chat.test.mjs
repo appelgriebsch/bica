@@ -418,7 +418,8 @@ test("gate: without CHAT_SESSION_SECRET every turn needs a token and no cookie i
 
 // ---- sendChat end to end (mocked siteverify, Mistral and bindings) ----------
 
-const MISTRAL = "https://api.eu.mistral.ai/v1/chat/completions";
+const MISTRAL = "https://api.mistral.ai/v1/chat/completions";
+const MISTRAL_EU = "https://api.eu.mistral.ai/v1/chat/completions";
 const ENV = {
   MISTRAL_API_KEY: "sk-test",
   TURNSTILE_SECRET_KEY: SECRET,
@@ -483,6 +484,17 @@ test("sendChat: no MISTRAL_API_KEY or no TURNSTILE_SECRET_KEY → unavailable, n
     assert.deepEqual(r.result, { ok: false, error: m.UNAVAILABLE });
     assert.deepEqual(r.calls, []);
   }
+});
+
+test("sendChat: a non-Mistral MISTRAL_API_BASE fails closed before gate, limiter and upstream", async () => {
+  const r = await send({
+    token: "good",
+    bindings: refuseLimiter,
+    env: { ...ENV, MISTRAL_API_BASE: "https://evil.example.com/v1" },
+  });
+  assert.deepEqual(r.result, { ok: false, error: m.UNAVAILABLE });
+  assert.deepEqual(r.calls, []);
+  assert.equal(r.status, 200);
 });
 
 test("sendChat: missing token → 403, no limiter, no Mistral", async () => {
@@ -791,7 +803,7 @@ test("chatTurn: HTML, 500, bad JSON, odd shapes and network errors never throw",
   assert.deepEqual(good, { ok: true, text: "Olá! \n(Hi!)" });
 });
 
-test("chatTurn: Mistral request shape — EU endpoint, mistral-small-latest, Bearer key, caps", async () => {
+test("chatTurn: Mistral request shape — global endpoint, mistral-small-latest, Bearer key, caps", async () => {
   const seen = [];
   const spy = async (url, init) => (
     seen.push({ url: String(url), init }),
@@ -800,7 +812,7 @@ test("chatTurn: Mistral request shape — EU endpoint, mistral-small-latest, Bea
   const r = await turn(spy);
   assert.deepEqual(r, { ok: true, text: "Olá!" });
   assert.equal(seen.length, 1);
-  assert.equal(seen[0].url, "https://api.eu.mistral.ai/v1/chat/completions");
+  assert.equal(seen[0].url, "https://api.mistral.ai/v1/chat/completions");
   assert.equal(seen[0].init.method, "POST");
   assert.equal(seen[0].init.headers.Authorization, "Bearer k");
   const body = JSON.parse(seen[0].init.body);
@@ -809,13 +821,31 @@ test("chatTurn: Mistral request shape — EU endpoint, mistral-small-latest, Bea
   assert.equal(body.temperature, 0.7);
   assert.equal(body.messages[0].role, "system");
   assert.equal(body.messages.at(-1).role, "user");
-  assert.equal(m.CHAT_API_BASE, "https://api.eu.mistral.ai/v1");
+  assert.equal(m.CHAT_API_BASE, "https://api.mistral.ai/v1");
   assert.equal(m.CHAT_MODEL, "mistral-small-latest");
   // apiBase / model params override (a trailing slash is stripped)
-  const r2 = await turn(spy, { apiBase: "https://api.mistral.ai/v1/", model: "mistral-large-latest" });
+  const r2 = await turn(spy, { apiBase: "https://api.eu.mistral.ai/v1/", model: "mistral-large-latest" });
   assert.deepEqual(r2, { ok: true, text: "Olá!" });
-  assert.equal(seen[1].url, "https://api.mistral.ai/v1/chat/completions");
+  assert.equal(seen[1].url, "https://api.eu.mistral.ai/v1/chat/completions");
   assert.equal(JSON.parse(seen[1].init.body).model, "mistral-large-latest");
+});
+
+test("chatTurn: a non-Mistral apiBase fails closed and never sends the Bearer key", async () => {
+  for (const apiBase of [
+    "https://evil.example.com/v1",
+    "https://api.mistral.ai.evil.example.com/v1",
+    "https://evilmistral.ai/v1",
+    "not a url",
+    "",
+  ]) {
+    const r = await turn(() => assert.fail(`Mistral called for ${apiBase}`), { apiBase });
+    assert.deepEqual(r, { ok: false, error: m.UNAVAILABLE }, apiBase);
+  }
+  // the EU regional host is a Mistral host and stays allowed
+  const seen = [];
+  const spy = async (url) => (seen.push(String(url)), json({ choices: [{ message: { content: "Olá!" } }] }));
+  assert.deepEqual(await turn(spy, { apiBase: "https://api.eu.mistral.ai/v1" }), { ok: true, text: "Olá!" });
+  assert.deepEqual(seen, [MISTRAL_EU]);
 });
 
 test("chatTurn: content as a blocks array (Mistral) is joined; non-text blocks ignored", async () => {
@@ -879,14 +909,14 @@ test("sendChat: MISTRAL_API_BASE / MISTRAL_MODEL (plain vars) override endpoint 
         setStatus: (s, h = {}) => ((out.status = s), Object.assign(out.headers, h)),
       },
       T0,
-      { ...ENV, MISTRAL_API_BASE: "https://api.mistral.ai/v1/", MISTRAL_MODEL: "mistral-large-latest" },
+      { ...ENV, MISTRAL_API_BASE: "https://api.eu.mistral.ai/v1/", MISTRAL_MODEL: "mistral-large-latest" },
     );
     assert.deepEqual(result, { ok: true, text: "Olá!" });
   } finally {
     globalThis.fetch = realFetch;
   }
   assert.equal(seen.length, 1);
-  assert.equal(seen[0].url, "https://api.mistral.ai/v1/chat/completions");
+  assert.equal(seen[0].url, "https://api.eu.mistral.ai/v1/chat/completions");
   assert.equal(JSON.parse(seen[0].init.body).model, "mistral-large-latest");
   assert.equal(seen[0].init.headers.Authorization, "Bearer sk-test");
 });

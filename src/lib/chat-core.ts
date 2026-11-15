@@ -16,8 +16,8 @@ import {
 
 export const MAX_TOTAL_CHARS = 8000;
 export const CHAT_TIMEOUT_MS = 20_000;
-/** Mistral EU endpoint (ADR 0006); the plain var MISTRAL_API_BASE overrides it. */
-export const CHAT_API_BASE = "https://api.eu.mistral.ai/v1";
+/** Mistral global endpoint (ADR 0006); the plain var MISTRAL_API_BASE overrides it. */
+export const CHAT_API_BASE = "https://api.mistral.ai/v1";
 /** ADR 0006; the plain var MISTRAL_MODEL overrides it. */
 export const CHAT_MODEL = "mistral-small-latest";
 
@@ -32,6 +32,19 @@ export function messageContentToString(content: unknown): string {
     .filter((b) => b && typeof b === "object" && (b as { type?: unknown }).type === "text")
     .map((b) => String((b as { text?: unknown }).text ?? ""))
     .join("");
+}
+
+/**
+ * Only Mistral hosts may receive `Authorization: Bearer …` (ADR 0006): a
+ * mis-set MISTRAL_API_BASE must never leak the key to another origin.
+ */
+function mistralApiBaseOk(apiBase: string): boolean {
+  try {
+    const host = new URL(apiBase).hostname;
+    return host === "mistral.ai" || host.endsWith(".mistral.ai");
+  } catch {
+    return false;
+  }
 }
 
 export const BUSY = "The conversation partner is busy. Try again.";
@@ -78,7 +91,10 @@ export async function chatTurn({
   data: ChatInput;
   /** Undefined (no key, or no Turnstile secret) refuses before anything else. */
   apiKey: string | undefined;
-  /** Endpoint base; MISTRAL_API_BASE overrides the EU default (ADR 0006). */
+  /**
+   * Endpoint base; MISTRAL_API_BASE overrides the global default (ADR 0006).
+   * Must be a `mistral.ai`/`*.mistral.ai` host, else the turn fails closed.
+   */
   apiBase?: string;
   /** Model; MISTRAL_MODEL overrides the default (ADR 0006). */
   model?: string;
@@ -89,6 +105,9 @@ export async function chatTurn({
   timeoutMs?: number;
 }): Promise<ChatResult> {
   if (!apiKey) return { ok: false, error: UNAVAILABLE };
+  // Fails closed before the gate and limiter: a bad base is a config error and
+  // must neither spend a turn nor send the key anywhere but a Mistral host.
+  if (!mistralApiBaseOk(apiBase)) return { ok: false, error: UNAVAILABLE };
   const scenario = speakScenarios.find((s) => s.id === data.scenarioId);
   if (!scenario) return { ok: false, error: "Unknown scene." };
   // Before the limiter: an unverified caller can't use up an IP's turns.

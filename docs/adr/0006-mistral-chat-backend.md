@@ -1,4 +1,4 @@
-# 0006. Conversas chat backend: Mistral AI (EU endpoint) replaces xAI
+# 0006. Conversas chat backend: Mistral AI (global endpoint, EU optional) replaces xAI
 
 - **Status**: Accepted
 - **Date**: 2026-11-15
@@ -14,8 +14,8 @@ The only runtime xAI dependency in Bica is the Conversas practice chat:
 fail-closed mapping) with `Authorization: Bearer $XAI_API_KEY`. The Turnstile
 gate, per-IP burst (`CHAT_RATE`) and daily caps (`ChatBudget` DO) sit in front
 of it and stay unchanged. The hiato project already standardized on Mistral
-(`scripts/mistral-chat.ts`, ADR 0048) — but on the **global** endpoint with a
-retry loop, neither of which carries over here.
+(`scripts/mistral-chat.ts`, ADR 0048) — on the **global** endpoint with a
+retry loop; the retry loop does not carry over here.
 
 Mistral facts (verified 2026-11-15 against docs.mistral.ai and pricing pages):
 `POST https://api.mistral.ai/v1/chat/completions` is OpenAI-compatible with
@@ -27,18 +27,23 @@ because the system prompt repeats every turn); `mistral-small-latest` is
 ~$0.15/$0.60 per 1M tokens (worst case at the daily caps, 2000 turns × ~2.5k
 tokens, ≈ $1/day, +10% on EU); Mistral imposes no attribution phrase on chat
 output. Bica's learners are anonymous EU users typing free Portuguese text —
-personal data under GDPR — so EU processing is preferred. An `XRequestDPA`
+personal data under GDPR — so the EU regional endpoint (+10%) stays one
+`MISTRAL_API_BASE` var away. An `XRequestDPA`
 request header appears only in third-party blogs, not in official docs; the
 official controls are the regional endpoint plus a console-signed DPA/ZDR.
 
 ## Decision
 
 1. **Swap the chat call** in `chatTurn` to
-   `https://api.eu.mistral.ai/v1/chat/completions`, model `mistral-small-latest`
-   (optional plain var `MISTRAL_MODEL` overrides), endpoint overridable via
-   optional plain var `MISTRAL_API_BASE` (escape hatch to the global endpoint),
-   key read from `env.MISTRAL_API_KEY` (renamed Worker secret; fails closed when
-   absent, exactly as `XAI_API_KEY` did).
+   `https://api.mistral.ai/v1/chat/completions` (the **global** endpoint is the
+   default), model `mistral-small-latest` (optional plain var `MISTRAL_MODEL`
+   overrides), endpoint overridable via optional plain var `MISTRAL_API_BASE` —
+   e.g. `https://api.eu.mistral.ai/v1` for EU-only processing (+10%, same key).
+   `chatTurn` accepts only `mistral.ai`/`*.mistral.ai` hosts and fails closed
+   before the gate, limiter and upstream call otherwise, so the Bearer key
+   never leaves Mistral hosts (PR #98 review). Key read from
+   `env.MISTRAL_API_KEY` (renamed Worker secret; fails closed when absent,
+   exactly as `XAI_API_KEY` did).
 2. **Vendor hiato's `messageContentToString`** and use it when reading
    `choices[0].message.content`; add one success test with blocks-shaped
    content.
@@ -64,19 +69,21 @@ official controls are the regional endpoint plus a console-signed DPA/ZDR.
    no-token probe returns 200 `UNAVAILABLE` instead of 403, so the staging
    chat-gate smoke itself proves the secret landed. Rollback to pre-rename code
    requires re-putting `XAI_API_KEY` (documented in the rollback section).
-8. Compliance basis: **EU endpoint + console-signed DPA**; verify during staging
-   whether an `XRequestDPA` header exists (Mistral support/docs) and treat it as
-   optional. Budget the +10% regional upcharge.
+8. Compliance basis: **global endpoint by default + console-signed DPA**, with
+   the EU regional endpoint available via `MISTRAL_API_BASE` when EU-only
+   processing is required; verify during staging whether an `XRequestDPA` header
+   exists (Mistral support/docs) and treat it as optional. The +10% regional
+   upcharge applies only when the EU endpoint is selected.
 
 ## Options Considered
 
 | Option | Pros | Cons |
 | --- | --- | --- |
 | Keep xAI `grok-4.5` | no change | rejected: the task is removing xAI |
-| `mistral-small-latest` on EU endpoint (chosen) | hiato-proven, ~$1/day worst case, fast inside 20 s, EU processing for GDPR | +10% regional upcharge; small-model quality at CEFR roleplay needs the strong system prompt (already in place) |
+| `mistral-small-latest` on the global endpoint (chosen) | hiato-proven, ~$1/day worst case, fast inside 20 s, simplest | data may be processed outside the EU; mitigated by the console-signed DPA, and the EU endpoint (+10%) is one `MISTRAL_API_BASE` var away; small-model quality at CEFR roleplay needs the strong system prompt (already in place) |
 | `mistral-large-latest` | highest quality | ~$8-9/day worst case, slower, hiato saw preview large models hang/502 |
 | Official `@mistralai/mistralai` SDK | typed client | unnecessary dependency; repo pattern is plain fetch |
-| Global `api.mistral.ai` + console ZDR (hiato-style) | simplest, no upcharge | data may be processed outside the EU; kept only as the `MISTRAL_API_BASE` fallback |
+| EU `api.eu.mistral.ai` via `MISTRAL_API_BASE` + console DPA | EU-only processing for GDPR | +10% regional upcharge; not the default |
 | Retry loop (hiato batch style) | resilience | incompatible with limiter-takes-turn-first design and the 20 s deadline |
 
 ## Consequences
@@ -88,6 +95,6 @@ official controls are the regional endpoint plus a console-signed DPA/ZDR.
 - New guard test: tree scan fails on any `api.x.ai` / `XAI_API_KEY` /
   `og.grok.me` / `__grok` / `grokPwa` / `extensions.js` / `grok.com` hit outside
   the `docs/adr/` history allowlist.
-- Cost ceiling at the existing daily caps stays ≈ $1/day (+10% EU).
+- Cost ceiling at the existing daily caps stays ≈ $1/day on the global endpoint (+10% only if the EU endpoint is selected via `MISTRAL_API_BASE`).
 - Revisit if: Mistral retires `mistral-small-latest`, EU endpoint proves
   unreliable in staging, or roleplay quality needs a larger model.

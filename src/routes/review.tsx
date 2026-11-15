@@ -69,6 +69,9 @@ function ReviewPage() {
   const [known, setKnown] = useState(0);
 
   const card = queue[index];
+  const cardId = card?.id;
+  const cardKind = card?.kind;
+  const cardPt = card?.pt;
   const totalPlanned = Math.min(due.length, REVIEW_SESSION_CAP);
 
   const levelsWithVocab = levels.filter((lv) =>
@@ -113,10 +116,12 @@ function ReviewPage() {
     setTypedChecked(false);
   }
 
+  // `card` omitted: a new object with the same id/kind/pt must not re-speak.
   useEffect(() => {
-    if (phase !== "session" || !card || card.kind !== "flip" || flipped) return;
-    void speakPt(card.pt, 0.88);
-  }, [phase, card?.id, card?.kind, flipped]);
+    if (phase !== "session" || !cardId || cardKind !== "flip" || flipped || cardPt == null)
+      return;
+    void speakPt(cardPt, 0.88);
+  }, [phase, cardId, cardKind, cardPt, flipped]);
 
   return (
     <AppShell>

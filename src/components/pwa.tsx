@@ -1,7 +1,8 @@
 import { Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
+import { isStandaloneDisplay } from "@/components/pwa-display";
+import { clearModuleReloadToken } from "@/lib/module-reload";
 import { cn } from "@/lib/utils";
-import { clearModuleReloadToken } from "@/lib/error-component";
 
 function isEmbeddedFrame() {
   try {
@@ -9,15 +10,6 @@ function isEmbeddedFrame() {
   } catch {
     return true;
   }
-}
-
-export function isStandaloneDisplay() {
-  if (typeof window === "undefined") return false;
-  const mq = window.matchMedia("(display-mode: standalone)").matches;
-  const ios =
-    "standalone" in navigator &&
-    Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
-  return mq || ios;
 }
 
 function isApplePhone() {

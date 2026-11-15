@@ -1,6 +1,6 @@
 import { Bell } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isStandaloneDisplay } from "@/components/pwa";
+import { isStandaloneDisplay } from "@/components/pwa-display";
 import {
   loadReminderPrefs,
   markNotifiedToday,

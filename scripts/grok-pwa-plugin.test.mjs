@@ -301,19 +301,16 @@ test("strips install params from the app link", () => {
   assert.equal(stripInstallParams("/app?install=1&platform=ios&tab=2"), "/app?tab=2");
 });
 
-test("names the install page from host slug", () => {
+test("the host is not a display name", () => {
   assert.equal(appNameFromHost("localhost:8080"), "Grok App");
   assert.equal(appNameFromHost("172.17.154.217:8080"), "Grok App");
-  assert.equal(appNameFromHost("wild-race.grok.me"), "Wild Race");
-});
-
-test("rejects hosts that are not plain slugs", () => {
+  assert.equal(appNameFromHost("wild-race.grok.me"), "Grok App");
   assert.equal(appNameFromHost("<script>alert(1)</script>"), "Grok App");
   assert.equal(appNameFromHost('"><img src=x onerror=1>.grok.me'), "Grok App");
 });
 
 test("renders install page markup", () => {
-  const html = renderInstallPage("wild-race.grok.me", "/?install=1&platform=ios");
+  const html = renderInstallPage("wild-race.grok.me", "/?install=1&platform=ios", "Wild Race");
   assert.match(html, /Add Wild Race to your/);
   assert.match(html, /\/__grok\/install\/styles\.css/);
   assert.match(html, /href="\/"/);
@@ -321,9 +318,14 @@ test("renders install page markup", () => {
   assert.equal(html.includes("{{APP_URL}}"), false);
 });
 
-test("escapes host-derived values in the install page", () => {
-  const html = renderInstallPage("<script>alert(1)</script>", "/?install=1&platform=ios");
+test("escapes the app name in the install page", () => {
+  const html = renderInstallPage(
+    "example.com",
+    "/?install=1&platform=ios",
+    "<script>alert(1)</script>",
+  );
   assert.equal(html.includes("<script>alert(1)</script>"), false);
+  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
 });
 
 test("#51: PUBLIC_HOSTNAME wins over the request host; manifest id uses it", () => {
@@ -351,7 +353,7 @@ test("#51: PUBLIC_HOSTNAME wins over the request host; manifest id uses it", () 
 });
 
 test("renders the manifest with the per-app name", () => {
-  const manifest = JSON.parse(renderWebManifest("wild-race.grok.me"));
+  const manifest = JSON.parse(renderWebManifest("wild-race.grok.me", "Wild Race"));
   assert.equal(manifest.name, "Wild Race");
   assert.equal(manifest.short_name, "Wild Race");
   assert.deepEqual(manifest.icons, [

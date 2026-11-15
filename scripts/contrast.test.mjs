@@ -82,19 +82,35 @@ const ALPHA_PAIRS = [
   ["accent-fg", 0.7, "accent", UI], // practice.tsx Speak card icon ([&>svg]:text-accent-fg/70)
 ];
 
+// `text-*/NN` and the bracket form `text-*/[0.7]`. A separate `opacity-NN` class
+// is only used on disabled and hover states, which WCAG exempts, so it is not scanned.
+const TEXT_OPACITY = /(\]:)?text-([a-z0-9-]+)\/(\d+|\[[\d.]+\])(?!\w)/g;
+
+function textOpacities(src) {
+  return [...src.matchAll(TEXT_OPACITY)].map((m) => {
+    const [, icon, fg, raw] = m;
+    const a = raw.startsWith("[") ? Number(raw.slice(1, -1)) : Number(raw) / 100;
+    return { icon: Boolean(icon), fg, a, raw: m[0] };
+  });
+}
+
 test("every text-*/NN opacity class in src/ is covered by ALPHA_PAIRS", () => {
+  assert.deepEqual(textOpacities("text-accent-fg/[0.7]"), [
+    { icon: false, fg: "accent-fg", a: 0.7, raw: "text-accent-fg/[0.7]" },
+  ]);
+  assert.deepEqual(textOpacities("[&>svg]:text-accent-fg/70"), [
+    { icon: true, fg: "accent-fg", a: 0.7, raw: "]:text-accent-fg/70" },
+  ]);
   const root = new URL("../src/", import.meta.url);
   const files = readdirSync(root, { recursive: true }).filter((f) => /\.(tsx?|css)$/.test(f));
   const missing = [];
   for (const f of files) {
     const src = readFileSync(new URL(f, root), "utf8");
-    for (const m of src.matchAll(/(\]:)?text-([a-z0-9-]+)\/(\d+)\b/g)) {
-      const [, icon, fg, pct] = m;
-      const a = Number(pct) / 100;
+    for (const hit of textOpacities(src)) {
       // Arbitrary-variant classes (e.g. [&>svg]:text-x/70) style icons: UI 3:1.
-      const min = icon ? UI : TEXT;
-      if (!ALPHA_PAIRS.some(([f2, a2, , m2]) => f2 === fg && a2 === a && m2 >= min)) {
-        missing.push(`${f}: ${m[0]}`);
+      const min = hit.icon ? UI : TEXT;
+      if (!ALPHA_PAIRS.some(([f2, a2, , m2]) => f2 === hit.fg && a2 === hit.a && m2 >= min)) {
+        missing.push(`${f}: ${hit.raw}`);
       }
     }
   }

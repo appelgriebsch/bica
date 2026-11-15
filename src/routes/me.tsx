@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Camera, QrCode } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { SpeakButton } from "@/components/speak-button";
 import { StartLevelPicker } from "@/components/start-level";
 import { DailyReminder } from "@/components/daily-reminder";
 import { InstallHint } from "@/components/pwa";
+import { HYDRATION_FAILED } from "@/lib/transfer-merge";
 import { lessons, vocabFromCompleted, workingLevel } from "@/data/curriculum";
 import { useProgress } from "@/lib/progress-store";
 
@@ -31,8 +33,8 @@ function MePage() {
 
       <p className="mt-6 text-sm text-subtle">
         {hydrationFailed
-          ? "Couldn't read the progress saved on this device. Reload the page to try again."
-          : "Your progress is saved on this device only; nothing leaves the browser."}
+          ? HYDRATION_FAILED
+          : "Your progress is saved on this device. It is shared only when you choose Send progress."}
       </p>
 
       <section className="mt-4 grid grid-cols-3 gap-2">
@@ -52,6 +54,28 @@ function MePage() {
       <p className="mt-2 text-sm text-subtle">
         {lessonDone} lessons on the path. Review lives under Practice.
       </p>
+
+      <section className="paper-card mt-8 rounded-[var(--radius-lg)] p-4">
+        <h2 className="font-display text-xl font-medium">Move progress</h2>
+        <p className="mt-1 text-sm text-muted">
+          Copy progress between devices. Nothing is uploaded.
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Button asChild>
+            <Link to="/me/send" className="no-underline">
+              <QrCode aria-hidden /> Send progress
+            </Link>
+          </Button>
+          <Button asChild variant="secondary">
+            <Link to="/me/receive" className="no-underline">
+              <Camera aria-hidden /> Receive progress
+            </Link>
+          </Button>
+        </div>
+        <p className="mt-3 text-sm text-subtle">
+          One direction at a time. For both ways, repeat with the phones swapped.
+        </p>
+      </section>
 
       <section className="mt-8">
         <StartLevelPicker label="Treat me as" />

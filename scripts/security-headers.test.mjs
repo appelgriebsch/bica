@@ -21,7 +21,11 @@ test("static headers: HSTS without preload, DENY, referrer, nosniff, COOP same-o
   assert.equal(STATIC_SECURITY_HEADERS["referrer-policy"], "strict-origin-when-cross-origin");
   assert.equal(STATIC_SECURITY_HEADERS["x-content-type-options"], "nosniff");
   assert.equal(STATIC_SECURITY_HEADERS["cross-origin-opener-policy"], "same-origin");
-  assert.match(STATIC_SECURITY_HEADERS["permissions-policy"], /camera=\(\)/);
+  // #36: camera for same-origin QR scanning only; mic and location stay off.
+  assert.equal(
+    STATIC_SECURITY_HEADERS["permissions-policy"],
+    "camera=(self), geolocation=(), microphone=()",
+  );
 });
 
 test("CSP: nonce scripts with strict-dynamic, no unsafe-inline scripts, locked framing", () => {

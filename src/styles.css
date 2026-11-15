@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Phones on their side (#36 Send): QR left, code and actions right. */
+@custom-variant short-landscape (@media (orientation: landscape) and (max-height: 500px));
+
 /* Self-hosted so the path still has a face when the network is gone. */
 @font-face {
   font-family: "Fraunces Variable";

@@ -12,7 +12,7 @@ Production: <https://bica.appelgriebsch.org>
 
 ## Progress stays on your device
 
-There are no accounts. Progress is stored in the browser (`src/lib/progress-store.ts`, zustand `persist` in `localStorage`) and can be moved between devices with export/import (#34). Background: `AGENTS.project.md` and the [ADR 0002 addendum](docs/adr/0002-d1-database.md) (#33).
+There are no accounts. Progress is stored in the browser (`src/lib/progress-store.ts`, zustand `persist` in `localStorage`) and can be moved between devices with encrypted QR transfer, no server (#36, [ADR 0005](docs/adr/0005-cross-device-qr-transfer.md)). Background: `AGENTS.project.md` and the [ADR 0002 addendum](docs/adr/0002-d1-database.md) (#33).
 
 Conversas is anonymous and protected by Cloudflare Turnstile, the `CHAT_RATE` rate limit and the `ChatBudget` Durable Object (`src/lib/chat-gate.ts`, `src/lib/chat-budget.mjs`).
 

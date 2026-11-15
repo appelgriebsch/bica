@@ -114,9 +114,9 @@ Seen in: `src/data/level-mastery.ts`, `src/components/level-complete.tsx`, `src/
 
 ## Send progress
 
-Device-to-device progress transfer. Not a control in the tree. Planned on issue #36 as encrypted QR frames between devices, with no server. That issue supersedes the earlier file export/import (#34). About still hides an "Export and import" link for #34.
+Device-to-device progress transfer. You offers Send and Receive. Encrypted QR frames move progress between phones, with no server.
 
-Seen in: issue #36 (not a file in this tree). Related leftover for #34: `src/routes/about.tsx` (`SHOW_EXPORT_IMPORT`), `src/lib/progress-store.ts` (`mergeRemote`), `README.md`, `docs/adr/0002-d1-database.md` (the #34 paragraph only).
+Seen in: `src/routes/me.tsx`, `src/routes/me_.send.tsx`, `src/routes/me_.receive.tsx`
 
 ## Offline / Online-only
 

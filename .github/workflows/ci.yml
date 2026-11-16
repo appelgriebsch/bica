@@ -47,6 +47,9 @@ jobs:
       - run: bun run deps:check
       - run: bun run licenses:check
       - run: bun run build
+      # #74: fail CI when the built sw.js still has placeholders (VERSION "dev",
+      # empty PRECACHE) or precaches a file that is not in the output folder.
+      - run: node scripts/sw-build-check.mjs
       - run: bun run build:cf
         env:
           # Exercises the #51 W-1 guard: precache must strip this from /_shell.

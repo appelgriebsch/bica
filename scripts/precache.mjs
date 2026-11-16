@@ -7,7 +7,7 @@
 import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildOutput } from "./build-output.mjs";
 
 // No .html: Workers' html_handling (auto-trailing-slash) would redirect it, and a
@@ -18,8 +18,13 @@ export const SHELL = "/_shell";
  * Every file under `dir` as a URL path, minus the worker itself and _headers.
  * The web manifest is a static file (public/manifest.webmanifest) and is
  * collected like any other asset.
+ *
+ * @param {string} dir the built public folder
+ * @param {string} [swTemplate] source template of the worker (public/sw.js).
+ *   #74: its bytes join the hash, so an edit to the worker's own logic rotates
+ *   the cache too (the built sw.js is excluded from the entries below).
  */
-export async function collectPrecache(dir) {
+export async function collectPrecache(dir, swTemplate) {
   const files = await readdir(dir, { recursive: true, withFileTypes: true });
   const entries = [];
   for (const f of files) {
@@ -32,6 +37,7 @@ export async function collectPrecache(dir) {
   }
   entries.sort((a, b) => (a.url < b.url ? -1 : 1));
   const hash = createHash("sha256");
+  if (swTemplate) hash.update("/sw.js\0").update(await readFile(swTemplate)).update("\0");
   for (const e of entries) hash.update(e.url).update("\0").update(e.bytes).update("\0");
   return {
     urls: entries.map((e) => e.url),
@@ -81,7 +87,9 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const dir = join(process.cwd(), buildOutput().publicDir);
   const html = await renderShell();
   await writeFile(join(dir, SHELL), html);
-  const manifest = await collectPrecache(dir);
+  // The template is resolved from this script, not cwd: tests spawn the CLI with a temp cwd.
+  const swTemplate = fileURLToPath(new URL("../public/sw.js", import.meta.url));
+  const manifest = await collectPrecache(dir, swTemplate);
   assertManifest(manifest);
   const swPath = join(dir, "sw.js");
   await writeFile(swPath, injectManifest(await readFile(swPath, "utf8"), manifest));

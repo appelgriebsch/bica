@@ -126,7 +126,12 @@ former Grok-generated scenes in the same change.
 
 ### App icon and mark
 
-These files are **Created with Grok** (AI-generated). The mark is drawn as SVG code by Grok Build (the Grok app builder) and the PNGs are rasterizations of it. They are not claimed as human-made.
+These files are **original, hand-authored artwork — not AI-generated**, so no
+AI attribution is owed. The mark is an illustrative azulejo tile drawn as SVG in
+`scripts/icon-regen/mark.svg` (maskable variant `scripts/icon-regen/mark-maskable.svg`,
+ADR 0010, issue #104); the PNGs are local rasterizations produced by
+`scripts/icon-regen/regen-icons.mjs`. `src/components/azulejo-mark.tsx` only renders
+`/favicon.svg` and is not artwork itself.
 
 - `public/favicon.svg`
 - `public/icon-180.png`

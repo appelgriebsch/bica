@@ -1,19 +1,52 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="32" height="32">
-  <!-- Original azulejo tile mark, hand-authored for Bica (issue #96, ADR 0010).
-       Replaces the Grok Build drawing; cobalt #1E4D73 + cream #F6F1E8 (manifest
-       theme colors). Eight-point star (4-point star + rotated square), framed
-       tile, corner dots. Not AI-generated. -->
-  <rect width="64" height="64" rx="15" fill="#1E4D73"/>
-  <rect x="5.5" y="5.5" width="53" height="53" rx="10.5" fill="#F6F1E8"/>
-  <rect x="10" y="10" width="44" height="44" rx="7" fill="none" stroke="#1E4D73" stroke-width="2"/>
+  <!-- Original illustrative azulejo tile mark, hand-authored for Bica (#96/#104, ADR 0010).
+       Replaces the Grok Build drawing: cobalt #1E4D73 ceramic body with a cream
+       #F6F1E8 glazed face (manifest theme colors), a painted border moldura
+       (double frame + diamond chain + corner dots), a glaze highlight on the rim,
+       and a centered eight-petal rosette medallion with painted veins. Flat
+       editorial-illustration style, matching the scene art. Not AI-generated. -->
+  <defs>
+    <g id="p">
+      <path d="M32 32 C29.2 28 29.2 23.9 32 20.2 C34.8 23.9 34.8 28 32 32 Z"/>
+      <path d="M32 30 L32 22.6" fill="none" stroke-width="0.75" stroke-linecap="round"/>
+    </g>
+    <path id="d" d="M0 -1.15 1.15 0 0 1.15 -1.15 0Z"/>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#1E4D73"/>
+  <rect x="5" y="5" width="54" height="54" rx="9.5" fill="#F6F1E8"/>
+  <path d="M5.9 32 A26.1 26.1 0 0 1 32 5.9" fill="none" stroke="#1E4D73" stroke-width="1.8" stroke-linecap="round" opacity="0.12"/>
+  <rect x="7.6" y="7.6" width="48.8" height="48.8" rx="4.8" fill="none" stroke="#1E4D73" stroke-width="1.5"/>
+  <rect x="10.8" y="10.8" width="42.4" height="42.4" rx="3" fill="none" stroke="#1E4D73" stroke-width="0.8"/>
   <g fill="#1E4D73">
-    <path d="M32 13 36.6 27.4 51 32 36.6 36.6 32 51 27.4 36.6 13 32 27.4 27.4Z"/>
-    <rect x="24.5" y="24.5" width="15" height="15" rx="1" transform="rotate(45 32 32)"/>
-    <circle cx="17.5" cy="17.5" r="2.1"/>
-    <circle cx="46.5" cy="17.5" r="2.1"/>
-    <circle cx="17.5" cy="46.5" r="2.1"/>
-    <circle cx="46.5" cy="46.5" r="2.1"/>
+    <use href="#d" transform="translate(32 9.4)"/>
+    <use href="#d" transform="translate(20.7 9.4)"/>
+    <use href="#d" transform="translate(43.3 9.4)"/>
+    <use href="#d" transform="translate(32 54.6)"/>
+    <use href="#d" transform="translate(20.7 54.6)"/>
+    <use href="#d" transform="translate(43.3 54.6)"/>
+    <use href="#d" transform="translate(9.4 32)"/>
+    <use href="#d" transform="translate(9.4 20.7)"/>
+    <use href="#d" transform="translate(9.4 43.3)"/>
+    <use href="#d" transform="translate(54.6 32)"/>
+    <use href="#d" transform="translate(54.6 20.7)"/>
+    <use href="#d" transform="translate(54.6 43.3)"/>
+    <circle cx="9.4" cy="9.4" r="1.25"/>
+    <circle cx="54.6" cy="9.4" r="1.25"/>
+    <circle cx="9.4" cy="54.6" r="1.25"/>
+    <circle cx="54.6" cy="54.6" r="1.25"/>
   </g>
-  <circle cx="32" cy="32" r="5.4" fill="#F6F1E8"/>
-  <circle cx="32" cy="32" r="2.6" fill="#1E4D73"/>
+  <circle cx="32" cy="32" r="14.6" fill="none" stroke="#1E4D73" stroke-width="1.2"/>
+  <g fill="#1E4D73" stroke="#F6F1E8">
+    <use href="#p"/>
+    <use href="#p" transform="rotate(90 32 32)"/>
+    <use href="#p" transform="rotate(180 32 32)"/>
+    <use href="#p" transform="rotate(270 32 32)"/>
+    <use href="#p" transform="rotate(45 32 32) translate(32 32) scale(0.62) translate(-32 -32)"/>
+    <use href="#p" transform="rotate(135 32 32) translate(32 32) scale(0.62) translate(-32 -32)"/>
+    <use href="#p" transform="rotate(225 32 32) translate(32 32) scale(0.62) translate(-32 -32)"/>
+    <use href="#p" transform="rotate(315 32 32) translate(32 32) scale(0.62) translate(-32 -32)"/>
+  </g>
+  <circle cx="32" cy="32" r="4.2" fill="#1E4D73"/>
+  <circle cx="32" cy="32" r="2.1" fill="#F6F1E8"/>
+  <circle cx="32" cy="32" r="1" fill="#1E4D73"/>
 </svg>

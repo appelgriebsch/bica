@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 /**
- * Prototype (issue #96, ADR 0010): evaluate original replacements for the
+ * Prototype (issues #96/#104, ADR 0010): evaluate original replacements for the
  * Grok-generated app icon/mark (`public/favicon.svg`, `public/icon-*.png`,
  * `public/icon-maskable-*.png`). Research + prototype only — nothing in
  * `public/` is touched by this script; it writes to `icon-regen-out/` for
- * hand review. The follow-up ticket swaps the 6 shipped files + THIRD-PARTY.md
- * + `scripts/about.test.mjs` in one change.
+ * hand review. The follow-up ticket (#104) swaps the 6 shipped files +
+ * THIRD-PARTY.md + `scripts/about.test.mjs` in one change.
+ * #104 art direction: the mark is an *illustrative* azulejo tile — ceramic
+ * body, glazed face, painted border moldura (diamond chain), rosette medallion
+ * — not a flat geometric pictogram.
  *
  * Arms:
  *   default (`--via=svg`)      Original hand-authored mark (`mark.svg`,
@@ -55,10 +58,12 @@ const SIZES = { regular: [180, 192, 512], maskable: [192, 512] };
 
 const MISTRAL_PROMPT = [
   'Generate a 1024x1024 app icon for "Bica", a Lisbon Portuguese-learning app.',
-  "A single square azulejo (Portuguese ceramic tile): full-bleed background in deep cobalt blue #1E4D73,",
-  "with a centered cream #F6F1E8 eight-pointed star (compass-rose / azulejo estrela motif) inside a thin",
-  "cream frame ring. Flat vector style, exactly two colors (#1E4D73 and #F6F1E8), no gradients, no shadows,",
-  "no text, no watermark, no people, no photorealism. All artwork must sit inside the central circle of",
+  "A single square azulejo (Portuguese ceramic tile) drawn as a flat editorial illustration, matching the app's scene-art style:",
+  "full-bleed deep cobalt blue #1E4D73 background, with a centered cream #F6F1E8 painted motif \u2014",
+  "an eight-petal rosette (four large cardinal petals and four smaller diagonal petals, each with a thin painted vein line)",
+  "inside a thin cream medallion ring, surrounded by a sparse ring of small cream diamonds, all inside a larger thin cream circle.",
+  "Flat vector-like shapes, exactly two colors (#1E4D73 and #F6F1E8, opacity tints allowed), no gradients, no shadows,",
+  "no text, no watermark, no people, no photorealism. All painted artwork must sit inside the central circle of",
   "radius 40% of the icon (the maskable safe zone).",
 ].join(" ");
 
@@ -311,7 +316,7 @@ async function main() {
   await writeFile(join(OUT, "qc.html"), qcHtml);
 
   const log = {
-    issue: 96,
+    issue: "#96/#104",
     arm: VIA,
     armNote,
     generatedAt: new Date().toISOString(),

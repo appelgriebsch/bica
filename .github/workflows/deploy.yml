@@ -283,7 +283,11 @@ jobs:
         run: |
           url=$(grep -oE 'https://bica-staging\.[a-z0-9-]+\.workers\.dev' "$RUNNER_TEMP/deploy.log" | head -n 1)
           test -n "$url" || { echo "::error::no workers.dev URL in the deploy output"; exit 1; }
-          bash scripts/smoke-health.sh "$url" staging "$SHA"
+          # #73: the version id `wrangler deploy` printed. A same-sha redeploy or
+          # rollback gets a fresh id, so the smoke proves the new version is live.
+          version=$(grep -oE 'Current Version ID: [^[:space:]]+' "$RUNNER_TEMP/deploy.log" | head -n 1 | sed 's/^Current Version ID: //')
+          test -n "$version" || { echo "::error::no Current Version ID in the deploy output"; exit 1; }
+          bash scripts/smoke-health.sh "$url" staging "$SHA" "$version"
       # #28: HTML carries the security headers and a nonce CSP. Enforced on staging since #55; production stays Report-Only until its flip.
       # workers.dev keeps serving the previous version for a few seconds after
       # `wrangler deploy` returns (run 38550854181 probed 0.4 s later and got the

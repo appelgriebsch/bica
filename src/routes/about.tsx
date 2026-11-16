@@ -19,9 +19,9 @@ function Band({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function GitHubLink({ href, label, children }: { href: string; label: string; children: string }) {
+function GitHubLink({ href, children }: { href: string; children: string }) {
   return (
-    <OnlineOnly feature="github" label={label}>
+    <OnlineOnly feature="github">
       <a href={href} className={linkClass}>
         {children}
       </a>
@@ -68,12 +68,8 @@ function AboutPage() {
 
       <Band title="License">
         <p>MIT © 2026 Andreas Gerlach</p>
-        <GitHubLink href={`${REPO}/blob/main/LICENSE`} label="LICENSE">
-          LICENSE
-        </GitHubLink>
-        <GitHubLink href={`${REPO}/blob/main/THIRD-PARTY.md`} label="THIRD-PARTY.md">
-          THIRD-PARTY.md
-        </GitHubLink>
+        <GitHubLink href={`${REPO}/blob/main/LICENSE`}>LICENSE</GitHubLink>
+        <GitHubLink href={`${REPO}/blob/main/THIRD-PARTY.md`}>THIRD-PARTY.md</GitHubLink>
       </Band>
 
       <Band title="Credits">
@@ -102,12 +98,8 @@ function AboutPage() {
       </Band>
 
       <Band title="Links">
-        <GitHubLink href={REPO} label="Source repository">
-          Source repository
-        </GitHubLink>
-        <GitHubLink href={`${REPO}/issues`} label="Report an issue">
-          Report an issue
-        </GitHubLink>
+        <GitHubLink href={REPO}>Source repository</GitHubLink>
+        <GitHubLink href={`${REPO}/issues`}>Report an issue</GitHubLink>
       </Band>
     </AppShell>
   );

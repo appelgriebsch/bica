@@ -72,7 +72,11 @@ function Player({ lesson }: { lesson: Lesson }) {
                 ? `${levelUp} · Concluído`
                 : `${lesson.level} · ${lesson.titlePt}`}
             </p>
-            <Progress value={pct} className="mt-1" />
+            <Progress
+              value={pct}
+              className="mt-1"
+              label={`Lesson progress: ${done ? totalSteps : step + 1} of ${totalSteps} steps`}
+            />
           </div>
           <p className="text-xs tabular-nums text-subtle">{lesson.minutes} min</p>
         </div>

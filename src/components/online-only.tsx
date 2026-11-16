@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { Slot, Slottable } from "@radix-ui/react-slot";
 import { Cloud } from "lucide-react";
-import type { MouseEvent, ReactElement } from "react";
+import { useId, type MouseEvent, type ReactElement } from "react";
 import { toast } from "sonner";
 import { useOnline } from "@/lib/online";
 import { ONLINE_FEATURES, type OnlineFeatureId } from "@/lib/online-features";
@@ -11,22 +11,22 @@ import { cn } from "@/lib/utils";
  * Marks a control as needing internet (Cloud, online and offline) and gates it
  * offline: muted, `aria-disabled` but focusable, and a tap explains why and
  * offers the alternative. Wraps exactly one element (button or link):
- *   <OnlineOnly feature="conversas" label="Send"><Button>…</Button></OnlineOnly>
+ *   <OnlineOnly feature="conversas"><Button>…</Button></OnlineOnly>
+ * The wrapped control keeps its accessible name from its own content or
+ * aria-label (WCAG 2.5.3 Label in Name); the online state is exposed as its
+ * accessible description, never as a name override.
  * `placement="corner"` puts the marker top-right (cards); default is inline before the label.
  * `gate={false}`: marker only — for entry points whose content is bundled and opens offline
  * (scene cards); the online-only part inside them is gated on its own.
  */
 export function OnlineOnly({
   feature,
-  label,
   placement = "inline",
   gate = true,
   className,
   children,
 }: {
   feature: OnlineFeatureId;
-  /** Visible name of the control; the accessible name adds the online state. */
-  label: string;
   placement?: "inline" | "corner";
   gate?: boolean;
   className?: string;
@@ -36,6 +36,7 @@ export function OnlineOnly({
   const navigate = useNavigate();
   const f = ONLINE_FEATURES[feature];
   const alt = "alternative" in f ? f.alternative : undefined;
+  const stateId = useId();
 
   function onClickCapture(e: MouseEvent) {
     if (online) return;
@@ -51,7 +52,7 @@ export function OnlineOnly({
 
   return (
     <Slot
-      aria-label={`${label}, ${online ? "needs internet" : "unavailable offline"}`}
+      aria-describedby={stateId}
       aria-disabled={online ? undefined : true}
       onClickCapture={onClickCapture}
       className={cn("aria-disabled:opacity-50", placement === "corner" && "relative", className)}
@@ -64,6 +65,9 @@ export function OnlineOnly({
         )}
       />
       <Slottable>{children}</Slottable>
+      <span id={stateId} className="sr-only">
+        {online ? "Needs internet." : "Unavailable offline."}
+      </span>
     </Slot>
   );
 }

@@ -1,4 +1,5 @@
 import { createRouter } from "@tanstack/react-router";
+import { NotFound } from "@/components/not-found";
 import { cspNonce } from "@/lib/csp-nonce";
 import { AppErrorComponent } from "@/lib/error-component";
 import { initAnalytics } from "@/lib/analytics.mjs";
@@ -12,6 +13,7 @@ export function getRouter() {
   return createRouter({
     routeTree,
     defaultErrorComponent: AppErrorComponent,
+    defaultNotFoundComponent: NotFound,
     ssr: { nonce: cspNonce() },
   });
 }

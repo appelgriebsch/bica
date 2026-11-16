@@ -112,7 +112,7 @@ function Home() {
           <span>Path</span>
           <span className="tabular-nums">{pct}%</span>
         </div>
-        <Progress value={pct} />
+        <Progress value={pct} label={`${doneCount} of ${lessons.length} lessons`} />
       </div>
 
       <Link

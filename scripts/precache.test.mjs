@@ -69,6 +69,30 @@ test("version changes when any asset changes", async () => {
   }
 });
 
+test("#74: editing only the sw.js source template rotates the version; same inputs keep it", async () => {
+  const dir = await fakeBuild();
+  const tmp = await mkdtemp(join(tmpdir(), "bica-sw-template-"));
+  const tmpl = join(tmp, "sw.js");
+  try {
+    await writeFile(tmpl, 'const VERSION = "dev";\nconst PRECACHE = [];\n');
+    const a = await collectPrecache(dir, tmpl);
+    assert.equal((await collectPrecache(dir, tmpl)).version, a.version);
+    await writeFile(tmpl, 'const VERSION = "dev";\nconst PRECACHE = [];\n// worker logic change\n');
+    const b = await collectPrecache(dir, tmpl);
+    assert.notEqual(b.version, a.version);
+    // The template is hashed as the worker source, never listed as an asset.
+    assert.ok(!b.urls.includes("/sw.js"));
+    // Without the template argument the version depends on the assets only.
+    const plain = await collectPrecache(dir);
+    await writeFile(tmpl, "changed again");
+    assert.equal((await collectPrecache(dir)).version, plain.version);
+    assert.notEqual((await collectPrecache(dir, tmpl)).version, plain.version);
+  } finally {
+    await rm(dir, { recursive: true });
+    await rm(tmp, { recursive: true });
+  }
+});
+
 test("injects into the real sw.js placeholders", async () => {
   const sw = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
   const out = injectManifest(sw, { urls: ["/a.js"], version: "v1" });

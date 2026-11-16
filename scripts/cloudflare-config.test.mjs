@@ -35,6 +35,20 @@ function step(jobName, stepName) {
   return text.slice(start, rel < 0 ? undefined : start + marker.length + rel);
 }
 
+test("#74: CI fails a build whose sw.js has a dev VERSION, empty PRECACHE or missing files", () => {
+  // The check runs right after `bun run build` in ci.yml.
+  assert.match(
+    ci,
+    /^ {6}- run: bun run build\n(?: {6}#.*\n)* {6}- run: node scripts\/sw-build-check\.mjs$/m,
+  );
+  const precache = readFileSync(join(root, "scripts/precache.mjs"), "utf8");
+  // collectPrecache hashes the public/sw.js source template, so a worker-only
+  // edit rotates VERSION too.
+  assert.match(precache, /collectPrecache\(dir, swTemplate\)/);
+  assert.match(precache, /if \(swTemplate\) hash\.update/);
+  assert.match(precache, /new URL\("\.\.\/public\/sw\.js", import\.meta\.url\)/);
+});
+
 test("#17: default build is the Cloudflare Nitro build", () => {
   const cf =
     "DEPLOY_TARGET=cloudflare vite build && DEPLOY_TARGET=cloudflare node scripts/precache.mjs && node scripts/write-cf-entry.mjs";

@@ -162,3 +162,25 @@ flatten), maskable max ink radius **184.6 px vs 204.8 px limit** at 512
 (69.3 vs 76.8 at 192); the 16 px favicon render keeps the tile frame, corner
 fans and rosette silhouette legible (raster contact-sheet check from the
 shipped bytes).
+
+## Addendum 2026-11-16 (#104, detailed azulejo-logo): more detailed library logo
+
+`scripts/icon-regen/azulejo-logo.svg` was replaced with the more detailed
+`azulejo-logo` from the Bica library (1184x896 illustrative tile, single-ink
+artwork). `mark.svg` / `mark-maskable.svg` now embed that artwork group
+verbatim (same transform + path data) inside the 64-unit pipeline grid,
+fitted into the framed tile with `translate(-5.5 8) scale(0.09375)` — a
+cover fit of the 1184x896 viewBox into the 84x84 inner frame; the ink
+bounding box (x 170-1011, y 27-870) sits fully inside the visible window, so
+no artwork is cropped — and recolored to the unchanged palette (`#1E4D73`
+cobalt / `#F6F1E8` cream). The 6 `public/` files were regenerated with
+`node scripts/icon-regen/regen-icons.mjs` (SVG arm) and copied over; the QC
+reference images `screenshots/icon-regen-qc.png` / `icon-regen-tab.png` were
+re-rendered from the shipped bytes (raster composites, as before).
+
+QC gate re-executed 2026-11-16 (`icon-regen-out/regen-log.json`, all PASS):
+exact 180/192/512 opaque PNGs (15.9-56.5 KB, cobalt corners after the
+full-bleed flatten), maskable max ink radius **184.6 px vs 204.8 px limit**
+at 512 (69.3 vs 76.8 at 192 — frame-corner dominated, unchanged); the 16 px
+favicon render keeps the tile frame and rosette silhouette legible (raster
+contact-sheet check, see `screenshots/icon-regen-qc.png`).

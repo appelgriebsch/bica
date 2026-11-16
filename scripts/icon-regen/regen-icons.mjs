@@ -8,8 +8,8 @@
  * THIRD-PARTY.md + `scripts/about.test.mjs` in one change.
  * #104 re-opened art direction: the mark is founded on the `azulejo-logo`
  * from the Bica library (Mistral document library), vendored verbatim as
- * `azulejo-logo.svg` (framed tile, four corner quarter-fans with dots, an
- * eight-petal rosette medallion, four edge ticks), recolored to the Bica
+ * `azulejo-logo.svg` (illustrative framed tile: corner quarter-fans, central
+ * rosette medallion, edge ticks), recolored to the Bica
  * palette (cream #F6F1E8 tile, cobalt #1E4D73 ink) in `mark.svg` /
  * `mark-maskable.svg`.
  *

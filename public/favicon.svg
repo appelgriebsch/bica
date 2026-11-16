@@ -1,18 +1,52 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="32" height="32">
-  <!-- Lisbon azulejo: cream glaze, cobalt florão, ceramic edge -->
-  <rect width="64" height="64" rx="16" fill="#1E4D73"/>
-  <rect x="4" y="4" width="56" height="56" rx="12" fill="#F6F1E8"/>
-  <rect x="10" y="10" width="44" height="44" rx="8" fill="none" stroke="#1E4D73" stroke-width="2.25"/>
+  <!-- Original illustrative azulejo tile mark, hand-authored for Bica (#96/#104, ADR 0010).
+       Replaces the Grok Build drawing: cobalt #1E4D73 ceramic body with a cream
+       #F6F1E8 glazed face (manifest theme colors), a painted border moldura
+       (double frame + diamond chain + corner dots), a glaze highlight on the rim,
+       and a centered eight-petal rosette medallion with painted veins. Flat
+       editorial-illustration style, matching the scene art. Not AI-generated. -->
+  <defs>
+    <g id="p">
+      <path d="M32 32 C29.2 28 29.2 23.9 32 20.2 C34.8 23.9 34.8 28 32 32 Z"/>
+      <path d="M32 30 L32 22.6" fill="none" stroke-width="0.75" stroke-linecap="round"/>
+    </g>
+    <path id="d" d="M0 -1.15 1.15 0 0 1.15 -1.15 0Z"/>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#1E4D73"/>
+  <rect x="5" y="5" width="54" height="54" rx="9.5" fill="#F6F1E8"/>
+  <path d="M5.9 32 A26.1 26.1 0 0 1 32 5.9" fill="none" stroke="#1E4D73" stroke-width="1.8" stroke-linecap="round" opacity="0.12"/>
+  <rect x="7.6" y="7.6" width="48.8" height="48.8" rx="4.8" fill="none" stroke="#1E4D73" stroke-width="1.5"/>
+  <rect x="10.8" y="10.8" width="42.4" height="42.4" rx="3" fill="none" stroke="#1E4D73" stroke-width="0.8"/>
   <g fill="#1E4D73">
-    <circle cx="32" cy="22" r="8.2"/>
-    <circle cx="42" cy="32" r="8.2"/>
-    <circle cx="32" cy="42" r="8.2"/>
-    <circle cx="22" cy="32" r="8.2"/>
-    <path d="M18 18 22 14 26 18 22 22Z"/>
-    <path d="M38 18 42 14 46 18 42 22Z"/>
-    <path d="M18 46 22 42 26 46 22 50Z"/>
-    <path d="M38 46 42 42 46 46 42 50Z"/>
+    <use href="#d" transform="translate(32 9.4)"/>
+    <use href="#d" transform="translate(20.7 9.4)"/>
+    <use href="#d" transform="translate(43.3 9.4)"/>
+    <use href="#d" transform="translate(32 54.6)"/>
+    <use href="#d" transform="translate(20.7 54.6)"/>
+    <use href="#d" transform="translate(43.3 54.6)"/>
+    <use href="#d" transform="translate(9.4 32)"/>
+    <use href="#d" transform="translate(9.4 20.7)"/>
+    <use href="#d" transform="translate(9.4 43.3)"/>
+    <use href="#d" transform="translate(54.6 32)"/>
+    <use href="#d" transform="translate(54.6 20.7)"/>
+    <use href="#d" transform="translate(54.6 43.3)"/>
+    <circle cx="9.4" cy="9.4" r="1.25"/>
+    <circle cx="54.6" cy="9.4" r="1.25"/>
+    <circle cx="9.4" cy="54.6" r="1.25"/>
+    <circle cx="54.6" cy="54.6" r="1.25"/>
   </g>
-  <circle cx="32" cy="32" r="6.2" fill="#F6F1E8"/>
-  <circle cx="32" cy="32" r="3.1" fill="#1E4D73"/>
+  <circle cx="32" cy="32" r="14.6" fill="none" stroke="#1E4D73" stroke-width="1.2"/>
+  <g fill="#1E4D73" stroke="#F6F1E8">
+    <use href="#p"/>
+    <use href="#p" transform="rotate(90 32 32)"/>
+    <use href="#p" transform="rotate(180 32 32)"/>
+    <use href="#p" transform="rotate(270 32 32)"/>
+    <use href="#p" transform="rotate(45 32 32) translate(32 32) scale(0.62) translate(-32 -32)"/>
+    <use href="#p" transform="rotate(135 32 32) translate(32 32) scale(0.62) translate(-32 -32)"/>
+    <use href="#p" transform="rotate(225 32 32) translate(32 32) scale(0.62) translate(-32 -32)"/>
+    <use href="#p" transform="rotate(315 32 32) translate(32 32) scale(0.62) translate(-32 -32)"/>
+  </g>
+  <circle cx="32" cy="32" r="4.2" fill="#1E4D73"/>
+  <circle cx="32" cy="32" r="2.1" fill="#F6F1E8"/>
+  <circle cx="32" cy="32" r="1" fill="#1E4D73"/>
 </svg>

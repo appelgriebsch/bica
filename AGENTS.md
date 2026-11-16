@@ -491,9 +491,10 @@ ship.
 - **Custom share card:** `public/og.jpg` exists and the root head wires
   `og:image` to `https://${host}/og.jpg` — `scripts/brand-check.mjs` prints a
   `BRAND WARNING` otherwise; treat it as **not done**, same as a failing build.
-  The shipped scene images and app icon are AI-generated and carry a
-  "Created with Grok" attribution (ADR 0008) — keep that credit in
-  `src/routes/about.tsx` and `THIRD-PARTY.md` until replacement art lands.
+  Only `public/og.jpg` is still AI-generated and carries the "Created with
+  Grok" attribution (ADR 0008) in `THIRD-PARTY.md`; the scene illustrations are
+  Mistral AI (ADR 0009) and the app icon/mark is original hand-authored SVG
+  since #104 (ADR 0010) — no Grok credit is owed for those.
 - User never blocked on an action they can't perform from chat + preview.
 
 ---

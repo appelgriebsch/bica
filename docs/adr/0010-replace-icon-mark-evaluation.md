@@ -113,3 +113,32 @@ its Grok attribution), `src/routes/about.tsx` (credits line), and
 `scripts/about.test.mjs` (icon credit asserts; the `og.jpg` Grok asserts
 stay). ADR 0008's attribution obligation for the icon/mark is discharged when
 that change lands.
+
+## Addendum 2026-11-16 (#104): illustrative azulejo redesign
+
+Review on #104 found the first prototype (flat eight-point star in a plain
+frame) did not read as an _illustrative_ azulejo tile. `mark.svg` /
+`mark-maskable.svg` were redrawn as an illustrative tile: cobalt ceramic body,
+cream glazed face, painted border moldura (double frame + diamond chain +
+corner dots), a glaze highlight on the rim, and a centered eight-petal rosette
+medallion with painted veins — flat editorial-illustration style, matching the
+scene art (ADR 0009). Palette unchanged (`#1E4D73` / `#F6F1E8`). The
+`--via=mistral` prompt in `regen-icons.mjs` was updated to the same art
+direction.
+
+QC gate re-executed 2026-11-16 (`icon-regen-out/regen-log.json`, all PASS):
+exact 180/192/512 opaque PNGs (6.7–22.8 KB, cobalt corners), maskable max ink
+radius **193.7 px vs 204.8 px limit** at 512 (73 vs 76.8 at 192); the 16 px
+favicon render keeps the tile frame + rosette silhouette legible (pixel-level
+check: cobalt corner ring, cobalt border ring, cream field, flower center).
+Evidence screenshots re-rendered from the shipped bytes:
+`screenshots/icon-regen-qc.png`, `screenshots/icon-regen-tab.png` (headless
+Chromium cannot launch in the authoring sandbox — missing system libs — so
+the QC pages were re-rendered as raster composites instead of browser
+screenshots; the favicon `image/svg+xml` + built-output render checks run in
+`hardening-built.test.mjs`).
+
+The follow-up change above shipped in the #104 PR: the 6 `public/` files are
+the prototype bytes, and `THIRD-PARTY.md` / `about.tsx` / `about.test.mjs`
+record the mark as original hand-authored SVG (the `og.jpg` Grok attribution
+stays).

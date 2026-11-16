@@ -24,6 +24,14 @@ test("about page credits Mistral AI with its mark icon for the scenes and the Co
   assert.ok(existsSync(join(root, "public/brand/mistral-mark.svg")), "public/brand/mistral-mark.svg ships");
 });
 
+test("about states what is counted: cookieless Cloudflare Web Analytics, production only (ADR 0011)", () => {
+  assert.match(about, /What we count/);
+  assert.match(about, /cookieless Cloudflare Web Analytics/);
+  assert.match(about, /production site only/);
+  assert.match(about, /no cookies/);
+  assert.match(about, /not counted \(ADR 0011\)/);
+});
+
 test("me links to about", () => {
   const me = readFileSync(join(root, "src/routes/me.tsx"), "utf8");
   assert.match(me, /to="\/about"/);

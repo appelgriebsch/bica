@@ -92,6 +92,15 @@ function AboutPage() {
         </p>
       </Band>
 
+      <Band title="What we count">
+        <p>
+          On the production site only, Bica uses cookieless Cloudflare Web Analytics to count
+          visits and page views per screen. It sets no cookies, uses no device storage for
+          tracking, and collects nothing that identifies you. Staging previews and offline play
+          are not counted (ADR 0011).
+        </p>
+      </Band>
+
       <Band title="Links">
         <GitHubLink href={REPO} label="Source repository">
           Source repository

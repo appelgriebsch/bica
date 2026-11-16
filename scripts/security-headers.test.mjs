@@ -2,9 +2,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  CF_BEACON_ORIGIN,
+  CF_RUM_ORIGIN,
   CSP_HEADER,
   CSP_REPORT_ONLY_HEADER,
   STATIC_SECURITY_HEADERS,
+  TURNSTILE_ORIGIN,
   applyStaticSecurityHeaders,
   buildCsp,
   cspHeaderName,
@@ -35,18 +38,24 @@ test("CSP: nonce scripts with strict-dynamic, no unsafe-inline scripts, locked f
   );
   assert.equal(
     directives["script-src"],
-    "'self' 'nonce-N0nce' 'strict-dynamic' https://challenges.cloudflare.com",
+    `'self' 'nonce-N0nce' 'strict-dynamic' ${TURNSTILE_ORIGIN} ${CF_BEACON_ORIGIN}`,
   );
   assert.equal(directives["worker-src"], "'self'");
   assert.equal(directives["frame-ancestors"], "'none'");
   assert.equal(directives["form-action"], "'self'");
   assert.doesNotMatch(csp, /auth\.grok\.me/); // #33: no auth broker
-  // #35: Turnstile is the only third-party origin, in exactly these three directives.
-  assert.equal(directives["connect-src"], "'self' https://challenges.cloudflare.com");
-  assert.equal(directives["frame-src"], "https://challenges.cloudflare.com");
+  // #35 + ADR 0011: the third-party origins are Turnstile (script/connect/frame)
+  // and the two Web Analytics hosts (script-src beacon, connect-src RUM).
+  assert.equal(directives["connect-src"], `'self' ${TURNSTILE_ORIGIN} ${CF_RUM_ORIGIN}`);
+  assert.equal(directives["frame-src"], TURNSTILE_ORIGIN);
   assert.equal(directives["default-src"], "'self'");
   assert.equal(directives["img-src"], "'self' data: blob:");
-  assert.deepEqual(csp.match(/https:\/\/[^\s;]+/g), Array(3).fill("https://challenges.cloudflare.com"));
+  const urls = csp.match(/https:\/\/[^\s;]+/g);
+  assert.deepEqual(
+    [...new Set(urls)].sort(),
+    [TURNSTILE_ORIGIN, CF_BEACON_ORIGIN, CF_RUM_ORIGIN].sort(),
+  );
+  assert.equal(urls.filter((u) => u === TURNSTILE_ORIGIN).length, 3);
   assert.equal(directives["object-src"], "'none'");
   assert.equal(directives["report-uri"], "/api/csp-report");
   assert.equal(directives["report-to"], "csp-endpoint");

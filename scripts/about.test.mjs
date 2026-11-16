@@ -97,6 +97,10 @@ test(
       js.some((f) => f.text.includes("__BICA_BUILD_SHA__")),
       false,
     );
+    assert.equal(
+      js.some((f) => f.text.includes("__BICA_WEB_ANALYTICS_TOKEN__")),
+      false,
+    );
     assert.ok(js.some((f) => quoted.some((q) => f.text.includes(q))));
     const chunk = js.find((f) => f.text.includes("Created with Grok"));
     assert.ok(chunk, "about chunk");

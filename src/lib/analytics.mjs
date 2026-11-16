@@ -31,9 +31,12 @@ export function loadBeacon(doc, token) {
   return true;
 }
 
-/** Same-origin health probe; undefined on any failure (offline, staging 503). */
+/** Same-origin health probe; undefined on any failure (offline, staging 503, timeout). */
 async function defaultHealth() {
-  const res = await fetch("/api/health", { cache: "no-store" });
+  const res = await fetch("/api/health", {
+    cache: "no-store",
+    signal: AbortSignal.timeout(5000),
+  });
   if (!res.ok) return undefined;
   return await res.json();
 }

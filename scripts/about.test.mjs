@@ -9,9 +9,9 @@ import { buildOutput } from "./build-output.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const about = readFileSync(join(root, "src/routes/about.tsx"), "utf8");
 
-test("about page credits the hand-authored icon (ADR 0010, #104) and bakes the build SHA", () => {
+test("about page credits the azulejo-logo-based icon (ADR 0010, #104) and bakes the build SHA", () => {
   assert.ok(!/Created with Grok/.test(about), "no Grok credit left on the about page");
-  assert.match(about, /App icon and mark:[\s\S]{0,160}hand-authored/i);
+  assert.match(about, /App icon and mark:[\s\S]{0,200}azulejo-logo/i);
   assert.match(about, /__BICA_BUILD_SHA__/);
   assert.match(about, /blob\/main\/LICENSE/);
   assert.match(about, /blob\/main\/THIRD-PARTY\.md/);
@@ -68,7 +68,8 @@ test("THIRD-PARTY.md names scenes, og.jpg, and the app mark with the right attri
   );
   const section = (heading) => md.split(heading)[1]?.split("\n### ")[0] ?? "";
   // ADR 0009 / #102: the 20 scenes are Mistral-generated; og.jpg stays Grok-attributed.
-  // ADR 0010 / #104: the icon/mark is original hand-authored SVG, no Grok credit.
+  // ADR 0010 / #104 re-opened: the icon/mark is founded on the azulejo-logo from
+  // the Bica library (vendored in scripts/icon-regen/), no Grok credit.
   const shareCard = section("### Share card image");
   assert.match(shareCard, /Created with Grok/);
   assert.ok(!shareCard.includes("public/scenes/"), "scenes left the Grok section");
@@ -77,9 +78,11 @@ test("THIRD-PARTY.md names scenes, og.jpg, and the app mark with the right attri
   assert.ok(!/Created with Grok/.test(sceneSection), "scenes are not Grok-attributed anymore");
   const iconSection = section("### App icon and mark");
   assert.ok(!/Created with Grok/.test(iconSection), "icon/mark left the Grok attribution");
-  assert.match(iconSection, /hand-authored/);
+  assert.match(iconSection, /azulejo-logo/);
+  assert.match(iconSection, /Bica\s+library/);
+  assert.match(iconSection, /scripts\/icon-regen\/azulejo-logo\.svg/);
   assert.match(iconSection, /scripts\/icon-regen\/mark\.svg/);
-  assert.match(about, /app icon[\s\S]{0,160}hand-authored/i);
+  assert.match(about, /app icon[\s\S]{0,200}azulejo-logo/i);
   assert.ok(
     !/app icon[\s\S]{0,160}Created with Grok/i.test(about),
     "about page has no Grok icon credit",

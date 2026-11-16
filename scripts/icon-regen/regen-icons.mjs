@@ -6,14 +6,18 @@
  * `public/` is touched by this script; it writes to `icon-regen-out/` for
  * hand review. The follow-up ticket (#104) swaps the 6 shipped files +
  * THIRD-PARTY.md + `scripts/about.test.mjs` in one change.
- * #104 art direction: the mark is an *illustrative* azulejo tile — ceramic
- * body, glazed face, painted border moldura (diamond chain), rosette medallion
- * — not a flat geometric pictogram.
+ * #104 re-opened art direction: the mark is founded on the `azulejo-logo`
+ * from the Bica library (Mistral document library), vendored verbatim as
+ * `azulejo-logo.svg` (framed tile, four corner quarter-fans with dots, an
+ * eight-petal rosette medallion, four edge ticks), recolored to the Bica
+ * palette (cream #F6F1E8 tile, cobalt #1E4D73 ink) in `mark.svg` /
+ * `mark-maskable.svg`.
  *
  * Arms:
- *   default (`--via=svg`)      Original hand-authored mark (`mark.svg`,
- *                              `mark-maskable.svg`), rasterized locally with
- *                              sharp (already in the lockfile via miniflare).
+ *   default (`--via=svg`)      azulejo-logo foundation, hand-adapted to the
+ *                              Bica palette (`mark.svg`, `mark-maskable.svg`),
+ *                              rasterized locally with sharp (already in the
+ *                              lockfile via miniflare).
  *                              $0, no AI, no attribution obligation.
  *   `--via=mistral`            Regenerate via Mistral's built-in
  *                              `image_generation` tool (BFL FLUX1.1 [pro]
@@ -58,10 +62,11 @@ const SIZES = { regular: [180, 192, 512], maskable: [192, 512] };
 
 const MISTRAL_PROMPT = [
   'Generate a 1024x1024 app icon for "Bica", a Lisbon Portuguese-learning app.',
-  "A single square azulejo (Portuguese ceramic tile) drawn as a flat editorial illustration, matching the app's scene-art style:",
-  "full-bleed deep cobalt blue #1E4D73 background, with a centered cream #F6F1E8 painted motif \u2014",
-  "an eight-petal rosette (four large cardinal petals and four smaller diagonal petals, each with a thin painted vein line)",
-  "inside a thin cream medallion ring, surrounded by a sparse ring of small cream diamonds, all inside a larger thin cream circle.",
+  "A single square azulejo (Portuguese ceramic tile) matching the app's azulejo-logo foundation (Bica library):",
+  "a cream #F6F1E8 tile with rounded corners on a full-bleed deep cobalt #1E4D73 field,",
+  "a thin cobalt border frame inset from the tile edge, four cobalt corner quarter-fans each with a small cream dot,",
+  "a centered eight-petal cobalt rosette (four cardinal + four diagonal petals) with a cream/cobalt/cream bullseye center,",
+  "and four small cobalt edge ticks at the mid-edges between the border frame and the tile edge.",
   "Flat vector-like shapes, exactly two colors (#1E4D73 and #F6F1E8, opacity tints allowed), no gradients, no shadows,",
   "no text, no watermark, no people, no photorealism. All painted artwork must sit inside the central circle of",
   "radius 40% of the icon (the maskable safe zone).",
@@ -240,7 +245,8 @@ async function main() {
   const markMaskableSvg = await readFile(join(HERE, "mark-maskable.svg"), "utf8");
 
   let genMaster = null; // raster master when VIA === "mistral"
-  let armNote = "hand-authored SVG (mark.svg / mark-maskable.svg), rasterized locally with sharp";
+  let armNote =
+    "azulejo-logo foundation from the Bica library (azulejo-logo.svg), hand-adapted to the Bica palette (mark.svg / mark-maskable.svg), rasterized locally with sharp";
   if (VIA === "mistral") {
     const gen = await generateMistralIcon();
     console.log(`mistral icon generated in ${gen.latencyMs}ms, model ${gen.model}`);

@@ -81,8 +81,8 @@ function AboutPage() {
           Scene illustrations: AI-generated with <MistralCredit /> (ADR 0009).
         </p>
         <p>
-          App icon and mark: <span className="font-medium text-fg">original hand-authored SVG</span>{" "}
-          (illustrative azulejo tile, ADR 0010).
+          App icon and mark: <span className="font-medium text-fg">original SVG based on the azulejo-logo</span>{" "}
+          from the Bica library (ADR 0010).
         </p>
         <p>Fonts: Figtree and Fraunces (OFL-1.1).</p>
         <p>Icons: Lucide (ISC).</p>

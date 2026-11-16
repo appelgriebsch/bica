@@ -1,40 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- Maskable variant of scripts/icon-regen/mark.svg (#96/#104, ADR 0010):
-       full-bleed cobalt with the cream painted motifs of the illustrative tile
-       (diamond chain + rosette medallion); every ink pixel sits inside the 80%
-       maskable safe-zone circle (radius 0.4 * 64 = 25.6; outer ring edge 24.15,
-       diamond tips 20.9, petal tips 11.8). Verified by regen-icons.mjs. -->
-  <defs>
-    <g id="p">
-      <path d="M32 32 C29.2 28 29.2 23.9 32 20.2 C34.8 23.9 34.8 28 32 32 Z"/>
-      <path d="M32 30 L32 22.6" fill="none" stroke-width="0.75" stroke-linecap="round"/>
+  <!-- Maskable variant of scripts/icon-regen/mark.svg (#104 re-opened, ADR 0010):
+       the azulejo-logo motifs (Bica library foundation, see azulejo-logo.svg)
+       drawn as cream #F6F1E8 linework on the full-bleed cobalt #1E4D73 field
+       that regen-icons.mjs flattens underneath. The 100-unit logo geometry is
+       mapped into the 64-unit grid with translate(32 32) scale(0.39)
+       translate(-50 -50), so every ink pixel sits inside the 80% maskable
+       safe-zone circle (radius 0.4 * 64 = 25.6; outermost border corner
+       (5,5) lands at 63.64 * 0.39 = 24.8). Verified by regen-icons.mjs. -->
+  <g transform="translate(32 32) scale(0.39) translate(-50 -50)">
+    <rect x="6" y="6" width="88" height="88" rx="10" fill="none" stroke="#F6F1E8" stroke-width="2"/>
+    <g fill="#F6F1E8">
+      <path d="M10 10 q0 16 16 -0 q0 16 -16 16 q-16 0 0 -16 Z"/>
+      <circle cx="18" cy="18" r="3.4" fill="#1E4D73"/>
+      <path d="M90 10 q0 16 -16 0 q0 16 16 16 q16 0 0 -16 Z"/>
+      <circle cx="82" cy="18" r="3.4" fill="#1E4D73"/>
+      <path d="M10 90 q0 -16 16 0 q0 -16 -16 -16 q-16 0 0 16 Z"/>
+      <circle cx="18" cy="82" r="3.4" fill="#1E4D73"/>
+      <path d="M90 90 q0 -16 -16 0 q0 -16 16 -16 q16 0 0 16 Z"/>
+      <circle cx="82" cy="82" r="3.4" fill="#1E4D73"/>
     </g>
-    <path id="d" d="M0 -1.4 1.4 0 0 1.4 -1.4 0Z"/>
-  </defs>
-  <rect width="64" height="64" fill="#1E4D73"/>
-  <circle cx="32" cy="32" r="23.4" fill="none" stroke="#F6F1E8" stroke-width="1.5" opacity="0.9"/>
-  <g fill="#F6F1E8">
-    <use href="#d" transform="translate(32 12.5)"/>
-    <use href="#d" transform="translate(45.8 18.2)"/>
-    <use href="#d" transform="translate(51.5 32)"/>
-    <use href="#d" transform="translate(45.8 45.8)"/>
-    <use href="#d" transform="translate(32 51.5)"/>
-    <use href="#d" transform="translate(18.2 45.8)"/>
-    <use href="#d" transform="translate(12.5 32)"/>
-    <use href="#d" transform="translate(18.2 18.2)"/>
+    <g fill="#F6F1E8">
+      <path id="pt" d="M50 50 C 43 38, 43 28, 50 20 C 57 28, 57 38, 50 50 Z"/>
+      <use href="#pt" transform="rotate(90 50 50)"/>
+      <use href="#pt" transform="rotate(180 50 50)"/>
+      <use href="#pt" transform="rotate(270 50 50)"/>
+      <use href="#pt" transform="rotate(45 50 50)"/>
+      <use href="#pt" transform="rotate(135 50 50)"/>
+      <use href="#pt" transform="rotate(225 50 50)"/>
+      <use href="#pt" transform="rotate(315 50 50)"/>
+    </g>
+    <circle cx="50" cy="50" r="7.5" fill="#1E4D73"/>
+    <circle cx="50" cy="50" r="5" fill="#F6F1E8"/>
+    <circle cx="50" cy="50" r="2" fill="#1E4D73"/>
+    <g fill="#F6F1E8">
+      <path d="M50 8 l3 4 -3 4 -3 -4 Z"/>
+      <path d="M50 84 l3 4 -3 4 -3 -4 Z"/>
+      <path d="M8 50 l4 -3 4 3 -4 3 Z"/>
+      <path d="M84 50 l4 -3 4 3 -4 3 Z"/>
+    </g>
   </g>
-  <circle cx="32" cy="32" r="14.6" fill="none" stroke="#F6F1E8" stroke-width="1.2"/>
-  <g fill="#F6F1E8" stroke="#1E4D73">
-    <use href="#p"/>
-    <use href="#p" transform="rotate(90 32 32)"/>
-    <use href="#p" transform="rotate(180 32 32)"/>
-    <use href="#p" transform="rotate(270 32 32)"/>
-    <use href="#p" transform="rotate(45 32 32) translate(32 32) scale(0.62) translate(-32 -32)"/>
-    <use href="#p" transform="rotate(135 32 32) translate(32 32) scale(0.62) translate(-32 -32)"/>
-    <use href="#p" transform="rotate(225 32 32) translate(32 32) scale(0.62) translate(-32 -32)"/>
-    <use href="#p" transform="rotate(315 32 32) translate(32 32) scale(0.62) translate(-32 -32)"/>
-  </g>
-  <circle cx="32" cy="32" r="4.2" fill="#1E4D73"/>
-  <circle cx="32" cy="32" r="2.1" fill="#F6F1E8"/>
-  <circle cx="32" cy="32" r="1" fill="#1E4D73"/>
 </svg>

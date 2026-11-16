@@ -71,6 +71,12 @@ simple = { limit = 6, period = 60 }
 name = "CHAT_BUDGET"
 class_name = "ChatBudget"
 
+# #73: the deployed Worker version id. /api/health reports it as `version`, so
+# the staging smoke can prove the new version is live (a same-sha redeploy or
+# rollback looks identical otherwise). Bindings are not inherited: per env.
+[env.staging.version_metadata]
+binding = "CF_VERSION_METADATA"
+
 # Production (#8): custom domain only, no workers.dev, no D1, no auth.
 [env.production]
 workers_dev = false
@@ -92,3 +98,7 @@ simple = { limit = 6, period = 60 }
 [[env.production.durable_objects.bindings]]
 name = "CHAT_BUDGET"
 class_name = "ChatBudget"
+
+# #73: same as staging; the production smoke keeps asserting sha only.
+[env.production.version_metadata]
+binding = "CF_VERSION_METADATA"

@@ -8,6 +8,10 @@ export function resolveBicaStage(sources?: {
 export function healthForStage(
   stage: string | undefined,
   sha?: string,
+  versionMetadata?: unknown,
 ):
-  | { status: 200; body: { ok: true; stage: "staging" | "production"; sha: string } }
+  | {
+      status: 200;
+      body: { ok: true; stage: "staging" | "production"; sha: string; version: string };
+    }
   | { status: 503; body: { ok: false } };

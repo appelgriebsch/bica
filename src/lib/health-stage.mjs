@@ -34,13 +34,31 @@ function healthSha(sha) {
 }
 
 /**
+ * #73: the CF_VERSION_METADATA binding ({ id }); absent locally and in tests.
+ * @param {unknown} metadata
+ * @returns {string} the deployed version id, or "dev" when the binding is missing
+ */
+function healthVersion(metadata) {
+  if (metadata && typeof metadata === "object") {
+    const id = /** @type {{ id?: unknown }} */ (metadata).id;
+    if (typeof id === "string" && id.trim()) return id.trim();
+  }
+  return "dev";
+}
+
+/**
  * @param {string | undefined} stage
  * @param {string} [sha] full build id; empty becomes "dev". Omitted from 503.
- * @returns {{ status: 200, body: { ok: true, stage: "staging" | "production", sha: string } } | { status: 503, body: { ok: false } }}
+ * @param {unknown} [versionMetadata] CF_VERSION_METADATA binding; its `id` becomes
+ *   `version`, "dev" when absent. Omitted from 503.
+ * @returns {{ status: 200, body: { ok: true, stage: "staging" | "production", sha: string, version: string } } | { status: 503, body: { ok: false } }}
  */
-export function healthForStage(stage, sha) {
+export function healthForStage(stage, sha, versionMetadata) {
   if (stage === "staging" || stage === "production") {
-    return { status: 200, body: { ok: true, stage, sha: healthSha(sha) } };
+    return {
+      status: 200,
+      body: { ok: true, stage, sha: healthSha(sha), version: healthVersion(versionMetadata) },
+    };
   }
   return { status: 503, body: { ok: false } };
 }

@@ -12,19 +12,40 @@ test("staging and production are the only accepted stages", () => {
   for (const stage of ["staging", "production"]) {
     const ok = healthForStage(stage, sha);
     assert.equal(ok.status, 200);
-    assert.deepEqual(ok.body, { ok: true, stage, sha });
+    assert.deepEqual(ok.body, { ok: true, stage, sha, version: "dev" });
   }
 });
 
 test("a 200 with no sha defaults to dev; 503 never includes sha", () => {
-  assert.deepEqual(healthForStage("staging").body, { ok: true, stage: "staging", sha: "dev" });
+  assert.deepEqual(healthForStage("staging").body, {
+    ok: true,
+    stage: "staging",
+    sha: "dev",
+    version: "dev",
+  });
   assert.deepEqual(healthForStage("production", "  ").body, {
     ok: true,
     stage: "production",
     sha: "dev",
+    version: "dev",
   });
   assert.deepEqual(healthForStage("nope", "abc").body, { ok: false });
   assert.equal(healthForStage(undefined, "abc").status, 503);
+});
+
+test("#73: the 200 carries the CF_VERSION_METADATA id, defaulting to dev; 503 never includes it", () => {
+  const id = "01234567-89ab-cdef-0123-456789abcdef";
+  assert.deepEqual(healthForStage("staging", "abc", { id }).body, {
+    ok: true,
+    stage: "staging",
+    sha: "abc",
+    version: id,
+  });
+  assert.deepEqual(healthForStage("production", "abc", { id: "  " }).body.version, "dev");
+  assert.deepEqual(healthForStage("staging", "abc", undefined).body.version, "dev");
+  assert.deepEqual(healthForStage("staging", "abc", "not-an-object").body.version, "dev");
+  assert.deepEqual(healthForStage("staging", "abc", { id: 42 }).body.version, "dev");
+  assert.deepEqual(healthForStage("nope", "abc", { id }).body, { ok: false });
 });
 
 test("missing, blank, and unknown values fail closed", () => {

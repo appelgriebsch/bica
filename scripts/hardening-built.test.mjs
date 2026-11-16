@@ -252,7 +252,13 @@ test(
       assert.equal(health.status, 200, stage);
       assert.equal(health.headers.get("cache-control"), "no-store", stage);
       assert.equal(health.headers.get("content-type"), "application/json; charset=utf-8", stage);
-      assert.equal(await health.text(), JSON.stringify({ ok: true, stage, sha: full }), stage);
+      // #73: `wrangler dev` runs the top-level config, which has no
+      // CF_VERSION_METADATA binding, so the version falls back to "dev".
+      assert.equal(
+        await health.text(),
+        JSON.stringify({ ok: true, stage, sha: full, version: "dev" }),
+        stage,
+      );
       // A different Host must not override the wrangler var.
       const page = await httpGet(`${origin}/`, {
         host: "not-the-public.example",

@@ -125,7 +125,7 @@ test("#52: release build, then staging smoke, then production", () => {
     /run: bun run build:cf/,
     /retention-days: 30/,
     /name: Deploy bica-staging/,
-    /bash scripts\/smoke-health\.sh "\$url" staging "\$SHA"/,
+    /bash scripts\/smoke-health\.sh "\$url" staging "\$SHA" "\$version"/,
     /name: Deploy bica-production/,
     /bash scripts\/smoke-health\.sh "\$url" production "\$SHA"/,
   ].map(at);
@@ -968,8 +968,29 @@ test("#52: artifact_run_id is an env var and never interpolated into a script", 
 });
 
 test("#52/#60: both jobs smoke health for their stage and the expected sha", () => {
-  assert.match(job("staging"), /bash scripts\/smoke-health\.sh "\$url" staging "\$SHA"/);
-  assert.match(job("production"), /bash scripts\/smoke-health\.sh "\$url" production "\$SHA"/);
+  // #73: staging also passes the deployed version id; production stays at 3 args.
+  assert.match(job("staging"), /bash scripts\/smoke-health\.sh "\$url" staging "\$SHA" "\$version"/);
+  assert.match(job("production"), /bash scripts\/smoke-health\.sh "\$url" production "\$SHA"\n/);
+});
+
+test("#73: version_metadata bound per env; staging smoke fails without the deployed version id", () => {
+  // Bindings are not inherited, so the top level stays without it (local dev
+  // reports "dev") and each env binds CF_VERSION_METADATA itself.
+  assert.doesNotMatch(wrangler.slice(0, wrangler.indexOf("[env.staging]")), /version_metadata/);
+  for (const env of ["staging", "production"]) {
+    assert.match(
+      wrangler,
+      new RegExp(`\\[env\\.${env}\\.version_metadata\\]\\nbinding = "CF_VERSION_METADATA"`),
+    );
+  }
+  // The staging deploy log carries the version id and the smoke step fails closed.
+  assert.match(job("staging"), /Current Version ID: /);
+  assert.match(job("staging"), /test -n "\$version" \|\|/);
+  // The script takes the expected version as an optional 4th argument.
+  assert.match(smokeHealth, /version=\$\{4:-\}/);
+  assert.match(smokeHealth, /jq -r \.version/);
+  // Production keeps calling it with 3 arguments.
+  assert.match(job("production"), /bash scripts\/smoke-health\.sh "\$url" production "\$SHA"\n/);
 });
 
 test("#60: smoke-health.sh keeps the last body and reports it", () => {
@@ -994,11 +1015,14 @@ test(
   async () => {
     const A = "a".repeat(40);
     const B = "b".repeat(40);
+    const V = "01234567-89ab-cdef-0123-456789abcdef";
     const env = { ...process.env, SMOKE_ATTEMPTS: "2", SMOKE_SLEEP: "0" };
     const server = createServer((req, res) => {
       // /down/api/health answers like a Worker without a stage: 503 {"ok":false}.
       const down = req.url.startsWith("/down/");
-      const body = JSON.stringify(down ? { ok: false } : { ok: true, stage: "staging", sha: A });
+      const body = JSON.stringify(
+        down ? { ok: false } : { ok: true, stage: "staging", sha: A, version: V },
+      );
       res.writeHead(down ? 503 : 200, {
         "content-type": "application/json",
         "content-length": Buffer.byteLength(body),
@@ -1008,11 +1032,11 @@ test(
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
     const port = server.address().port;
     // execFile, not spawnSync: a sync child blocks this event loop, so the stub never answers.
-    const run = (url, sha) =>
+    const run = (url, sha, version) =>
       new Promise((resolve) => {
         execFile(
           "bash",
-          ["scripts/smoke-health.sh", url, "staging", sha],
+          ["scripts/smoke-health.sh", url, "staging", sha, ...(version ? [version] : [])],
           { cwd: root, env, encoding: "utf8" },
           (err, stdout, stderr) => resolve({ status: err ? (err.code ?? 1) : 0, stdout, stderr }),
         );
@@ -1029,6 +1053,13 @@ test(
       assert.equal(down.status, 1);
       assert.match(down.stdout, /last: stage=null sha=null/);
       assert.doesNotMatch(down.stdout, /last: no response/);
+      // #73: with a 4th argument the version id is asserted too; 3 args still work.
+      const okV = await run(`http://127.0.0.1:${port}`, A, V);
+      assert.equal(okV.status, 0, okV.stdout + okV.stderr);
+      const badV = await run(`http://127.0.0.1:${port}`, A, "f".repeat(36));
+      assert.equal(badV.status, 1);
+      assert.match(badV.stdout, /version=ffffffffffffffffffffffffffffffff/);
+      assert.match(badV.stdout, new RegExp(`last: stage=staging sha=${A} version=${V}`));
     } finally {
       await new Promise((resolve) => server.close(resolve));
     }
@@ -1243,7 +1274,8 @@ test("#42 W1: PUBLIC_HOSTNAME equals TURNSTILE_HOSTNAMES; the build takes no pub
   assert.doesNotMatch(deploy + ci, /VITE_PUBLIC_HOSTNAME/);
   assert.doesNotMatch(deploy, /PUBLIC_HOSTNAME/);
   assert.match(deploy, /BICA_BUILD_SHA: \$\{\{ steps\.resolve\.outputs\.sha \}\}/);
-  const smokeUrl = [...deploy.matchAll(/grep -oE '([^']+)'/g)].map((m) => m[1]);
+  // Only the workers.dev URL greps; #73 also greps the Current Version ID.
+  const smokeUrl = [...deploy.matchAll(/grep -oE '(https:[^']+)'/g)].map((m) => m[1]);
   assert.ok(smokeUrl.length >= 1);
   assert.equal(new Set(smokeUrl).size, 1);
   assert.match(`https://${pub("staging")}`, new RegExp(`^${smokeUrl[0]}$`));

@@ -14,7 +14,7 @@ import { resolveBuildSha, resolveBuildShaFull } from "./scripts/build-sha.mjs";
 // port, which breaks the single-port preview.
 // Nitro preset is Cloudflare Workers (`cloudflare-module`, #17). The only
 // deploy path. The dev server starts once `src/router.tsx` and `src/routes/`
-// exist — see AGENTS.md § "First scaffold".
+// exist — see AGENTS.md.
 const nitroPreset = activePreset();
 
 export default defineConfig(({ command }) => ({

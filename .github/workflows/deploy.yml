@@ -125,6 +125,8 @@ jobs:
         run: bun run build:cf
         env:
           BICA_BUILD_SHA: ${{ steps.resolve.outputs.sha }}
+          # ADR 0011: public-by-design Web Analytics site token, baked by vite define.
+          WEB_ANALYTICS_TOKEN: ${{ vars.WEB_ANALYTICS_TOKEN }}
       - name: Package
         id: pack
         if: steps.resolve.outputs.mode == 'release'

@@ -141,6 +141,17 @@ test("#52: release build, then staging smoke, then production", () => {
   assert.match(smokeHealth, /test "\$\(jq -r \.stage <<<"\$body"\)" = "\$stage"/);
 });
 
+test("ADR 0011: the release build bakes the Web Analytics token from an Actions variable, never a secret", () => {
+  const at = deploy.search(/run: bun run build:cf\n/);
+  assert.ok(at > -1, "release build step");
+  const rest = deploy.slice(at);
+  const end = rest.indexOf("\n      - ", 10);
+  const block = rest.slice(0, end === -1 ? 400 : end);
+  assert.match(block, /env:\n {10}BICA_BUILD_SHA: \$\{\{ steps\.resolve\.outputs\.sha \}\}/);
+  assert.match(block, / {10}WEB_ANALYTICS_TOKEN: \$\{\{ vars\.WEB_ANALYTICS_TOKEN \}\}/);
+  assert.doesNotMatch(block, /secrets\./);
+});
+
 test("#33: no D1 anywhere: no binding, no D1 steps, no provisioning", () => {
   assert.doesNotMatch(wrangler, /d1_databases/);
   assert.doesNotMatch(wrangler, /^binding = "DB"$/m);
@@ -701,7 +712,12 @@ test("#35: the site key is committed (staging for build:cf, test key otherwise);
     /"import\.meta\.env\.TURNSTILE_SITE_KEY": JSON\.stringify\(siteKeyForBuild\(process\.env\)\)/,
   );
   assert.doesNotMatch(deploy, /TURNSTILE/);
-  assert.doesNotMatch(deploy, /vars\./);
+  // ADR 0011 allows exactly one Actions variable: the public Web Analytics token.
+  const varsRefs = deploy.match(/vars\.[A-Za-z_][A-Za-z0-9_]*/g) ?? [];
+  assert.deepEqual(
+    varsRefs.filter((v) => v !== "vars.WEB_ANALYTICS_TOKEN"),
+    [],
+  );
   const step = job("staging").slice(job("staging").indexOf("- name: Smoke security headers"));
   assert.match(step, /frame-src https:\/\/challenges\\\.cloudflare\\\.com/);
 });

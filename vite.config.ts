@@ -30,6 +30,9 @@ export default defineConfig(({ command }) => ({
     "import.meta.env.TURNSTILE_SITE_KEY": JSON.stringify(siteKeyForBuild(process.env)),
     __BICA_BUILD_SHA__: JSON.stringify(resolveBuildSha()),
     __BICA_BUILD_SHA_FULL__: JSON.stringify(resolveBuildShaFull()),
+    // ADR 0011: public-by-design Web Analytics site token from the
+    // WEB_ANALYTICS_TOKEN Actions variable; empty keeps the beacon off.
+    __BICA_WEB_ANALYTICS_TOKEN__: JSON.stringify(process.env.WEB_ANALYTICS_TOKEN ?? ""),
   },
   plugins: [
     tailwindcss(),

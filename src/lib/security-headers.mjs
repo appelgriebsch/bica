@@ -28,8 +28,12 @@ export const STATIC_SECURITY_HEADERS = Object.freeze({
   "reporting-endpoints": 'csp-endpoint="/api/csp-report"',
 });
 
-/** The only third-party origin the CSP allows (Cloudflare Turnstile, #35). */
+/** Cloudflare Turnstile origin (#35). */
 export const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";
+
+/** Cloudflare Web Analytics beacon and RUM origins (ADR 0011). */
+export const CF_BEACON_ORIGIN = "https://static.cloudflareinsights.com";
+export const CF_RUM_ORIGIN = "https://cloudflareinsights.com";
 
 export const CSP_REPORT_PATH = "/api/csp-report";
 export const CSP_HEADER = "content-security-policy";
@@ -53,15 +57,18 @@ export function buildCsp(nonce) {
   return [
     "default-src 'self'",
     // 'strict-dynamic': chunks inserted by a nonced script are trusted; host
-    // allowlists are ignored. challenges.cloudflare.com: Turnstile (#35), the
-    // fallback host for browsers without 'strict-dynamic'.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${TURNSTILE_ORIGIN}`,
+    // allowlists are ignored. The hosts below stay as the fallback for browsers
+    // without 'strict-dynamic': challenges.cloudflare.com (Turnstile, #35) and
+    // static.cloudflareinsights.com (the analytics beacon injected by the app
+    // bundle, ADR 0011).
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${TURNSTILE_ORIGIN} ${CF_BEACON_ORIGIN}`,
     // ponytail: Tailwind/sonner inline styles; tighten if styles get a nonce.
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    // Server fns, /api/*, ping, Turnstile. Mistral is called server-side.
-    `connect-src 'self' ${TURNSTILE_ORIGIN}`,
+    // Server fns, /api/*, ping, Turnstile, and the analytics RUM post
+    // (cloudflareinsights.com, ADR 0011). Mistral is called server-side.
+    `connect-src 'self' ${TURNSTILE_ORIGIN} ${CF_RUM_ORIGIN}`,
     // The Turnstile widget iframe (#35); nothing else is framed.
     `frame-src ${TURNSTILE_ORIGIN}`,
     "worker-src 'self'",

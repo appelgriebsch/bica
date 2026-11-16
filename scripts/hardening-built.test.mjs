@@ -454,18 +454,28 @@ test(
 );
 
 test(
-  "#35: the CSP allows Turnstile (script, frame, connect) and no other third party",
+  "#35 + ADR 0011: the CSP allows Turnstile and the two Web Analytics hosts, no other third party",
   { skip },
   async () => {
     const csp = (await get("/speak/pastelaria")).headers.get("content-security-policy") ?? "";
     assert.match(
       csp,
-      /script-src 'self' 'nonce-[^']+' 'strict-dynamic' https:\/\/challenges\.cloudflare\.com;/,
+      /script-src 'self' 'nonce-[^']+' 'strict-dynamic' https:\/\/challenges\.cloudflare\.com https:\/\/static\.cloudflareinsights\.com;/,
     );
     assert.match(csp, /frame-src https:\/\/challenges\.cloudflare\.com;/);
-    assert.match(csp, /connect-src 'self' https:\/\/challenges\.cloudflare\.com;/);
+    assert.match(
+      csp,
+      /connect-src 'self' https:\/\/challenges\.cloudflare\.com https:\/\/cloudflareinsights\.com;/,
+    );
     const hosts = new Set(csp.match(/https:\/\/[^\s;]+/g));
-    assert.deepEqual([...hosts].sort(), ["https://challenges.cloudflare.com"]);
+    assert.deepEqual(
+      [...hosts].sort(),
+      [
+        "https://challenges.cloudflare.com",
+        "https://cloudflareinsights.com",
+        "https://static.cloudflareinsights.com",
+      ].sort(),
+    );
   },
 );
 

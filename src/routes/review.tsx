@@ -7,7 +7,7 @@ import { dueVocab, levels, vocabFromCompleted, type CatalogVocab } from "@/data/
 import type { CefrLevel } from "@/data/types";
 import { useProgress } from "@/lib/progress-store";
 import { REVIEW_SESSION_CAP } from "@/lib/srs";
-import { speakPt } from "@/lib/tts";
+import { SPEAK_RATE, speakPt } from "@/lib/tts";
 import { answersMatch, cn, todayKey } from "@/lib/utils";
 
 export const Route = createFileRoute("/review")({ component: ReviewPage });
@@ -120,7 +120,7 @@ function ReviewPage() {
   useEffect(() => {
     if (phase !== "session" || !cardId || cardKind !== "flip" || flipped || cardPt == null)
       return;
-    void speakPt(cardPt, 0.88);
+    void speakPt(cardPt, SPEAK_RATE);
   }, [phase, cardId, cardKind, cardPt, flipped]);
 
   return (

@@ -1,5 +1,5 @@
 import type { VerbEntry } from "@/data/types";
-import { speakPt } from "@/lib/tts";
+import { SPEAK_RATE, speakPt } from "@/lib/tts";
 import { cn } from "@/lib/utils";
 
 export function VerbCard({ verb }: { verb: VerbEntry }) {
@@ -40,7 +40,7 @@ export function VerbCard({ verb }: { verb: VerbEntry }) {
               <li key={row.person} className="border-t border-border/70">
                 <button
                   type="button"
-                  onClick={() => void speakPt(spoken, 0.88)}
+                  onClick={() => void speakPt(spoken, SPEAK_RATE)}
                   className={cn(grid, "min-h-11 w-full py-2 text-left")}
                 >
                   <span className="min-w-0 text-sm text-subtle">{row.person}</span>

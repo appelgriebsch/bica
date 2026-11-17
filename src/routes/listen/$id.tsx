@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Pause, Play } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { DoneCard } from "@/components/lesson-player";
 import { NO_VOICE_NOTE } from "@/components/pt-voice-notice";
 import { QuizBlock } from "@/components/quiz-block";
@@ -8,7 +9,13 @@ import { Button } from "@/components/ui/button";
 import { getBulletin, radioBulletins } from "@/data/curriculum";
 import type { RadioBulletin } from "@/data/types";
 import { persistCompletion } from "@/lib/record-progress";
-import { speakPt, stopSpeaking, usePtVoiceStatus } from "@/lib/tts";
+import {
+  LISTEN_NATURAL_RATE,
+  LISTEN_SLOW_RATE,
+  speakPt,
+  stopSpeaking,
+  usePtVoiceStatus,
+} from "@/lib/tts";
 
 export const Route = createFileRoute("/listen/$id")({ component: ListenPage });
 
@@ -45,7 +52,7 @@ function ListenPlayer({ bulletin }: { bulletin: RadioBulletin }) {
       return;
     }
     setPlaying(true);
-    await speakPt(bulletin.script, slow ? 0.78 : 0.96);
+    await speakPt(bulletin.script, slow ? LISTEN_SLOW_RATE : LISTEN_NATURAL_RATE);
     setPlaying(false);
   }
 
@@ -113,10 +120,16 @@ function ListenPlayer({ bulletin }: { bulletin: RadioBulletin }) {
             <div className="mt-6 flex flex-col items-center gap-3">
               <button
                 type="button"
-                onClick={() => void play()}
-                disabled={noVoice}
+                onClick={() => {
+                  if (noVoice) {
+                    toast(NO_VOICE_NOTE, { id: "no-pt-voice" });
+                    return;
+                  }
+                  void play();
+                }}
+                aria-disabled={noVoice || undefined}
                 title={noVoice ? NO_VOICE_NOTE : undefined}
-                className="grid size-20 place-items-center rounded-full bg-accent text-accent-fg shadow-[var(--shadow-border)] disabled:opacity-40"
+                className="grid size-20 place-items-center rounded-full bg-accent text-accent-fg shadow-[var(--shadow-border)] aria-disabled:opacity-60"
                 aria-label={playing ? "Stop" : "Play bulletin"}
               >
                 {playing ? (
@@ -132,7 +145,7 @@ function ListenPlayer({ bulletin }: { bulletin: RadioBulletin }) {
                   size="sm"
                   onClick={() => setSlow(true)}
                 >
-                  Slow
+                  Slower
                 </Button>
                 <Button
                   type="button"

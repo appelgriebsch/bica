@@ -72,6 +72,7 @@ export function QuizBlock({
     }
     setIndex((n) => n + 1);
     setPicked(null);
+    stopSpeaking();
     setPlaying(null);
     setTyped("");
     setTypedChecked(false);

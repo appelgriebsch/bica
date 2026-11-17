@@ -1,6 +1,6 @@
 # 0012. Slow replay on the Speak button: paired snail icon with a fixed SLOW_RATE
 
-- **Status**: Accepted. Superseded in part by ADR 0013 (SLOW_RATE value only).
+- **Status**: Accepted. Superseded in part by ADR 0013 (the `SLOW_RATE` value only) and by #120 (playback state: the active button becomes Stop and both buttons stay enabled while playing — no more disabling or spinner-on-playing).
 - **Date**: 2026-11-17
 - **Deciders**: Andreas Gerlach with the user (plan produced via the solution-engineer skill, UI reviewed via the ui-ux-expert skill)
 - **Supersedes**: none
@@ -37,5 +37,5 @@ Bica already speaks on-device through the Web Speech API with a strictly pt-PT v
 - Slow replay works offline exactly wherever normal playback works: same utterance, same voice selection (`pickPtVoice` already prefers `localService` offline), only the rate changes. Pinned by the offline test.
 - With no pt-PT voice both buttons are disabled with the existing `NO_VOICE_NOTE` and `PtVoiceNotice` still renders — the text-only acceptance criterion holds by construction.
 - Verification: new tests in `scripts/tts.test.mjs`; gates `bun run test`, `BICA_BUILT=1 bun run test`, `typecheck`, `lint`, `build`; browser smoke on dev and built output plus a 390×844 check that rows fit both 44px icons and ≥sm screenshots of /review and the lesson intro card proving the pair stays glued.
-- Risk accepted: 0.7 is asserted as a rate only; real-device voice quality at that rate was not measured. The `size-9` (36px) override in `speak/$id.tsx` stays as-is (pre-existing, still ≥24px).
+- Risk accepted: 0.7 is asserted as a rate only; real-device voice quality at that rate was not measured (rate value since superseded by ADR 0013). The `size-9` (36 px) override in `speak/$id.tsx` was removed in #123 (L4): the buttons measure 44×44 px (`min-h-11 min-w-11`), so the earlier "36 px" note here is corrected to 44 px.
 - Revisit when: a learner-facing study shows 0.7 is too slow/fast, or if a global slow preference is ever wanted — that would be a new decision, not an extension of this one.

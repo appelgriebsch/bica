@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { getReading, readingPieces } from "@/data/curriculum";
 import type { ReadingPiece } from "@/data/types";
 import { persistCompletion } from "@/lib/record-progress";
+import { READ_RATE } from "@/lib/tts";
 
 export const Route = createFileRoute("/read/$id")({ component: ReadPage });
 
@@ -94,17 +95,15 @@ function ReadPlayer({ piece }: { piece: ReadingPiece }) {
                     key={p.pt}
                     className="rounded-[var(--radius-lg)] bg-surface p-4 shadow-[var(--shadow-border)]"
                   >
-                    <div className="flex items-start gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setOpen((s) => ({ ...s, [i]: !s[i] }))}
-                        className="min-w-0 flex-1 text-left"
-                      >
-                        <p className="font-display text-xl leading-relaxed">{p.pt}</p>
-                      </button>
-                      <SpeakButton text={p.pt} rate={0.9} />
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOpen((s) => ({ ...s, [i]: !s[i] }))}
+                      className="block w-full min-w-0 text-left"
+                    >
+                      <p className="font-display text-xl leading-relaxed">{p.pt}</p>
+                    </button>
                     {shown && <p className="mt-3 text-sm text-muted">{p.en}</p>}
+                    <SpeakButton text={p.pt} rate={READ_RATE} layout="footer" />
                   </div>
                 );
               })}

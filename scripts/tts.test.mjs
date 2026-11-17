@@ -213,10 +213,21 @@ test("slow replay: speakPt with SLOW_RATE sets the utterance rate and keeps pt-P
   const s = mockSynth([voice("pt-PT", "Joana")]);
   await tts.speakPt("Olá, tudo bem?", tts.SLOW_RATE);
   assert.equal(s.spoken.length, 1);
-  assert.equal(s.spoken[0].rate, 0.7);
+  assert.equal(s.spoken[0].rate, 0.5);
   assert.equal(s.spoken[0].rate, tts.SLOW_RATE);
   assert.equal(s.spoken[0].lang, "pt-PT");
   assert.equal(s.spoken[0].voice.name, "Joana");
+});
+
+test("rate pins (#122, ADR 0013): SLOW_RATE 0.5, /listen Slow 0.6, Windows SAPI steps", () => {
+  assert.ok(tts.SLOW_RATE <= 0.5, `SLOW_RATE ${tts.SLOW_RATE} must be <= 0.5`);
+  assert.ok(
+    Math.trunc(10 * Math.log10(tts.SLOW_RATE)) <= -3,
+    `SLOW_RATE must reach Windows SAPI step <= -3, got ${Math.trunc(10 * Math.log10(tts.SLOW_RATE))}`,
+  );
+  assert.equal(tts.LISTEN_SLOW_RATE, 0.6);
+  assert.equal(Math.trunc(10 * Math.log10(tts.LISTEN_SLOW_RATE)), -2);
+  assert.equal(tts.LISTEN_NATURAL_RATE, 0.96);
 });
 
 test("offline slow replay: a local pt-PT voice still speaks at SLOW_RATE with onLine=false", async () => {

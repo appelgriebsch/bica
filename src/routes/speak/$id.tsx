@@ -135,10 +135,8 @@ function SpeakScene() {
                 : "bg-surface text-fg shadow-[var(--shadow-border)]",
             )}
           >
-            <div className="flex items-start gap-1">
-              <p className="min-w-0 flex-1 whitespace-pre-wrap">{t.content}</p>
-              {t.role === "assistant" && <SpeakButton text={ptOf(t.content)} className="size-9" />}
-            </div>
+            <p className="min-w-0 whitespace-pre-wrap">{t.content}</p>
+            {t.role === "assistant" && <SpeakButton text={ptOf(t.content)} layout="footer" />}
           </li>
         ))}
         {busy && (

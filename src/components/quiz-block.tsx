@@ -1,9 +1,10 @@
-import { Loader2, Snail } from "lucide-react";
+import { Loader2, Snail, Square } from "lucide-react";
 import { useRef, useState } from "react";
 import { NO_VOICE_NOTE } from "@/components/pt-voice-notice";
+import { useSpeakPlayback } from "@/components/use-speak-playback";
 import { Button } from "@/components/ui/button";
 import type { QuizQuestion } from "@/data/types";
-import { SLOW_RATE, speakPt, usePtVoiceStatus } from "@/lib/tts";
+import { QUIZ_RATE } from "@/lib/tts";
 import { answersMatch, cn } from "@/lib/utils";
 
 export function QuizBlock({
@@ -13,9 +14,11 @@ export function QuizBlock({
   questions: QuizQuestion[];
   onFinished: (correct: number) => void;
 }) {
-  const noVoice = usePtVoiceStatus() === "none";
   const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState<"normal" | "slow" | null>(null);
+  const { playing, activate, reset, none: noVoice, loading: voiceLoading } = useSpeakPlayback(
+    questions[index]?.speak ?? "",
+    QUIZ_RATE,
+  );
   const [picked, setPicked] = useState<number | null>(null);
   const [typed, setTyped] = useState("");
   const [typedChecked, setTypedChecked] = useState(false);
@@ -53,7 +56,7 @@ export function QuizBlock({
     }
     setIndex((n) => n + 1);
     setPicked(null);
-    setPlaying(null);
+    reset();
     setTyped("");
     setTypedChecked(false);
   }
@@ -65,40 +68,47 @@ export function QuizBlock({
       </p>
       <h2 className="mt-2 font-display text-2xl font-medium">{question.prompt}</h2>
       {(question.kind === "listen" || question.speak) && question.speak && (
-        <div className="mt-3 flex items-center gap-1">
+        <div className="mt-3 flex items-center gap-2">
           <Button
             type="button"
             variant="outline"
-            disabled={noVoice || playing !== null}
+            aria-label={
+              noVoice ? `Play the line. ${NO_VOICE_NOTE}` : playing === "normal" ? "Stop" : undefined
+            }
+            aria-pressed={playing === "normal" || undefined}
+            aria-disabled={noVoice || undefined}
             title={noVoice ? NO_VOICE_NOTE : undefined}
-            onClick={() => {
-              setPlaying("normal");
-              void speakPt(question.speak!, 0.86).finally(() =>
-                setPlaying((p) => (p === "normal" ? null : p)),
-              );
-            }}
+            className={cn(
+              playing === "normal" && "bg-soft text-accent",
+              noVoice && "opacity-60",
+            )}
+            onClick={() => activate("normal")}
           >
-            {playing === "normal" ? <Loader2 className="animate-spin" /> : null}
-            Play the line
+            {playing === "normal" ? (
+              <Square className="fill-current" />
+            ) : voiceLoading ? (
+              <Loader2 className="animate-spin" />
+            ) : null}
+            {playing === "normal" ? "Stop" : "Play the line"}
           </Button>
           <Button
             type="button"
-            variant="ghost"
-            size="icon"
+            variant="outline"
             aria-label={
-              noVoice ? `Play the line slower. ${NO_VOICE_NOTE}` : "Play the line slower"
+              noVoice
+                ? `Play the line slower. ${NO_VOICE_NOTE}`
+                : playing === "slow"
+                  ? "Stop"
+                  : "Play the line slower"
             }
-            title={noVoice ? NO_VOICE_NOTE : "Play the line slower"}
-            disabled={noVoice || playing !== null}
-            className="text-muted hover:text-accent hover:bg-soft"
-            onClick={() => {
-              setPlaying("slow");
-              void speakPt(question.speak!, SLOW_RATE).finally(() =>
-                setPlaying((p) => (p === "slow" ? null : p)),
-              );
-            }}
+            aria-pressed={playing === "slow" || undefined}
+            aria-disabled={noVoice || undefined}
+            title={noVoice ? NO_VOICE_NOTE : undefined}
+            className={cn(playing === "slow" && "bg-soft text-accent", noVoice && "opacity-60")}
+            onClick={() => activate("slow")}
           >
-            {playing === "slow" ? <Loader2 className="animate-spin" /> : <Snail />}
+            <Snail />
+            {playing === "slow" ? "Stop" : "Slower"}
           </Button>
         </div>
       )}

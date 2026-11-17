@@ -146,10 +146,7 @@ function SectionView({ section }: { section: LessonSection }) {
         <div className="mt-6 rounded-[var(--radius-xl)] bg-accent p-5 text-accent-fg">
           <div className="flex items-start justify-between gap-2">
             <p className="font-display text-2xl font-medium">{section.phrase.pt}</p>
-            <SpeakButton
-              text={section.phrase.pt}
-              className="text-accent-fg hover:bg-tile"
-            />
+            <SpeakButton text={section.phrase.pt} tone="onAccent" />
           </div>
           <p className="mt-2 text-sm text-accent-fg/80">{section.phrase.en}</p>
         </div>

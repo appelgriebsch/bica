@@ -11,8 +11,18 @@ export type PtVoiceStatus = "ready" | "loading" | "none";
 /** Some browsers never fire `voiceschanged`; after this we stop waiting. */
 export const VOICE_TIMEOUT_MS = 1500;
 
-/** Slow-replay rate for the snail button (#75): fixed, below the slowest normal rate in use (0.78). */
-export const SLOW_RATE = 0.7;
+/*
+ * Playback rates. All rate literals live here (#123 M4). SLOW_RATE and
+ * LISTEN_SLOW_RATE are set by ADR 0013 (#122): 0.5 is Windows SAPI step -3
+ * (Math.trunc(10*log10(0.5)) === -3), 0.6 is step -2; normal rates stay
+ * above 0.85, i.e. step 0 on Windows.
+ */
+export const SLOW_RATE = 0.5;
+export const SPEAK_RATE = 0.88;
+export const READ_RATE = 0.9;
+export const QUIZ_RATE = 0.86;
+export const LISTEN_NATURAL_RATE = 0.96;
+export const LISTEN_SLOW_RATE = 0.6;
 
 let status: PtVoiceStatus = "loading";
 let voice: SpeechSynthesisVoice | null = null;
@@ -97,13 +107,13 @@ export function usePtVoiceStatus(): PtVoiceStatus {
 }
 
 /** Speaks `text` with the pt-PT voice; resolves when it ends, errors or is stopped. No voice: resolves at once. */
-export async function speakPt(text: string, rate = 0.88): Promise<void> {
+export async function speakPt(text: string, rate = SPEAK_RATE): Promise<void> {
   const trimmed = text.trim();
   const s = synth();
   if (!trimmed || !s) return;
   const v = await loadPtVoice();
   if (!v) return;
-  stopSpeaking();
+  if (currentResolve) stopSpeaking();
   await new Promise<void>((resolve) => {
     const utter = new SpeechSynthesisUtterance(trimmed);
     utter.voice = v;

@@ -1,7 +1,7 @@
 import type { TravelScene } from "./types";
 
 /**
- * Travel Scenes (#76, ADR 0013): scripted trip situations offered from Practice.
+ * Travel Scenes (#76, ADR 0016): scripted trip situations offered from Practice.
  * Static data in the precached bundle, images under /scenes/ — text and audio
  * work offline; only `scenarioId` (Conversas) needs internet. Each scene links
  * to a matching A1/A2 lesson whose words feed Palavras when finished.

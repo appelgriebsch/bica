@@ -77,9 +77,17 @@ const PAIRS = [
 ];
 
 // [foreground, opacity, background, minimum]: every text-*/NN on a solid fill in src/.
+// Also pins the aria-disabled glyph pairs (#129 M1): the separate opacity-60 class is
+// not scanned above, so the disabled play/snail glyphs are asserted here at UI 3:1.
 const ALPHA_PAIRS = [
   ["accent-fg", 0.8, "accent", TEXT], // practice, review, index, lesson-player small text
   ["accent-fg", 0.7, "accent", UI], // practice.tsx Speak card icon ([&>svg]:text-accent-fg/70)
+  ["tile", 0.6, "bg", UI], // no-voice SpeakButton glyphs on every default-tone surface
+  ["tile", 0.6, "surface", UI],
+  ["tile", 0.6, "surface-2", UI],
+  ["tile", 0.6, "soft", UI], // "You" dialogue bubbles
+  ["accent-fg", 0.6, "accent", UI], // no-voice onAccent (lesson intro) pair
+  ["fg", 0.6, "surface", UI], // quiz "Play the line" pair when no voice
 ];
 
 // `text-*/NN` and the bracket form `text-*/[0.7]`. A separate `opacity-NN` class

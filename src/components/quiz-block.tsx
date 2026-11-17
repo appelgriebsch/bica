@@ -79,6 +79,7 @@ export function QuizBlock({
             aria-disabled={noVoice || undefined}
             title={noVoice ? NO_VOICE_NOTE : undefined}
             className={cn(
+              "[&_svg]:size-5",
               playing === "normal" && "bg-soft text-accent",
               noVoice && "opacity-60",
             )}
@@ -104,7 +105,11 @@ export function QuizBlock({
             aria-pressed={playing === "slow" || undefined}
             aria-disabled={noVoice || undefined}
             title={noVoice ? NO_VOICE_NOTE : undefined}
-            className={cn(playing === "slow" && "bg-soft text-accent", noVoice && "opacity-60")}
+            className={cn(
+              "[&_svg]:size-5",
+              playing === "slow" && "bg-soft text-accent",
+              noVoice && "opacity-60",
+            )}
             onClick={() => activate("slow")}
           >
             <Snail />

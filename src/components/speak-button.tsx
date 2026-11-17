@@ -45,7 +45,11 @@ export function SpeakButton({
         aria-disabled={none || undefined}
         title={none ? NO_VOICE_NOTE : undefined}
         className={cn(
-          onAccent ? "text-accent-fg hover:bg-tile" : "text-accent hover:bg-soft",
+          onAccent
+            ? "text-accent-fg hover:bg-tile"
+            : none
+              ? "text-tile hover:bg-soft"
+              : "text-accent hover:bg-soft",
           playActive && (onAccent ? "bg-tile text-accent-fg" : "bg-soft text-accent"),
           onAccent && "focus-visible:outline-accent-fg",
           none && "opacity-60",
@@ -93,7 +97,7 @@ export function SpeakButton({
           aria-disabled={none || undefined}
           title={none ? NO_VOICE_NOTE : slowLabel}
           className={cn(
-            none ? "text-accent" : "text-muted hover:bg-soft hover:text-accent",
+            none ? "text-tile" : "text-muted hover:bg-soft hover:text-accent",
             slowActive && "bg-soft text-accent",
             none && "opacity-60",
           )}

@@ -34,15 +34,13 @@ export function DialogueView({
                 : "mr-4 bg-surface shadow-[var(--shadow-border)]",
             )}
           >
-            <div className="flex items-start gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium uppercase tracking-wider text-accent">
-                  {line.speaker}
-                </p>
-                <p className="mt-0.5 font-medium">{line.pt}</p>
-                <p className="text-sm text-muted">{line.en}</p>
-              </div>
-              <SpeakButton text={line.pt} />
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-accent">
+                {line.speaker}
+              </p>
+              <p className="mt-0.5 font-medium">{line.pt}</p>
+              <p className="text-sm text-muted">{line.en}</p>
+              <SpeakButton text={line.pt} layout="footer" />
             </div>
           </li>
         ))}

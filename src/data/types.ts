@@ -107,9 +107,9 @@ export type TravelScene = {
   partner: string;
   lines: DialogueLine[];
   image: string;
-  /** Matching lesson; its words feed Palavras when finished (ADR 0013). */
+  /** Matching lesson; its words feed Palavras when finished (ADR 0016). */
   lessonId: string;
-  /** Conversas partner, online-only (ADR 0013/0014). */
+  /** Conversas partner, online-only (ADR 0016/0014). */
   scenarioId?: string;
 };
 

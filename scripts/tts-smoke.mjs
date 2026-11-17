@@ -24,6 +24,21 @@ function mock({ voices }) {
   const listeners = [];
   window.__spoken = [];
   window.__cancels = 0;
+  // The native SpeechSynthesisUtterance.voice setter rejects the plain-object
+  // mock voices ("Failed to convert value to 'SpeechSynthesisVoice'"), which
+  // would make speakPt throw before speak() is ever reached. A plain
+  // EventTarget subclass accepts any voice object and supports the end event.
+  window.SpeechSynthesisUtterance = class extends EventTarget {
+    constructor(text) {
+      super();
+      this.text = text;
+      this.lang = "";
+      this.voice = null;
+      this.rate = 1;
+      this.pitch = 1;
+      this.volume = 1;
+    }
+  };
   const synth = {
     getVoices: () => voices,
     addEventListener: (t, fn) => t === "voiceschanged" && listeners.push(fn),
@@ -68,11 +83,15 @@ try {
   await page.addInitScript(mock, { voices: PT });
   await page.goto(BASE + PAGE, { waitUntil: "networkidle" });
 
+  // The row is anchored on the `Play “` prefix, which survives every playback
+  // state (idle, Stop, no-voice); the snail's " slower" suffix does not.
   const row = page
-    .locator("li", { has: page.getByRole("button", { name: /slower/ }) })
+    .locator("li", { has: page.getByRole("button", { name: /^Play “/ }) })
     .first();
-  const playIn = () => row.getByRole("button", { name: /^Play “/ });
-  const stopIn = () => row.getByRole("button", { name: "Stop" });
+  // At idle both buttons start with `Play “…`; the snail adds " slower", so
+  // exclude it to keep the locator strict-mode clean (exactly one button).
+  const playIn = () => row.getByRole("button", { name: /^Play “(?!.*slower)/ });
+  const stopIn = () => row.getByRole("button", { name: "Stop", exact: true });
   const snailIn = () => row.getByRole("button", { name: /slower/ });
   await playIn().waitFor({ timeout: 10_000 });
   check(
@@ -165,7 +184,7 @@ try {
   );
 
   // check 6 (m-B): focus stays on the button; Space works during and after playback
-  await playIn().focus();
+  await stopIn().focus(); // check 3 left Play playing, so it is the pressed Stop
   await page.keyboard.press("Space"); // stop the current playback
   await playIn().waitFor({ timeout: 5_000 });
   await playIn().focus();
@@ -210,8 +229,8 @@ try {
     }
     await page.getByRole("button", { name: "Next" }).click();
   }
-  const qPlay = page.getByRole("button", { name: "Play the line" });
-  const qSnail = page.getByRole("button", { name: "Play the line slower" });
+  const qPlay = page.getByRole("button", { name: "Play the line", exact: true });
+  const qSnail = page.getByRole("button", { name: "Play the line slower", exact: true });
   await qPlay.waitFor({ timeout: 10_000 });
   check(
     (await qSnail.locator("svg").count()) === 1 &&
@@ -219,9 +238,10 @@ try {
     "check 9/M3: snail is a sibling outline button with a visible Slower label",
   );
   await qPlay.click();
-  await page.getByRole("button", { name: "Stop" }).waitFor({ timeout: 5_000 });
+  await page.getByRole("button", { name: "Stop", exact: true }).waitFor({ timeout: 5_000 });
   check(
-    (await page.getByRole("button", { name: "Stop" }).getAttribute("aria-pressed")) === "true",
+    (await page.getByRole("button", { name: "Stop", exact: true }).getAttribute("aria-pressed")) ===
+      "true",
     "check 9: quiz Play the line becomes pressed Stop",
   );
   c0 = await cancelCount(page);
@@ -237,7 +257,7 @@ try {
     "check 9: quiz snail replays at SLOW_RATE with one cancel",
   );
   const s4 = await spokenCount(page);
-  await page.getByRole("button", { name: "Play the line" }).click();
+  await page.getByRole("button", { name: "Play the line", exact: true }).click();
   await page.waitForFunction(
     (n) => window.__spoken.length === n + 1 && window.__spoken.at(-1).rate === 0.86,
     s4,
@@ -274,9 +294,9 @@ try {
   await nv.addInitScript(mock, { voices: PT_BR_ONLY });
   await nv.goto(BASE + PAGE, { waitUntil: "networkidle" });
   const nvRow = nv
-    .locator("li", { has: nv.getByRole("button", { name: /slower/i }) })
+    .locator("li", { has: nv.getByRole("button", { name: /^Play “/ }) })
     .first();
-  const nvPlay = nvRow.getByRole("button", { name: /Play “/ });
+  const nvPlay = nvRow.getByRole("button", { name: /^Play “(?!.*slower)/ });
   await nvPlay.waitFor({ timeout: 10_000 });
   await nv.getByText(NOTE).first().waitFor({ timeout: 10_000 });
   check(await nv.getByText(NOTE).first().isVisible(), "pt-BR only: text-only notice shown");
@@ -294,7 +314,9 @@ try {
     "M1: no-voice button stays focusable",
   );
   const nvSpoken0 = await spokenCount(nv);
-  await nvPlay.click();
+  // aria-disabled buttons fail Playwright's actionability check; the app keeps
+  // them focusable on purpose, so dispatch the click directly.
+  await nvPlay.dispatchEvent("click");
   await nv
     .locator('section[aria-label*="Notifications"]')
     .getByText(NOTE)

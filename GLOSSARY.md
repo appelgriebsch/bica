@@ -156,7 +156,7 @@ Seen in: not in the tree.
 
 ## Travel Scenes
 
-Scripted trip scenes on Practice, under "Cenas de viagem": café, restaurant, transport, accommodation, chemist, asking the way. Each opens `/scene/$id` without finishing the A1 path, works offline (text and on-device audio), and links to a matching A1/A2 Lesson whose words feed Palavras, plus an online-only Conversas partner (`TravelScene`, ADR 0013).
+Scripted trip scenes on Practice, under "Cenas de viagem": café, restaurant, transport, accommodation, chemist, asking the way. Each opens `/scene/$id` without finishing the A1 path, works offline (text and on-device audio), and links to a matching A1/A2 Lesson whose words feed Palavras, plus an online-only Conversas partner (`TravelScene`, ADR 0016).
 
 Seen in: `src/routes/practice.tsx`, `src/routes/scene/$id.tsx`, `src/data/travel-scenes.ts`, `src/data/types.ts`, `src/components/dialogue.tsx`
 

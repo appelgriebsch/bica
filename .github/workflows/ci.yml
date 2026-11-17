@@ -36,8 +36,13 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
+      # GHSA-fc5q-39xc-vjpf (CVE-2026-112366, picomatch <= 4.0.7 ReDoS): no patched
+      # release exists yet (first_patched_version is null; fix is upstream PR
+      # micromatch/picomatch#194, open). picomatch is only reached build/lint-time
+      # here (vite/tinyglobby, router-plugin, typescript-eslint), never in the
+      # Worker bundle. Drop the --ignore once picomatch >= 4.0.8 is published.
       - run: bun install --frozen-lockfile
-      - run: bun audit --prod --audit-level=high
+      - run: bun audit --prod --audit-level=high --ignore GHSA-fc5q-39xc-vjpf
       - name: Full audit (report only, #65 optional-peer findings)
         continue-on-error: true
         run: bun audit

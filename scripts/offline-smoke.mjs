@@ -72,6 +72,12 @@ try {
     const ok = text.length > 40 && !text.includes("Bica is offline.") && errors.length === 0;
     console.log(ok ? "ok  " : "FAIL", route, errors.join(" | ").slice(0, 200));
     if (!ok) failures.push(route);
+    // #77/#127: the Travel Phrasebook on /me renders fully offline (precached data).
+    if (route === "/me") {
+      const travelOk = text.includes("On the trip") && text.includes("Pode repetir, se faz favor?");
+      console.log(travelOk ? "ok  " : "FAIL", "/me Travel Phrasebook offline");
+      if (!travelOk) failures.push("/me Travel Phrasebook");
+    }
   }
   const scenes = await page.evaluate(async () => {
     const cache = await caches.open(

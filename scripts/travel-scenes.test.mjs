@@ -3,10 +3,12 @@
  * precached image. Run with `bun run test` (node --test scripts/*.test.mjs). */
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { after, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import ts from "typescript";
+import { buildOutput } from "./build-output.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const tmp = mkdtempSync(join(root, ".travel-scenes-test-"));
@@ -89,3 +91,26 @@ test("scene dialogues are complete: 6-10 lines with speaker, pt and en", () => {
     }
   }
 });
+
+test(
+  "the built worker precaches every scene image and the chunks carrying scene data and route (#119 offline criterion)",
+  { skip: !process.env.BICA_BUILT && "set BICA_BUILT=1 after bun run build" },
+  async () => {
+    const publicDir = new URL(`../${buildOutput().publicDir}/`, import.meta.url);
+    const sw = await readFile(new URL("sw.js", publicDir), "utf8");
+    const urls = JSON.parse(sw.match(/const PRECACHE = (\[.*\]);/)[1]);
+    for (const s of travelScenes) {
+      assert.ok(urls.includes(s.image), `${s.id}: ${s.image} is not precached`);
+    }
+    const assets = urls.filter((u) => u.startsWith("/assets/") && u.endsWith(".js"));
+    let dataChunk = false;
+    let uiChunk = false;
+    for (const u of assets) {
+      const body = await readFile(new URL(u.slice(1), publicDir), "utf8");
+      if (body.includes("scene-accommodation")) dataChunk = true;
+      if (body.includes("Cenas de viagem")) uiChunk = true;
+    }
+    assert.ok(dataChunk, "no precached chunk carries the travel scene data");
+    assert.ok(uiChunk, "no precached chunk carries the Practice scene section / scene route");
+  },
+);

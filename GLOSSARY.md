@@ -90,7 +90,7 @@ Seen in: `src/routes/practice.tsx`, `src/routes/speak/index.tsx`, `src/lib/onlin
 
 ## Scene
 
-A Conversas situation: setting, partner and goals (`SpeakScenario`). Today’s Speak card says "A short scene". A Lesson dialogue uses that same heading for a script, not for Conversas.
+A Conversas situation: setting, partner and goals (`SpeakScenario`). Today’s Speak card says "A short scene". A Lesson dialogue uses that same heading for a script, not for Conversas. A Travel Scene (below) is a separate Practice item, not a Conversas Scene.
 
 Seen in: `src/data/types.ts`, `src/data/scenarios.ts`, `src/routes/index.tsx`, `src/routes/speak/index.tsx`, `src/components/lesson-player.tsx`
 
@@ -156,9 +156,9 @@ Seen in: not in the tree.
 
 ## Travel Scenes
 
-Scenes for a trip: café, restaurant, transport, accommodation, chemist, directions. Not a named set. Ordinary Scenes already cover a pastelaria, a ticket desk, a chemist and asking the way. No Scene is for ordering a meal or booking a room. `trabalho-chat` sits in a tasca to talk about work. `habitacao` is a dinner argument about housing.
+Scripted trip scenes on Practice, under "Cenas de viagem": café, restaurant, transport, accommodation, chemist, asking the way. Each opens `/scene/$id` without finishing the A1 path, works offline (text and on-device audio), and links to a matching A1/A2 Lesson whose words feed Palavras, plus an online-only Conversas partner (`TravelScene`, ADR 0013).
 
-Seen in: not in the tree as this set. Closest rows in `src/data/scenarios.ts`: `pastelaria`, `bilhete`, `direcoes`, `farmacia`.
+Seen in: `src/routes/practice.tsx`, `src/routes/scene/$id.tsx`, `src/data/travel-scenes.ts`, `src/data/types.ts`, `src/components/dialogue.tsx`
 
 ## Travel Phrasebook
 

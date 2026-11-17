@@ -11,6 +11,9 @@ export type PtVoiceStatus = "ready" | "loading" | "none";
 /** Some browsers never fire `voiceschanged`; after this we stop waiting. */
 export const VOICE_TIMEOUT_MS = 1500;
 
+/** Slow-replay rate for the snail button (#75): fixed, below the slowest normal rate in use (0.78). */
+export const SLOW_RATE = 0.7;
+
 let status: PtVoiceStatus = "loading";
 let voice: SpeechSynthesisVoice | null = null;
 let timedOut = false;

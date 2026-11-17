@@ -208,3 +208,27 @@ test("a speech error shows the notice (status none); cancel and not-allowed do n
   s.fire(); // voices change → try again
   assert.equal(tts.getPtVoiceStatus(), "ready");
 });
+
+test("slow replay: speakPt with SLOW_RATE sets the utterance rate and keeps pt-PT voice/lang", async () => {
+  const s = mockSynth([voice("pt-PT", "Joana")]);
+  await tts.speakPt("Olá, tudo bem?", tts.SLOW_RATE);
+  assert.equal(s.spoken.length, 1);
+  assert.equal(s.spoken[0].rate, 0.7);
+  assert.equal(s.spoken[0].rate, tts.SLOW_RATE);
+  assert.equal(s.spoken[0].lang, "pt-PT");
+  assert.equal(s.spoken[0].voice.name, "Joana");
+});
+
+test("offline slow replay: a local pt-PT voice still speaks at SLOW_RATE with onLine=false", async () => {
+  setNavigator({ onLine: false });
+  const s = mockSynth([voice("pt-PT", "Joana", true)]);
+  try {
+    assert.equal((await tts.loadPtVoice())?.name, "Joana");
+    await tts.speakPt("Olá", tts.SLOW_RATE);
+    assert.equal(s.spoken.length, 1);
+    assert.equal(s.spoken[0].rate, tts.SLOW_RATE);
+    assert.equal(s.spoken[0].voice.localService, true);
+  } finally {
+    delete globalThis.navigator;
+  }
+});

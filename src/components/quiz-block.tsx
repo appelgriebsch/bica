@@ -1,8 +1,9 @@
+import { Loader2, Snail } from "lucide-react";
 import { useRef, useState } from "react";
 import { NO_VOICE_NOTE } from "@/components/pt-voice-notice";
 import { Button } from "@/components/ui/button";
 import type { QuizQuestion } from "@/data/types";
-import { speakPt, usePtVoiceStatus } from "@/lib/tts";
+import { SLOW_RATE, speakPt, usePtVoiceStatus } from "@/lib/tts";
 import { answersMatch, cn } from "@/lib/utils";
 
 export function QuizBlock({
@@ -14,6 +15,7 @@ export function QuizBlock({
 }) {
   const noVoice = usePtVoiceStatus() === "none";
   const [index, setIndex] = useState(0);
+  const [playing, setPlaying] = useState<"normal" | "slow" | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
   const [typed, setTyped] = useState("");
   const [typedChecked, setTypedChecked] = useState(false);
@@ -62,16 +64,41 @@ export function QuizBlock({
       </p>
       <h2 className="mt-2 font-display text-2xl font-medium">{question.prompt}</h2>
       {(question.kind === "listen" || question.speak) && question.speak && (
-        <Button
-          type="button"
-          variant="outline"
-          className="mt-3"
-          disabled={noVoice}
-          title={noVoice ? NO_VOICE_NOTE : undefined}
-          onClick={() => void speakPt(question.speak!, 0.86)}
-        >
-          Play the line
-        </Button>
+        <div className="mt-3 flex items-center gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={noVoice || playing !== null}
+            title={noVoice ? NO_VOICE_NOTE : undefined}
+            onClick={() => {
+              setPlaying("normal");
+              void speakPt(question.speak!, 0.86).finally(() =>
+                setPlaying((p) => (p === "normal" ? null : p)),
+              );
+            }}
+          >
+            Play the line
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={
+              noVoice ? `Play the line slower. ${NO_VOICE_NOTE}` : "Play the line slower"
+            }
+            title={noVoice ? NO_VOICE_NOTE : "Play the line slower"}
+            disabled={noVoice || playing !== null}
+            className="text-muted hover:text-accent hover:bg-soft"
+            onClick={() => {
+              setPlaying("slow");
+              void speakPt(question.speak!, SLOW_RATE).finally(() =>
+                setPlaying((p) => (p === "slow" ? null : p)),
+              );
+            }}
+          >
+            {playing === "slow" ? <Loader2 className="animate-spin" /> : <Snail />}
+          </Button>
+        </div>
       )}
 
       {question.kind === "type" ? (

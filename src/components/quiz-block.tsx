@@ -77,6 +77,7 @@ export function QuizBlock({
               );
             }}
           >
+            {playing === "normal" ? <Loader2 className="animate-spin" /> : null}
             Play the line
           </Button>
           <Button

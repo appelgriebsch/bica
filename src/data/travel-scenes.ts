@@ -128,6 +128,54 @@ export const travelScenes: TravelScene[] = [
     scenarioId: "bilhete",
   },
   {
+    id: "scene-accommodation",
+    situation: "accommodation",
+    level: "A2",
+    minutes: 10,
+    title: "Checking in",
+    titlePt: "O alojamento",
+    setting:
+      "The receção of a small guesthouse in Alfama, late afternoon. You have a reservation for two nights. Confirm the room, ask about breakfast and the Wi-Fi, then report what does not work.",
+    partner: "The host at the desk",
+    lines: [
+      {
+        speaker: "You",
+        pt: "Boa tarde. Tenho uma reserva em nome de Silva, para duas noites.",
+        en: "Good afternoon. I have a reservation under Silva, for two nights.",
+      },
+      {
+        speaker: "Host",
+        pt: "Sim. Quarto doze, segundo andar. A chave?",
+        en: "Yes. Room twelve, second floor. The key?",
+      },
+      {
+        speaker: "You",
+        pt: "Sim, por favor. O pequeno-almoço está incluído?",
+        en: "Yes, please. Is breakfast included?",
+      },
+      { speaker: "Host", pt: "Sim, das oito às dez.", en: "Yes, from eight to ten." },
+      { speaker: "You", pt: "Qual é a palavra-passe do Wi-Fi?", en: "What's the Wi-Fi password?" },
+      {
+        speaker: "Host",
+        pt: "Está no quadro atrás de si. 'Lisboa2026'.",
+        en: "It's on the board behind you. 'Lisboa2026'.",
+      },
+      {
+        speaker: "You",
+        pt: "O ar condicionado não funciona.",
+        en: "The air conditioning doesn't work.",
+      },
+      {
+        speaker: "Host",
+        pt: "Já vou ver isso. Obrigado por dizer. Boa estadia!",
+        en: "I'll see to that. Thanks for saying. Enjoy your stay!",
+      },
+    ],
+    image: "/scenes/doorway.jpg",
+    lessonId: "a2-hotel",
+    scenarioId: "alojamento",
+  },
+  {
     id: "scene-chemist",
     situation: "chemist",
     level: "A2",

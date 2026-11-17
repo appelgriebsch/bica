@@ -48,6 +48,11 @@ test("travel scenes exist with unique ids and known situations at A1/A2", () => 
   }
 });
 
+test("exactly the six #76 situations are present", () => {
+  const situations = travelScenes.map((s) => s.situation).sort();
+  assert.deepEqual(situations, [...SITUATIONS].sort());
+});
+
 test("every scene links a matching lesson whose vocab feeds Palavras", () => {
   for (const s of travelScenes) {
     const lesson = getLesson(s.lessonId);

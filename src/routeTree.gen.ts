@@ -28,6 +28,7 @@ import { Route as ListenIdRouteImport } from './routes/listen/$id'
 import { Route as MeReceiveRouteImport } from './routes/me_.receive'
 import { Route as MeSendRouteImport } from './routes/me_.send'
 import { Route as ReadIdRouteImport } from './routes/read/$id'
+import { Route as SceneIdRouteImport } from './routes/scene/$id'
 import { Route as SpeakIndexRouteImport } from './routes/speak/index'
 import { Route as SpeakIdRouteImport } from './routes/speak/$id'
 import { Route as VerbsIndexRouteImport } from './routes/verbs/index'
@@ -128,6 +129,11 @@ const ReadIdRoute = ReadIdRouteImport.update({
   path: '/read/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SceneIdRoute = SceneIdRouteImport.update({
+  id: '/scene/$id',
+  path: '/scene/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SpeakIndexRoute = SpeakIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -168,6 +174,7 @@ export interface FileRoutesByFullPath {
   '/me/receive': typeof MeReceiveRoute
   '/me/send': typeof MeSendRoute
   '/read/$id': typeof ReadIdRoute
+  '/scene/$id': typeof SceneIdRoute
   '/speak/$id': typeof SpeakIdRoute
   '/verbs/$id': typeof VerbsIdRoute
   '/grammar/': typeof GrammarIndexRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/me/receive': typeof MeReceiveRoute
   '/me/send': typeof MeSendRoute
   '/read/$id': typeof ReadIdRoute
+  '/scene/$id': typeof SceneIdRoute
   '/speak/$id': typeof SpeakIdRoute
   '/verbs/$id': typeof VerbsIdRoute
   '/grammar': typeof GrammarIndexRoute
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/me_/receive': typeof MeReceiveRoute
   '/me_/send': typeof MeSendRoute
   '/read/$id': typeof ReadIdRoute
+  '/scene/$id': typeof SceneIdRoute
   '/speak/$id': typeof SpeakIdRoute
   '/verbs/$id': typeof VerbsIdRoute
   '/grammar/': typeof GrammarIndexRoute
@@ -243,6 +252,7 @@ export interface FileRouteTypes {
     | '/me/receive'
     | '/me/send'
     | '/read/$id'
+    | '/scene/$id'
     | '/speak/$id'
     | '/verbs/$id'
     | '/grammar/'
@@ -265,6 +275,7 @@ export interface FileRouteTypes {
     | '/me/receive'
     | '/me/send'
     | '/read/$id'
+    | '/scene/$id'
     | '/speak/$id'
     | '/verbs/$id'
     | '/grammar'
@@ -290,6 +301,7 @@ export interface FileRouteTypes {
     | '/me_/receive'
     | '/me_/send'
     | '/read/$id'
+    | '/scene/$id'
     | '/speak/$id'
     | '/verbs/$id'
     | '/grammar/'
@@ -315,6 +327,7 @@ export interface RootRouteChildren {
   MeReceiveRoute: typeof MeReceiveRoute
   MeSendRoute: typeof MeSendRoute
   ReadIdRoute: typeof ReadIdRoute
+  SceneIdRoute: typeof SceneIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -452,6 +465,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReadIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/scene/$id': {
+      id: '/scene/$id'
+      path: '/scene/$id'
+      fullPath: '/scene/$id'
+      preLoaderRoute: typeof SceneIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/speak/': {
       id: '/speak/'
       path: '/'
@@ -538,6 +558,7 @@ const rootRouteChildren: RootRouteChildren = {
   MeReceiveRoute: MeReceiveRoute,
   MeSendRoute: MeSendRoute,
   ReadIdRoute: ReadIdRoute,
+  SceneIdRoute: SceneIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

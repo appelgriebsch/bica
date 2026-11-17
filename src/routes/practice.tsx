@@ -1,15 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BookOpen, Check, Headphones, MessageCircle, PenLine, RotateCcw, WholeWord } from "lucide-react";
+import { BookOpen, Check, Compass, Headphones, MessageCircle, PenLine, RotateCcw, WholeWord } from "lucide-react";
 import { OnlineOnly } from "@/components/online-only";
 import { AppShell } from "@/components/app-shell";
 import {
   dueVocab,
   firstIncompleteOf,
+  getLesson,
   grammarDrills,
   levels,
   radioBulletins,
   readingPieces,
   speakScenarios,
+  travelScenes,
   verbDesks,
   workingLevel,
 } from "@/data/curriculum";
@@ -182,6 +184,49 @@ function PracticePage() {
           </Link>
         </li>
       </ul>
+
+      <section className="mt-10">
+        <h2 className="font-display text-xl font-medium">Cenas de viagem</h2>
+        <p className="mt-1 text-sm text-muted">
+          Travel scenes. The text and sound work offline; the live partner needs
+          internet.
+        </p>
+        <ul className="mt-3 grid gap-2">
+          {travelScenes.map((s) => {
+            const lesson = getLesson(s.lessonId);
+            return (
+              <li key={s.id}>
+                <Link
+                  to="/scene/$id"
+                  params={{ id: s.id }}
+                  className="flex items-center gap-3 rounded-[var(--radius-md)] bg-surface px-3 py-3 no-underline shadow-[var(--shadow-border)] transition-shadow duration-[var(--motion-quick)] hover:shadow-[var(--shadow-border-hover)]"
+                >
+                  <span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] bg-soft text-accent sm:hidden">
+                    <Compass className="size-4" />
+                  </span>
+                  <img
+                    src={s.image}
+                    alt=""
+                    className="scene hidden h-12 w-12 shrink-0 rounded-[var(--radius-sm)] object-cover sm:block"
+                  />
+                  <span className="min-w-0 flex-1 overflow-hidden">
+                    <span className="block truncate font-medium text-fg">
+                      {s.titlePt}
+                      <span className="ml-2 hidden font-sans text-sm font-normal text-muted sm:inline">
+                        {s.title}
+                      </span>
+                    </span>
+                    <span className="block truncate text-xs text-subtle">
+                      {s.level} · {s.minutes} min
+                      {lesson ? ` · Lesson: ${lesson.titlePt}` : ""}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
       <section className="mt-10">
         <h2 className="font-display text-xl font-medium">Bulletins</h2>

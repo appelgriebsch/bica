@@ -58,6 +58,20 @@ export const speakScenarios: SpeakScenario[] = [
     image: "/scenes/stairwell.jpg",
   },
   {
+    id: "restaurante",
+    level: "A1",
+    minutes: 8,
+    title: "At the restaurant",
+    titlePt: "No restaurante",
+    setting:
+      "A tasca in Bairro Alto on a Saturday evening. The place is full. Ask for a table for two, order from the menu, and at the end ask for the bill.",
+    partner: "The waiter",
+    openerPt: "Boa noite. Mesa para dois, se faz favor.",
+    openerEn: "Good evening. A table for two, please?",
+    goals: ["Ask for mesa para dois", "Order from the menu", "Ask for a conta"],
+    image: "/scenes/tasca.jpg",
+  },
+  {
     id: "planos",
     level: "A2",
     minutes: 10,
@@ -112,6 +126,24 @@ export const speakScenarios: SpeakScenario[] = [
     openerEn: "So, how was the weekend?",
     goals: ["Use fui / vi / gostei", "Ask a follow-up", "Keep it to a few sentences"],
     image: "/scenes/cafe.jpg",
+  },
+  {
+    id: "alojamento",
+    level: "A2",
+    minutes: 10,
+    title: "Checking in",
+    titlePt: "Na receção",
+    setting:
+      "The receção of a small guesthouse in Alfama. You have a reservation for two nights. Confirm the room, then ask about breakfast and the Wi-Fi password.",
+    partner: "The host at the desk",
+    openerPt: "Boa tarde. Tenho uma reserva em nome de…",
+    openerEn: "Good afternoon. I have a reservation under the name of…",
+    goals: [
+      "Say tenho uma reserva para duas noites",
+      "Ask about o pequeno-almoço",
+      "Ask for the Wi-Fi password",
+    ],
+    image: "/scenes/doorway.jpg",
   },
   {
     id: "radio-chat",

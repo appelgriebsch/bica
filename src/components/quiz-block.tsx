@@ -53,6 +53,7 @@ export function QuizBlock({
     }
     setIndex((n) => n + 1);
     setPicked(null);
+    setPlaying(null);
     setTyped("");
     setTypedChecked(false);
   }

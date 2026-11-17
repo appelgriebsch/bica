@@ -263,19 +263,28 @@ test(
     await page.goto(`${base}/practice`, { waitUntil: "networkidle", timeout: 60_000 });
     const info = await page.locator('a[href="/speak"]').evaluate((el) => {
       const norm = (s) => s.replace(/\s+/g, " ").trim();
+      // Whitespace-insensitive comparison: textContent concatenates nested spans
+      // without spaces, while the leaf join below inserts them at element edges.
+      const squash = (s) => norm(s).replace(/\s/g, "");
       const label = el.getAttribute("aria-label");
       // Approximate the accessible name: aria-label wins, otherwise text content.
       const name = norm(label ?? el.textContent ?? "");
+      // Visible text computed once: leaf nodes only, so nested spans are not
+      // double-counted the way a parent's textContent + children would be.
       const visible = norm(
-        [...el.querySelectorAll("h2, p, span:not(.sr-only)")].map((n) => n.textContent).join(" "),
+        [...el.querySelectorAll("h2, p, span:not(.sr-only)")]
+          .filter((n) => !n.querySelector("h2, p, span"))
+          .map((n) => n.textContent)
+          .join(" "),
       );
-      return { label, name, visible };
+      return { label, name, visible, squashedName: squash(name), squashedVisible: squash(visible) };
     });
     await page.close();
     assert.equal(info.label, null, "aria-label must not override the card's name");
     assert.ok(info.visible.includes("Conversas"), "visible label present");
     assert.ok(
-      info.name.includes(info.visible) || info.visible.includes(info.name),
+      info.squashedName.includes(info.squashedVisible) ||
+        info.squashedVisible.includes(info.squashedName),
       `accessible name "${info.name}" does not contain the visible text "${info.visible}"`,
     );
   },

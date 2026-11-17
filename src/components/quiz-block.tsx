@@ -1,10 +1,10 @@
 import { Loader2, Snail, Square } from "lucide-react";
 import { useRef, useState } from "react";
-import { toast } from "sonner";
 import { NO_VOICE_NOTE } from "@/components/pt-voice-notice";
+import { useSpeakPlayback } from "@/components/use-speak-playback";
 import { Button } from "@/components/ui/button";
 import type { QuizQuestion } from "@/data/types";
-import { QUIZ_RATE, SLOW_RATE, speakPt, stopSpeaking, usePtVoiceStatus } from "@/lib/tts";
+import { QUIZ_RATE } from "@/lib/tts";
 import { answersMatch, cn } from "@/lib/utils";
 
 export function QuizBlock({
@@ -14,11 +14,11 @@ export function QuizBlock({
   questions: QuizQuestion[];
   onFinished: (correct: number) => void;
 }) {
-  const voiceStatus = usePtVoiceStatus();
-  const noVoice = voiceStatus === "none";
-  const voiceLoading = voiceStatus === "loading";
   const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState<"normal" | "slow" | null>(null);
+  const { playing, activate, reset, none: noVoice, loading: voiceLoading } = useSpeakPlayback(
+    questions[index]?.speak ?? "",
+    QUIZ_RATE,
+  );
   const [picked, setPicked] = useState<number | null>(null);
   const [typed, setTyped] = useState("");
   const [typedChecked, setTypedChecked] = useState(false);
@@ -47,22 +47,6 @@ export function QuizBlock({
     if (match) correctRef.current += 1;
   }
 
-  function activate(kind: "normal" | "slow") {
-    if (noVoice) {
-      toast(NO_VOICE_NOTE, { id: "no-pt-voice" });
-      return;
-    }
-    if (playing === kind) {
-      stopSpeaking();
-      setPlaying(null);
-      return;
-    }
-    setPlaying(kind);
-    void speakPt(question.speak!, kind === "slow" ? SLOW_RATE : QUIZ_RATE).finally(() =>
-      setPlaying((p) => (p === kind ? null : p)),
-    );
-  }
-
   function goNext() {
     if (!revealed) return;
     const last = index >= questions.length - 1;
@@ -72,8 +56,7 @@ export function QuizBlock({
     }
     setIndex((n) => n + 1);
     setPicked(null);
-    stopSpeaking();
-    setPlaying(null);
+    reset();
     setTyped("");
     setTypedChecked(false);
   }

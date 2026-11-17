@@ -1,9 +1,8 @@
 import { Loader2, Snail, Square, Volume2 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 import { NO_VOICE_NOTE } from "@/components/pt-voice-notice";
+import { useSpeakPlayback } from "@/components/use-speak-playback";
 import { Button } from "@/components/ui/button";
-import { SLOW_RATE, SPEAK_RATE, speakPt, stopSpeaking, usePtVoiceStatus } from "@/lib/tts";
+import { SPEAK_RATE } from "@/lib/tts";
 import { cn } from "@/lib/utils";
 
 /**
@@ -26,30 +25,11 @@ export function SpeakButton({
   layout?: "inline" | "footer";
   tone?: "default" | "onAccent";
 }) {
-  const [playing, setPlaying] = useState<"normal" | "slow" | null>(null);
-  const status = usePtVoiceStatus();
-  const none = status === "none";
-  const loading = status === "loading";
+  const { playing, activate, none, loading } = useSpeakPlayback(text, rate);
   const onAccent = tone === "onAccent";
   const snippet = text.length > 40 ? `${text.slice(0, 40).trimEnd()}…` : text;
   const playLabel = `Play “${snippet}”`;
   const slowLabel = `Play “${snippet}” slower`;
-
-  function activate(kind: "normal" | "slow") {
-    if (none) {
-      toast(NO_VOICE_NOTE, { id: "no-pt-voice" });
-      return;
-    }
-    if (playing === kind) {
-      stopSpeaking();
-      setPlaying(null);
-      return;
-    }
-    setPlaying(kind);
-    void speakPt(text, kind === "slow" ? SLOW_RATE : rate).finally(() =>
-      setPlaying((p) => (p === kind ? null : p)),
-    );
-  }
 
   const playActive = playing === "normal";
   const slowActive = playing === "slow";

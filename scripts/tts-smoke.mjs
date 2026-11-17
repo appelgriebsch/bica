@@ -84,6 +84,8 @@ try {
   // check 1: normal then Stop
   await playIn().click();
   await stopIn().waitFor({ timeout: 5_000 });
+  await page.getByRole("status").filter({ hasText: "Playing." }).waitFor({ timeout: 5_000 });
+  check(true, "L2: live region announces Playing.");
   check(
     (await stopIn().getAttribute("aria-pressed")) === "true" &&
       (await stopIn().locator("svg.fill-current").count()) === 1,
@@ -96,11 +98,12 @@ try {
   let c0 = await cancelCount(page);
   await stopIn().click();
   await playIn().waitFor({ timeout: 5_000 });
+  await page.getByRole("status").filter({ hasText: "Stopped." }).waitFor({ timeout: 5_000 });
   check(
     (await cancelCount(page)) === c0 + 1 &&
       (await spokenCount(page)) === 1 &&
       (await playIn().getAttribute("aria-pressed")) === null,
-    "check 1: Stop -> cancel() once, back to idle",
+    "check 1: Stop -> cancel() once, back to idle (L2: announces Stopped.)",
   );
 
   // check 2: normal -> slow while playing (m-A)
@@ -116,6 +119,8 @@ try {
   );
   check((await cancelCount(page)) === c0 + 1, "check 2 (m-A): switching to slow cancels once");
   check((await lastRate(page)) === 0.5, "check 2: second speak() runs at SLOW_RATE 0.5");
+  await page.getByRole("status").filter({ hasText: "Playing slower." }).waitFor({ timeout: 5_000 });
+  check(true, "L2: live region announces Playing slower.");
   check(
     (await stopIn().getAttribute("aria-pressed")) === "true" &&
       (await snailIn().count()) === 0,

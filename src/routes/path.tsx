@@ -68,16 +68,16 @@ function PathPage() {
                         <h3 className="font-display text-xl font-medium">{unit.title}</h3>
                         <p className="text-sm text-muted">{unit.blurb}</p>
                       </div>
-                      <ul className="grid gap-2">
+                      <ul className="grid min-w-0 gap-2">
                         {unitLessons.map((lesson) => {
                           const done = Boolean(completed[lesson.id]);
                           const score = completed[lesson.id];
                           return (
-                            <li key={lesson.id}>
+                            <li key={lesson.id} className="min-w-0">
                               <Link
                                 to="/lesson/$id"
                                 params={{ id: lesson.id }}
-                                className="flex items-center gap-3 rounded-[var(--radius-lg)] bg-surface p-3 no-underline shadow-[var(--shadow-border)] transition-shadow duration-[var(--motion-quick)] hover:shadow-[var(--shadow-border-hover)]"
+                                className="flex min-w-0 items-center gap-3 rounded-[var(--radius-lg)] bg-surface p-3 no-underline shadow-[var(--shadow-border)] transition-shadow duration-[var(--motion-quick)] hover:shadow-[var(--shadow-border-hover)]"
                               >
                                 <span
                                   className={cn(
@@ -93,7 +93,7 @@ function PathPage() {
                                     <Clock3 className="size-4" />
                                   )}
                                 </span>
-                                <span className="min-w-0 flex-1">
+                                <span className="min-w-0 flex-1 overflow-hidden">
                                   <span className="block truncate font-medium text-fg">
                                     {lesson.titlePt}
                                     <span className="ml-2 font-sans text-sm font-normal text-muted">

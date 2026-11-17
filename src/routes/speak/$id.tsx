@@ -172,8 +172,13 @@ function SpeakScene() {
           maxLength={500}
           className="h-12 min-h-12 flex-1 rounded-[var(--radius-md)] border border-border bg-surface px-3 text-base text-fg outline-none ring-accent placeholder:text-subtle focus:ring-2"
         />
-        <OnlineOnly feature="conversas" label="Send">
-          <Button type="submit" size="icon" disabled={busy || (online && !draft.trim())}>
+        <OnlineOnly feature="conversas">
+          <Button
+            type="submit"
+            size="icon"
+            aria-label="Send"
+            disabled={busy || (online && !draft.trim())}
+          >
             <Send />
           </Button>
         </OnlineOnly>

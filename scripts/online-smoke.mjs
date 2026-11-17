@@ -24,12 +24,15 @@ try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.goto(BASE + "/practice?fakeOffline=0", { waitUntil: "networkidle" });
 
-  // (a) marker online, accessible name carries the state
-  const card = page.getByRole("link", { name: /^Conversas, / });
-  check(
-    (await card.getAttribute("aria-label")) === "Conversas, needs internet",
-    "online: name says needs internet",
-  );
+  // (a) marker online; the name comes from the card text, the state is the description (#110 m3)
+  const card = page.getByRole("link", { name: /Conversas/ });
+  const stateDesc = () =>
+    card.evaluate((el) => {
+      const id = el.getAttribute("aria-describedby");
+      return id ? document.getElementById(id)?.textContent?.trim() : null;
+    });
+  check((await card.getAttribute("aria-label")) === null, "online: no aria-label override");
+  check((await stateDesc()) === "Needs internet.", "online: description says needs internet");
   check(
     (await card.locator("svg.lucide-cloud").count()) === 1,
     "online: Cloud marker on the Conversas card",
@@ -40,8 +43,8 @@ try {
   await fakeOffline(page, true);
   await page.waitForTimeout(100);
   check(
-    (await card.getAttribute("aria-label")) === "Conversas, unavailable offline",
-    "offline: name says unavailable offline",
+    (await stateDesc()) === "Unavailable offline.",
+    "offline: description says unavailable offline",
   );
   check((await card.getAttribute("aria-disabled")) === "true", "offline: aria-disabled");
   check(
@@ -71,7 +74,7 @@ try {
   const t0 = Date.now();
   await fakeOffline(page, false);
   await page.waitForFunction(
-    () => !document.querySelector('[aria-label^="Conversas"][aria-disabled]'),
+    () => !document.querySelector('a[href="/speak"][aria-disabled]'),
     null,
     { timeout: 4000 },
   );

@@ -18,7 +18,7 @@ function SpeakIndex() {
       <ul className="mt-6 grid gap-3">
         {speakScenarios.map((s) => (
           <li key={s.id}>
-            <OnlineOnly feature="conversas" label={`${s.titlePt}, ${s.title}`} placement="corner" gate={false}>
+            <OnlineOnly feature="conversas" placement="corner" gate={false}>
               <Link
                 to="/speak/$id"
                 params={{ id: s.id }}

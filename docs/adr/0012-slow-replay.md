@@ -1,6 +1,6 @@
 # 0012. Slow replay on the Speak button: paired snail icon with a fixed SLOW_RATE
 
-- **Status**: Accepted
+- **Status**: Accepted. Superseded in part by ADR 0013 (SLOW_RATE value only).
 - **Date**: 2026-11-17
 - **Deciders**: Andreas Gerlach with the user (plan produced via the solution-engineer skill, UI reviewed via the ui-ux-expert skill)
 - **Supersedes**: none

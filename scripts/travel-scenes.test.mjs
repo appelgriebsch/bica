@@ -35,15 +35,14 @@ const load = (file) => import(pathToFileURL(compile(file)).href);
 
 const { travelScenes, getTravelScene, getLesson, speakScenarios } =
   await load("src/data/curriculum.ts");
-
-const SITUATIONS = ["cafe", "restaurant", "transport", "accommodation", "chemist", "directions"];
+const { TRAVEL_SITUATIONS } = await load("src/data/types.ts");
 
 test("travel scenes exist with unique ids and known situations at A1/A2", () => {
   assert.ok(travelScenes.length > 0, "no travel scenes");
   const ids = travelScenes.map((s) => s.id);
   assert.equal(new Set(ids).size, ids.length, "duplicate scene ids");
   for (const s of travelScenes) {
-    assert.ok(SITUATIONS.includes(s.situation), `unknown situation: ${s.situation}`);
+    assert.ok(TRAVEL_SITUATIONS.includes(s.situation), `unknown situation: ${s.situation}`);
     assert.ok(s.level === "A1" || s.level === "A2", `level must be A1/A2: ${s.id}`);
     assert.equal(getTravelScene(s.id), s, `getTravelScene(${s.id})`);
     assert.ok(s.title && s.titlePt && s.setting && s.partner, `fields: ${s.id}`);
@@ -52,7 +51,7 @@ test("travel scenes exist with unique ids and known situations at A1/A2", () => 
 
 test("exactly the six #76 situations are present", () => {
   const situations = travelScenes.map((s) => s.situation).sort();
-  assert.deepEqual(situations, [...SITUATIONS].sort());
+  assert.deepEqual(situations, [...TRAVEL_SITUATIONS].sort());
 });
 
 test("every scene links a matching lesson whose vocab feeds Palavras", () => {

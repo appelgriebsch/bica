@@ -85,10 +85,21 @@ export type SpeakScenario = {
 
 export type DialogueLine = { speaker: string; pt: string; en: string };
 
+export const TRAVEL_SITUATIONS = [
+  "cafe",
+  "restaurant",
+  "transport",
+  "accommodation",
+  "chemist",
+  "directions",
+] as const;
+
+export type TravelSituation = (typeof TRAVEL_SITUATIONS)[number];
+
 export type TravelScene = {
   id: string;
-  situation: "cafe" | "restaurant" | "transport" | "accommodation" | "chemist" | "directions";
-  level: CefrLevel;
+  situation: TravelSituation;
+  level: "A1" | "A2";
   minutes: number;
   title: string;
   titlePt: string;

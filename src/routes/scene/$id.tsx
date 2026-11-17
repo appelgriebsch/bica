@@ -41,7 +41,9 @@ function ScenePage() {
           <h1 className="truncate font-display text-2xl font-medium tracking-tight">
             {scene.titlePt}
           </h1>
-          <p className="truncate text-sm text-muted">{scene.title}</p>
+          <p className="truncate text-sm text-muted">
+            {scene.title} · {scene.partner}
+          </p>
         </div>
       </div>
 

@@ -491,7 +491,8 @@ test("CI: PRs and pushes to main, job CI, no secrets, cancels superseded PR runs
   const at = (re) => ci.search(re);
   const order = [
     /run: bun install --frozen-lockfile$/m,
-    /run: bun audit --prod --audit-level=high$/m,
+    // picomatch GHSA-fc5q-39xc-vjpf is ignored until a patched release exists (see ci.yml comment)
+    /run: bun audit --prod --audit-level=high --ignore GHSA-fc5q-39xc-vjpf$/m,
     /run: bun run typecheck$/m,
     /run: bun run lint$/m,
     /run: bun run test$/m,
@@ -513,8 +514,11 @@ test("CI audits production dependencies immediately after bun install", () => {
   assert.match(ci, /^jobs:\n {2}ci:\n(?: {4}#.*\n)* {4}name: CI$/m);
   assert.match(
     ci,
-    / {6}- run: bun install --frozen-lockfile\n {6}- run: bun audit --prod --audit-level=high\n {6}- name: Full audit \(report only, #65 optional-peer findings\)\n {8}continue-on-error: true\n {8}run: bun audit\n/,
+    / {6}- run: bun install --frozen-lockfile\n {6}- run: bun audit --prod --audit-level=high --ignore GHSA-fc5q-39xc-vjpf\n {6}- name: Full audit \(report only, #65 optional-peer findings\)\n {8}continue-on-error: true\n {8}run: bun audit\n/,
   );
+  // The ignore is scoped to the one advisory with no published fix, with a why-comment.
+  assert.match(ci, /# GHSA-fc5q-39xc-vjpf \(CVE-2026-112366/);
+  assert.match(ci, /Drop the --ignore once picomatch >= 4\.0\.8 is published\./);
 });
 
 function assertNodeCheckFollowsSetup(text) {

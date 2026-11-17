@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { SpeakButton } from "@/components/speak-button";
 import { Button } from "@/components/ui/button";
-import { dueVocab, levels, vocabFromCompleted, type CatalogVocab } from "@/data/curriculum";
+import { dueVocab, levels, reviewPool, type ReviewItem } from "@/data/curriculum";
 import type { CefrLevel } from "@/data/types";
 import { useProgress } from "@/lib/progress-store";
 import { REVIEW_SESSION_CAP } from "@/lib/srs";
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/review")({ component: ReviewPage });
 type Mode = "mix" | "flip" | "type";
 type Filter = "all" | CefrLevel;
 type CardKind = "flip" | "type";
-type QueueCard = CatalogVocab & { kind: CardKind; seen: number };
+type QueueCard = ReviewItem & { kind: CardKind; seen: number };
 
 function shuffle<T>(items: T[]): T[] {
   const copy = [...items];
@@ -33,7 +33,7 @@ function acceptFor(pt: string): string[] {
   return list;
 }
 
-function buildQueue(items: CatalogVocab[], mode: Mode): QueueCard[] {
+function buildQueue(items: ReviewItem[], mode: Mode): QueueCard[] {
   return shuffle(items)
     .slice(0, REVIEW_SESSION_CAP)
     .map((item, i) => ({
@@ -52,7 +52,7 @@ function ReviewPage() {
   const today = todayKey();
   const doneIds = useMemo(() => Object.keys(completed), [completed]);
 
-  const pool = useMemo(() => vocabFromCompleted(doneIds), [doneIds]);
+  const pool = useMemo(() => reviewPool(doneIds, cards), [doneIds, cards]);
   const [filter, setFilter] = useState<Filter>("all");
   const due = useMemo(
     () => dueVocab(doneIds, cards, today, filter === "all" ? undefined : filter),
@@ -295,12 +295,16 @@ function SessionCard({
           className="mt-3 min-h-48 w-full rounded-[var(--radius-xl)] bg-surface p-6 text-left shadow-[var(--shadow-border)]"
         >
           <p className="font-display text-3xl font-medium">{card.pt}</p>
-          <p className="mt-1 text-sm text-subtle">{card.hint}</p>
+          {card.hint ? <p className="mt-1 text-sm text-subtle">{card.hint}</p> : null}
           {flipped ? (
             <div className="mt-6">
               <p className="text-lg text-fg">{card.en}</p>
-              <p className="mt-3 text-sm text-muted">{card.examplePt}</p>
-              <p className="text-sm text-subtle">{card.exampleEn}</p>
+              {card.examplePt ? (
+                <>
+                  <p className="mt-3 text-sm text-muted">{card.examplePt}</p>
+                  <p className="text-sm text-subtle">{card.exampleEn}</p>
+                </>
+              ) : null}
             </div>
           ) : (
             <p className="mt-10 text-sm text-subtle">Tap to flip</p>
@@ -345,8 +349,12 @@ function SessionCard({
                 {typedOk ? "That's it." : "Not quite."}
               </p>
               <p className="mt-1 font-medium text-fg">{card.pt}</p>
-              <p className="mt-2 text-sm text-muted">{card.examplePt}</p>
-              <p className="text-sm text-subtle">{card.exampleEn}</p>
+              {card.examplePt ? (
+                <>
+                  <p className="mt-2 text-sm text-muted">{card.examplePt}</p>
+                  <p className="text-sm text-subtle">{card.exampleEn}</p>
+                </>
+              ) : null}
             </div>
           )}
         </div>

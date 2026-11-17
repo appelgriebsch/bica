@@ -38,6 +38,8 @@ export type ProgressState = {
   setFloor: (level: CefrLevel) => void;
   completeLesson: (lessonId: string, result: Omit<LessonResult, "completedAt">) => void;
   gradeVocab: (cardId: string, knew: boolean) => void;
+  /** Save a Travel Phrasebook phrase (#77, ADR 0015) or any card id to Palavras: due today, no XP/streak. */
+  saveToPalabras: (cardId: string) => void;
   touchStudy: (xp?: number) => void;
   mergeRemote: (remote: ProgressSnapshot) => void;
   snapshot: () => ProgressSnapshot;
@@ -160,6 +162,17 @@ export const useProgress = create<ProgressState>()(
           cards: {
             ...prev.cards,
             [cardId]: gradeCard(prev.cards[cardId], knew, today),
+          },
+        });
+      },
+      saveToPalabras: (cardId) => {
+        const prev = get();
+        // Idempotent: never reset a card that already has review history.
+        if (prev.cards[cardId]) return;
+        set({
+          cards: {
+            ...prev.cards,
+            [cardId]: { interval: 0, ease: 0, due: todayKey(), reps: 0, lapses: 0 },
           },
         });
       },

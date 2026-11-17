@@ -37,11 +37,10 @@ const { TRAVEL_SITUATIONS } = await load("src/data/types.ts");
 const { normalizePt, todayKey } = await load("src/lib/utils.ts");
 const { transferSchema } = await load("src/lib/transfer-schema.ts");
 
-test("phrases are derived from the scenes' You lines: 26 unique, valid situations, scene levels", () => {
-  assert.equal(travelPhrases.length, 26, `expected 26 derived phrases, got ${travelPhrases.length}`);
-  const ids = travelPhrases.map((p) => p.id);
-  assert.equal(new Set(ids).size, ids.length, "duplicate phrase ids");
-  for (const p of travelPhrases) {
+test("26 phrases derived from the scenes' You lines: valid situations, scene levels", () => {
+  const derived = travelPhrases.filter((p) => p.situation !== "anywhere");
+  assert.equal(derived.length, 26, `expected 26 derived phrases, got ${derived.length}`);
+  for (const p of derived) {
     assert.ok(TRAVEL_SITUATIONS.includes(p.situation), `unknown situation: ${p.id}`);
     const scene = travelScenes.find((s) => s.situation === p.situation);
     assert.ok(scene, `no scene for situation ${p.situation}`);
@@ -56,13 +55,28 @@ test("phrases are derived from the scenes' You lines: 26 unique, valid situation
   }
 });
 
-test("phraseGroups: one group per situation in TRAVEL_SITUATIONS order, labels from the scenes", () => {
+test("#126: 8 'anywhere' staples, A1, deduped against the 34 total", () => {
+  const staples = travelPhrases.filter((p) => p.situation === "anywhere");
+  assert.equal(staples.length, 8, `expected 8 staples, got ${staples.length}`);
+  assert.equal(travelPhrases.length, 34, `expected 34 phrases total, got ${travelPhrases.length}`);
+  const ids = travelPhrases.map((p) => p.id);
+  assert.equal(new Set(ids).size, ids.length, "duplicate phrase ids across derived + staples");
+  for (const p of staples) {
+    assert.equal(p.level, "A1", `${p.id}: staples are A1`);
+    assert.equal(p.id, `travel:anywhere:${normalizePt(p.pt)}`, `${p.id}: id shape`);
+    assert.ok(p.pt.trim() && p.en.trim(), `${p.id}: pt and en required`);
+  }
+});
+
+test("phraseGroups: 'anywhere' first, then one group per situation in TRAVEL_SITUATIONS order", () => {
   const groups = phraseGroups();
   assert.deepEqual(
     groups.map((g) => g.situation),
-    [...TRAVEL_SITUATIONS],
+    ["anywhere", ...TRAVEL_SITUATIONS],
   );
-  for (const g of groups) {
+  assert.equal(groups[0].labelPt, "Qualquer lado");
+  assert.equal(groups[0].labelEn, "Anywhere");
+  for (const g of groups.slice(1)) {
     const scene = travelScenes.find((s) => s.situation === g.situation);
     assert.equal(g.labelPt, scene.titlePt);
     assert.equal(g.labelEn, scene.title);
@@ -121,12 +135,22 @@ test("reviewPool/dueVocab: a phrase joins the pile only once saved, and is due t
 
   const notYet = { [phrase.id]: { interval: 3, ease: 2, due: "2999-01-01", reps: 2, lapses: 0 } };
   assert.deepEqual(dueVocab([], notYet, today), [], "a saved phrase not yet due stays out");
+
+  const staple = travelPhrases.find((p) => p.situation === "anywhere");
+  const stapleCards = {
+    [staple.id]: { interval: 0, ease: 0, due: today, reps: 0, lapses: 0 },
+  };
+  assert.deepEqual(
+    dueVocab([], stapleCards, today).map((i) => i.id),
+    [staple.id],
+    "a saved staple is due today",
+  );
 });
 
 test("saveToPalavras: creates a due-today card, is idempotent, leaves xp/streak alone", async () => {
   const { useProgress } = await load("src/lib/progress-store.ts", "?fresh=save");
   const today = todayKey();
-  const phrase = travelPhrases[0];
+  const phrase = travelPhrases.find((p) => p.situation === "anywhere");
   const before = useProgress.getState();
   useProgress.getState().saveToPalabras(phrase.id);
   const after = useProgress.getState();

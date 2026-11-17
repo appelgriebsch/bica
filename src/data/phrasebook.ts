@@ -12,10 +12,11 @@ import {
  * list works offline; audio is the shared on-device pt-PT SpeakButton.
  *
  * The phrases are derived from the six Travel Scenes (#76): every "You" line
- * is a phrase a traveller actually says, deduped by normalizePt. The id is
- * `travel:<situation>:<normalised pt>` — the same shape as lesson vocab card
- * ids, so the encrypted QR transfer accepts saved phrase cards unchanged.
- * T2 (#126) appends the "anywhere" staples to `travelPhrases`.
+ * is a phrase a traveller actually says, plus the "anywhere" staples below
+ * (lifted from vetted A1 lesson entries where possible), all deduped by
+ * normalizePt. The id is `travel:<situation>:<normalised pt>` — the same shape
+ * as lesson vocab card ids, so the encrypted QR transfer accepts saved phrase
+ * cards unchanged.
  */
 
 function deriveFromScenes(): TravelPhrase[] {
@@ -39,7 +40,29 @@ function deriveFromScenes(): TravelPhrase[] {
   return out;
 }
 
-export const travelPhrases: TravelPhrase[] = [...deriveFromScenes()];
+/** Cross-situational staples (#126): pt/en lifted from vetted A1 lesson entries where possible. */
+const STAPLES: ReadonlyArray<Omit<TravelPhrase, "id">> = [
+  { situation: "anywhere", level: "A1", pt: "Tudo bem?", en: "All good?" },
+  { situation: "anywhere", level: "A1", pt: "Desculpe, pode ajudar?", en: "Excuse me, can you help?" },
+  { situation: "anywhere", level: "A1", pt: "Onde fica…?", en: "Where is… located?" },
+  { situation: "anywhere", level: "A1", pt: "Mais devagar, se faz favor.", en: "More slowly, please." },
+  { situation: "anywhere", level: "A1", pt: "Com licença.", en: "Excuse me (passing through)." },
+  { situation: "anywhere", level: "A1", pt: "Não percebi.", en: "I didn't get that." },
+  { situation: "anywhere", level: "A1", pt: "Aceitam cartão?", en: "Do you take card?" },
+  { situation: "anywhere", level: "A1", pt: "Onde é a casa de banho?", en: "Where is the toilet?" },
+];
+
+export const travelPhrases: TravelPhrase[] = (() => {
+  const out = deriveFromScenes();
+  const seen = new Set(out.map((p) => p.id));
+  for (const staple of STAPLES) {
+    const id = `travel:anywhere:${normalizePt(staple.pt)}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ ...staple, id });
+  }
+  return out;
+})();
 
 export type PhraseGroup = {
   situation: PhraseSituation;

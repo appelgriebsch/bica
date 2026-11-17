@@ -60,7 +60,7 @@ Seen in: `src/routes/practice.tsx`, `src/routes/index.tsx`, `src/routes/review.t
 
 ## Phrasebook
 
-The You section listing phrases aloud: the Travel Phrasebook ("On the trip") always, plus "From your lessons" (words from finished Lessons) once a Lesson is finished.
+The You section with phrases you can play aloud: the Travel Phrasebook ("On the trip") always, plus "From your lessons" (words from finished Lessons) once a Lesson is finished.
 
 Seen in: `src/routes/me.tsx`
 

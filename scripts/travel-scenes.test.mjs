@@ -1,4 +1,4 @@
-/** #116 (ADR 0013): Travel Scenes data contract — every scene resolves to a matching
+/** #116 (ADR 0016): Travel Scenes data contract — every scene resolves to a matching
  * A1/A2 lesson with vocab (feeds Palavras), an optional Conversas partner, and a
  * precached image. Run with `bun run test` (node --test scripts/*.test.mjs). */
 import assert from "node:assert/strict";

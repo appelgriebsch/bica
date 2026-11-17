@@ -4,11 +4,11 @@
 - **Date**: 2026-11-17
 - **Deciders**: Andreas Gerlach with the user
 - **Supersedes**: none
-- **Related issues**: #76; PR #115 (this change); tickets #117 and #118 (scenes linking to these partners); ADR 0013 (scene → partner model)
+- **Related issues**: #76; PR #115 (this change); tickets #117 and #118 (scenes linking to these partners); ADR 0016 (scene → partner model)
 
 ## Context
 
-The six travel situations of #76 each need a Conversas partner (ADR 0013). Four already exist: `pastelaria` (café), `bilhete` (transport), `farmacia` (chemist), `direcoes` (asking the way). Restaurant and accommodation had none. No server change is needed for new scenarios: `src/lib/chat-core.ts` validates `scenarioId` against `speakScenarios` and builds the partner system prompt from the scenario's own fields (`partner`, `setting`, `level`, `goals`, opener).
+The six travel situations of #76 each need a Conversas partner (ADR 0016). Four already exist: `pastelaria` (café), `bilhete` (transport), `farmacia` (chemist), `direcoes` (asking the way). Restaurant and accommodation had none. No server change is needed for new scenarios: `src/lib/chat-core.ts` validates `scenarioId` against `speakScenarios` and builds the partner system prompt from the scenario's own fields (`partner`, `setting`, `level`, `goals`, opener).
 
 ## Decision
 

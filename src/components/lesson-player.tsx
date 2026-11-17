@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
+import { DialogueView } from "@/components/dialogue";
 import { LevelComplete } from "@/components/level-complete";
 import { QuizBlock } from "@/components/quiz-block";
 import { SpeakButton } from "@/components/speak-button";
@@ -9,9 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { getLesson, newlyCompletedLevel, nextLesson } from "@/data/curriculum";
 import type { CefrLevel, Lesson, LessonSection } from "@/data/types";
 import { persistCompletion } from "@/lib/record-progress";
-import { sceneImageFor } from "@/lib/scene-image";
 import { useProgress } from "@/lib/progress-store";
-import { cn } from "@/lib/utils";
 
 export function LessonPlayer({ id }: { id: string }) {
   const lesson = getLesson(id);
@@ -211,43 +210,8 @@ function SectionView({ section }: { section: LessonSection }) {
   }
 
   if (section.type === "dialogue") {
-    const sceneSrc = sceneImageFor(section.setting);
     return (
-      <article>
-        <div className="overflow-hidden rounded-[var(--radius-lg)] shadow-[var(--shadow-border)]">
-          <img
-            src={sceneSrc}
-            alt=""
-            className="scene aspect-[16/9] w-full object-cover"
-          />
-        </div>
-        <h2 className="mt-4 font-display text-2xl font-medium">A short scene</h2>
-        <p className="mt-1 text-sm text-muted">{section.setting}</p>
-        <ol className="mt-4 space-y-2">
-          {section.lines.map((line, i) => (
-            <li
-              key={i}
-              className={cn(
-                "rounded-[var(--radius-lg)] p-3",
-                line.speaker === "You" || line.speaker.startsWith("You")
-                  ? "ml-4 bg-soft"
-                  : "mr-4 bg-surface shadow-[var(--shadow-border)]",
-              )}
-            >
-              <div className="flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium uppercase tracking-wider text-accent">
-                    {line.speaker}
-                  </p>
-                  <p className="mt-0.5 font-medium">{line.pt}</p>
-                  <p className="text-sm text-muted">{line.en}</p>
-                </div>
-                <SpeakButton text={line.pt} />
-              </div>
-            </li>
-          ))}
-        </ol>
-      </article>
+      <DialogueView heading="A short scene" setting={section.setting} lines={section.lines} />
     );
   }
 

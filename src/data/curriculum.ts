@@ -7,6 +7,7 @@ import { grammarDrills } from "./grammar";
 import { radioBulletins } from "./radio";
 import { readingPieces } from "./reading";
 import { speakScenarios } from "./scenarios";
+import { travelScenes } from "./travel-scenes";
 import { verbDesks } from "./verbs";
 import type {
   CefrLevel,
@@ -14,6 +15,7 @@ import type {
   Lesson,
   RadioBulletin,
   ReadingPiece,
+  TravelScene,
   Unit,
   VerbDesk,
   VocabItem,
@@ -133,7 +135,7 @@ export const lessons: Lesson[] = [
   ...c1Lessons,
 ];
 
-export { speakScenarios, radioBulletins, readingPieces, grammarDrills, verbDesks };
+export { speakScenarios, travelScenes, radioBulletins, readingPieces, grammarDrills, verbDesks };
 
 export type CatalogVocab = VocabItem & {
   id: string;
@@ -193,6 +195,10 @@ export function getGrammar(id: string): GrammarDrill | undefined {
 
 export function getVerbDesk(id: string): VerbDesk | undefined {
   return verbDesks.find((d) => d.id === id);
+}
+
+export function getTravelScene(id: string): TravelScene | undefined {
+  return travelScenes.find((s) => s.id === id);
 }
 
 export function verbsForLevel(level: CefrLevel): VerbDesk[] {

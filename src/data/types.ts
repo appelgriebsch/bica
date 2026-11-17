@@ -39,7 +39,7 @@ export type LessonSection =
   | {
       type: "dialogue";
       setting: string;
-      lines: { speaker: string; pt: string; en: string }[];
+      lines: DialogueLine[];
     }
   | { type: "culture"; title: string; body: string };
 
@@ -81,6 +81,25 @@ export type SpeakScenario = {
   openerEn: string;
   goals: string[];
   image: string;
+};
+
+export type DialogueLine = { speaker: string; pt: string; en: string };
+
+export type TravelScene = {
+  id: string;
+  situation: "cafe" | "restaurant" | "transport" | "accommodation" | "chemist" | "directions";
+  level: CefrLevel;
+  minutes: number;
+  title: string;
+  titlePt: string;
+  setting: string;
+  partner: string;
+  lines: DialogueLine[];
+  image: string;
+  /** Matching lesson; its words feed Palavras when finished (ADR 0013). */
+  lessonId: string;
+  /** Conversas partner, online-only (ADR 0013/0014). */
+  scenarioId?: string;
 };
 
 export type RadioBulletin = {

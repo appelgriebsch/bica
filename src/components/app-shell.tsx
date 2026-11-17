@@ -15,6 +15,7 @@ const nav = [
     icon: Headphones,
     match: (p: string) =>
       p === "/practice" ||
+      p.startsWith("/scene") ||
       p.startsWith("/speak") ||
       p.startsWith("/listen") ||
       p.startsWith("/read") ||

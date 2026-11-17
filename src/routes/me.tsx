@@ -199,7 +199,11 @@ function PhraseRow({
         className={saved ? "text-success" : "text-muted hover:text-accent"}
         onClick={(e) => {
           e.stopPropagation();
-          if (!saved) onSave();
+          if (saved) {
+            toast("Already in Palavras.");
+            return;
+          }
+          onSave();
         }}
       >
         {saved ? <Check /> : <BookmarkPlus />}

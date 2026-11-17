@@ -1,6 +1,6 @@
 # 0012. Slow replay on the Speak button: paired snail icon with a fixed SLOW_RATE
 
-- **Status**: Accepted. Superseded in part by ADR 0013 (the `SLOW_RATE` value only) and by #120 (playback state: the active button becomes Stop and both buttons stay enabled while playing — no more disabling or spinner-on-playing).
+- **Status**: Accepted. Superseded in part by ADR 0013 (the `SLOW_RATE` value only), by #120 (playback state: the active button becomes Stop and both buttons stay enabled while playing — no more disabling or spinner-on-playing), and by #123 (wording/theme alignment, including the /listen Slower/Natural toggle: snail glyph and pressed-pill selected state).
 - **Date**: 2026-11-17
 - **Deciders**: Andreas Gerlach with the user (plan produced via the solution-engineer skill, UI reviewed via the ui-ux-expert skill)
 - **Supersedes**: none

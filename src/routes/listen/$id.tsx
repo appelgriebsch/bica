@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Pause, Play } from "lucide-react";
+import { ArrowLeft, Pause, Play, Snail } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { DoneCard } from "@/components/lesson-player";
@@ -16,6 +16,7 @@ import {
   stopSpeaking,
   usePtVoiceStatus,
 } from "@/lib/tts";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/listen/$id")({ component: ListenPage });
 
@@ -138,19 +139,24 @@ function ListenPlayer({ bulletin }: { bulletin: RadioBulletin }) {
                   <Play className="size-8 translate-x-0.5" />
                 )}
               </button>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <Button
                   type="button"
-                  variant={slow ? "default" : "outline"}
+                  variant="outline"
                   size="sm"
+                  aria-pressed={slow || undefined}
+                  className={cn(slow && "bg-soft text-accent")}
                   onClick={() => setSlow(true)}
                 >
+                  <Snail />
                   Slower
                 </Button>
                 <Button
                   type="button"
-                  variant={!slow ? "default" : "outline"}
+                  variant="outline"
                   size="sm"
+                  aria-pressed={!slow || undefined}
+                  className={cn(!slow && "bg-soft text-accent")}
                   onClick={() => setSlow(false)}
                 >
                   Natural

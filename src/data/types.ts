@@ -113,6 +113,17 @@ export type TravelScene = {
   scenarioId?: string;
 };
 
+/** Travel Phrasebook (#77, ADR 0015): a trip situation, or "anywhere" for the staples group. */
+export type PhraseSituation = TravelSituation | "anywhere";
+
+export type TravelPhrase = {
+  id: string;
+  situation: PhraseSituation;
+  level: "A1" | "A2";
+  pt: string;
+  en: string;
+};
+
 export type RadioBulletin = {
   id: string;
   level: CefrLevel;

@@ -60,7 +60,7 @@ Seen in: `src/routes/practice.tsx`, `src/routes/index.tsx`, `src/routes/review.t
 
 ## Phrasebook
 
-Words from finished Lessons, listed on You. Empty until a Lesson is finished.
+The You section with phrases you can play aloud: the Travel Phrasebook ("On the trip") always, plus "From your lessons" (words from finished Lessons) once a Lesson is finished.
 
 Seen in: `src/routes/me.tsx`
 
@@ -162,9 +162,9 @@ Seen in: `src/routes/practice.tsx`, `src/routes/scene/$id.tsx`, `src/data/travel
 
 ## Travel Phrasebook
 
-Phrasebook section by trip situation, available before any Lesson. The Phrasebook on You is only words from finished Lessons.
+"On the trip" on You: trip phrases grouped by situation, available before any Lesson and working offline. "Qualquer lado" (the anywhere staples) first, then the six Travel Scenes' situations with their "You" lines. Each phrase plays with the Speak button and can be saved to Palavras. Below it, "From your lessons" holds the words from finished Lessons.
 
-Seen in: not in the tree.
+Seen in: `src/routes/me.tsx`, `src/data/phrasebook.ts`
 
 ## Social Scenes
 

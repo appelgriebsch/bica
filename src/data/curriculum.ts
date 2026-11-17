@@ -8,6 +8,7 @@ import { radioBulletins } from "./radio";
 import { readingPieces } from "./reading";
 import { speakScenarios } from "./scenarios";
 import { travelScenes } from "./travel-scenes";
+import { phraseGroups, travelPhrases } from "./phrasebook";
 import { verbDesks } from "./verbs";
 import type {
   CefrLevel,
@@ -135,7 +136,16 @@ export const lessons: Lesson[] = [
   ...c1Lessons,
 ];
 
-export { speakScenarios, travelScenes, radioBulletins, readingPieces, grammarDrills, verbDesks };
+export {
+  speakScenarios,
+  travelScenes,
+  radioBulletins,
+  readingPieces,
+  grammarDrills,
+  verbDesks,
+  travelPhrases,
+  phraseGroups,
+};
 
 export type CatalogVocab = VocabItem & {
   id: string;
@@ -165,13 +175,32 @@ export function vocabFromCompleted(completedIds: string[]): CatalogVocab[] {
   return catalogVocab().filter((item) => done.has(item.lessonId));
 }
 
+/** One row of the Palavras pile: lesson vocab, or a saved Travel Phrasebook phrase (#77, ADR 0015). */
+export type ReviewItem = {
+  id: string;
+  pt: string;
+  en: string;
+  level: CefrLevel;
+  hint?: string;
+  examplePt?: string;
+  exampleEn?: string;
+};
+
+/** Lesson vocab from completed lessons plus saved travel phrases (a phrase joins only once it has a card). */
+export function reviewPool(
+  completedIds: string[],
+  cards: Record<string, SrsCard>,
+): ReviewItem[] {
+  return [...vocabFromCompleted(completedIds), ...travelPhrases.filter((p) => cards[p.id])];
+}
+
 export function dueVocab(
   completedIds: string[],
   cards: Record<string, SrsCard>,
   today: string,
   level?: CefrLevel,
-): CatalogVocab[] {
-  return vocabFromCompleted(completedIds).filter((item) => {
+): ReviewItem[] {
+  return reviewPool(completedIds, cards).filter((item) => {
     if (level && item.level !== level) return false;
     return isDue(cards[item.id], today);
   });

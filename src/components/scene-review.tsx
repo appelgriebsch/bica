@@ -55,7 +55,7 @@ export function SceneReview({
           ))}
         </ul>
       )}
-      <Button type="button" variant="outline" size="sm" className="mt-4" onClick={onRestart}>
+      <Button type="button" variant="outline" className="mt-4" onClick={onRestart}>
         <RotateCcw /> Start again
       </Button>
     </section>

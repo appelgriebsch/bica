@@ -98,7 +98,7 @@ try {
     JSON.stringify(shell),
   );
   if (!shellOk) failures.push("shell");
-  if (scenes !== 20) failures.push("scenes");
+  if (scenes !== 23) failures.push("scenes");
   const manifest = await page.evaluate(async (v) => {
     const cache = await caches.open(v);
     const hit = await cache.match("/manifest.webmanifest");

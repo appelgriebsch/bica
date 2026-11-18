@@ -1,10 +1,10 @@
 /**
- * Prompt table for regenerating the 20 scene illustrations in public/scenes/
- * with a non-xAI provider (issue #93). One prompt per scene, derived from the
- * settings mapped in src/lib/scene-image.ts and from visual QC of the current
- * Grok-generated JPGs.
+ * Prompt table for regenerating the 23 scene illustrations in public/scenes/
+ * with a non-xAI provider (issue #93; +3 social scenes, issue #136). One prompt
+ * per scene, derived from the settings mapped in src/lib/scene-image.ts and
+ * from visual QC of the current JPGs.
  *
- * The shared STYLE prefix locks the art direction across all 20 scenes so the
+ * The shared STYLE prefix locks the art direction across all 23 scenes so the
  * set reads as one photo series: warm photoreal Lisbon, golden-hour or soft
  * daylight, azulejo/cobblestone cues, muted cream-terracotta-ochre palette with
  * azulejo blue accents.
@@ -56,6 +56,10 @@ export const SCENES = {
   cafe:
     "Close-up of a white cup of espresso on a saucer on a polished marble café counter, blue-and-white azulejo tile wall behind, " +
     "a glass sugar dispenser, soft morning light through a window, shallow depth of field.",
+  colleagues:
+    "A bright modern office kitchenette on a Friday afternoon: light wood cabinets and a white countertop, a coffee machine with " +
+    "a glass jug and two mugs, a manual grinder, colleagues chatting while pouring coffee, papers and a laptop on the counter, " +
+    "potted plants, large windows with soft daylight, clean minimal.",
   dinner:
     "A Portuguese dinner table set for two: red wine glasses, a basket of crusty bread, a bowl of olives, a small dish of olive oil, " +
     "speckled ceramic plates and linen napkins, open French doors behind showing Lisbon rooftops at dusk, warm lamplight.",
@@ -65,6 +69,14 @@ export const SCENES = {
   farmacia:
     "Bright modern Portuguese pharmacy interior: a white service counter with a green cross symbol, shelves stocked with medicine " +
     "boxes, large windows, clean white and grey surfaces with green accents, daylight.",
+  "family-lunch":
+    "A Sunday family lunch at a Portuguese home outside Lisbon: a long wooden table crowded with shared dishes — a tureen of " +
+    "soup, grilled fish on a platter, a fresh green salad, crusty bread in a basket, a bottle of red wine and water glasses — " +
+    "family members leaning in and talking, blue-and-white azulejo tiles and a lace-curtained window behind, warm daylight.",
+  friends:
+    "A lively café terrace in Bairro Alto, Lisbon at golden hour: a small round table crowded with glasses of beer and red wine " +
+    "and a bowl of olives, young friends laughing and talking close together, ochre buildings and cobblestones behind a wrought-iron " +
+    "railing, warm low sunlight.",
   "kitchen-radio":
     "A vintage brown bakelite radio on a worn kitchen counter in Lisbon: azulejo tile backsplash, a window with a lace curtain and " +
     "a potted herb on the sill, a marble countertop with an enamel mug, warm morning sunlight.",

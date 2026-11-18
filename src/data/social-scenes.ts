@@ -7,8 +7,9 @@ import type { SocialScene } from "./types";
  * to a matching lesson whose words feed Palavras when finished, and to the
  * Conversas partner that carries the same register. Lines are written in the
  * stated register; the setting says it in words ("Falam de tu." / "Falam de você.").
- * Images for the three new situations are placeholders until #136 swaps in the
- * generated JPGs.
+ * The three new situations use their own JPGs (family-lunch/friends/colleagues.jpg,
+ * #136); until they are regenerated via scripts/scene-regen those files reuse the
+ * dinner/terrace/office art.
  */
 export const socialScenes: SocialScene[] = [
   {
@@ -54,7 +55,7 @@ export const socialScenes: SocialScene[] = [
         en: "In two weeks, if that's possible.",
       },
     ],
-    image: "/scenes/dinner.jpg",
+    image: "/scenes/family-lunch.jpg",
     lessonId: "a1-familia",
     scenarioId: "almoco-familia",
   },
@@ -101,7 +102,7 @@ export const socialScenes: SocialScene[] = [
         en: "A small beer, please. And you?",
       },
     ],
-    image: "/scenes/terrace.jpg",
+    image: "/scenes/friends.jpg",
     lessonId: "a2-amigos",
     scenarioId: "amigos-da-ines",
   },
@@ -156,7 +157,7 @@ export const socialScenes: SocialScene[] = [
         en: "Very good, thanks. I went to the beach with Inês.",
       },
     ],
-    image: "/scenes/office.jpg",
+    image: "/scenes/colleagues.jpg",
     lessonId: "a2-trabalho",
     scenarioId: "cafe-colegas",
   },

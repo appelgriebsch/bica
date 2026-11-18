@@ -95,20 +95,23 @@ The [Brand Guidelines](https://x.ai/legal/brand-guidelines) (dated 2025-02-14), 
 
 ### Scene illustrations (Mistral AI)
 
-These 20 files in `public/scenes/` are AI-generated illustrations, produced on
+These 23 files in `public/scenes/` are AI-generated illustrations, produced on
 2026-11-15 with Mistral AI — BFL FLUX1.1 [pro] Ultra via the la plateforme
 `image_generation` built-in tool (ADR 0009, issue #93/#102). The [Mistral
 Terms of Use](https://mistral.ai/terms-of-use/) assign all intellectual
 property rights in the output to the user and require no attribution phrase;
 Bica discloses them as AI-generated (EU AI Act Art. 50). They replaced the
-former Grok-generated scenes in the same change.
+former Grok-generated scenes in the same change. The three social-scene additions (ADR 0018, issue #136: `colleagues.jpg`, `family-lunch.jpg`, `friends.jpg`) currently reuse the generated `office.jpg` / `dinner.jpg` / `terrace.jpg` art until regenerated via `scripts/scene-regen`.
 
 - `public/scenes/balcony.jpg`
 - `public/scenes/books.jpg`
 - `public/scenes/cafe.jpg`
+- `public/scenes/colleagues.jpg`
 - `public/scenes/dinner.jpg`
 - `public/scenes/doorway.jpg`
 - `public/scenes/farmacia.jpg`
+- `public/scenes/family-lunch.jpg`
+- `public/scenes/friends.jpg`
 - `public/scenes/kitchen-radio.jpg`
 - `public/scenes/market.jpg`
 - `public/scenes/miradouro.jpg`

@@ -110,7 +110,7 @@ test(
     const urls = JSON.parse(sw.match(/const PRECACHE = (\[.*\]);/)[1]);
     const { urls: onDisk } = await collectPrecache(root.pathname);
     assert.deepEqual(urls, onDisk);
-    assert.equal(urls.filter((u) => u.startsWith("/scenes/")).length, 20);
+    assert.equal(urls.filter((u) => u.startsWith("/scenes/")).length, 23);
     // #36: Send/Receive routes and the jsQR module worker work offline too.
     const transfer = ["me_.send-", "me_.receive-", "qr-worker-"];
     for (const chunk of ["lesson-player-", "grammar-", "review-", "me-", "path-", ...transfer]) {

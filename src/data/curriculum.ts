@@ -7,6 +7,7 @@ import { grammarDrills } from "./grammar";
 import { radioBulletins } from "./radio";
 import { readingPieces } from "./reading";
 import { speakScenarios } from "./scenarios";
+import { socialScenes } from "./social-scenes";
 import { travelScenes } from "./travel-scenes";
 import { phraseGroups, travelPhrases } from "./phrasebook";
 import { verbDesks } from "./verbs";
@@ -16,6 +17,7 @@ import type {
   Lesson,
   RadioBulletin,
   ReadingPiece,
+  SocialScene,
   TravelScene,
   Unit,
   VerbDesk,
@@ -139,6 +141,7 @@ export const lessons: Lesson[] = [
 export {
   speakScenarios,
   travelScenes,
+  socialScenes,
   radioBulletins,
   readingPieces,
   grammarDrills,
@@ -228,6 +231,21 @@ export function getVerbDesk(id: string): VerbDesk | undefined {
 
 export function getTravelScene(id: string): TravelScene | undefined {
   return travelScenes.find((s) => s.id === id);
+}
+
+export function getSocialScene(id: string): SocialScene | undefined {
+  return socialScenes.find((s) => s.id === id);
+}
+
+/** One scripted scene of either kind (#81, ADR 0018): travel or social. */
+export function getScriptedScene(
+  id: string,
+): { scene: TravelScene | SocialScene; kind: "travel" | "social" } | undefined {
+  const travel = getTravelScene(id);
+  if (travel) return { scene: travel, kind: "travel" };
+  const social = getSocialScene(id);
+  if (social) return { scene: social, kind: "social" };
+  return undefined;
 }
 
 export function verbsForLevel(level: CefrLevel): VerbDesk[] {

@@ -130,6 +130,27 @@ export type TravelScene = {
   scenarioId?: string;
 };
 
+/**
+ * Social Scenes (#81, ADR 0018): scripted social situations on Practice — family,
+ * friends, colleagues. Unlike TravelScene there is no `situation` field: the
+ * phrasebook derives from `travelScenes` only and stays travel-only.
+ */
+export type SocialScene = {
+  id: string;
+  level: CefrLevel;
+  minutes: number;
+  title: string;
+  titlePt: string;
+  setting: string;
+  partner: string;
+  lines: DialogueLine[];
+  image: string;
+  /** Matching lesson; its words feed Palavras when finished (ADR 0018). */
+  lessonId: string;
+  /** Conversas partner, online-only; carries the register (ADR 0018). */
+  scenarioId: string;
+};
+
 /** Travel Phrasebook (#77, ADR 0015): a trip situation, or "anywhere" for the staples group. */
 export type PhraseSituation = TravelSituation | "anywhere";
 

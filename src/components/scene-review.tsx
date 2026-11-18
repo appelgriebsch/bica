@@ -33,7 +33,10 @@ export function SceneReview({
       ) : (
         <ul className="mt-3 space-y-3">
           {corrections.map((c, i) => (
-            <li key={i} className="rounded-[var(--radius-md)] bg-soft px-3 py-2">
+            <li
+              key={`${c.youSaid}→${c.pt}#${i}`}
+              className="rounded-[var(--radius-md)] bg-soft px-3 py-2"
+            >
               <p className="text-xs font-medium uppercase tracking-wider text-subtle">You said</p>
               <p className="text-sm text-muted">{c.youSaid}</p>
               <div className="mt-1.5 flex items-start justify-between gap-2">

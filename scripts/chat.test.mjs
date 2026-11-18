@@ -1094,6 +1094,14 @@ test("reviewTurn (#131): JSON-mode request (temp 0.2, max_tokens 600, transcript
     corrections: [{ youSaid: "a", pt: "b", note: "", brazilian: false }],
   });
   assert.deepEqual(await reviewTurn(async () => reviewOk([])), { ok: true, corrections: [] });
+  // a model that wraps the JSON in markdown fences despite JSON mode still parses
+  const fenced = async () =>
+    Response.json({
+      choices: [
+        { message: { content: "```json\n" + JSON.stringify({ corrections: [BR] }) + "\n```" } },
+      ],
+    });
+  assert.deepEqual(await reviewTurn(fenced), { ok: true, corrections: [BR] });
 });
 
 test("reviewTurn (#131): non-JSON, wrong shape, over-long fields → BAD_REPLY; upstream 500/network → BUSY; never throws", async () => {

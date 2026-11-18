@@ -270,6 +270,13 @@ export async function chatTurn({
   return { ok: true, text };
 }
 
+/** JSON mode returns a bare object; strip ``` fences if a model adds them anyway. */
+function stripJsonFences(text: string): string {
+  const t = text.trim();
+  const m = /^```[a-z]*\s*([\s\S]*?)\s*```$/i.exec(t);
+  return m ? m[1] : t;
+}
+
 /**
  * The end-of-scene review (#131, ADR 0017): one JSON-mode Mistral call over the
  * transcript. Same preamble as a chat turn, so the Turnstile gate, the burst and
@@ -328,7 +335,7 @@ export async function reviewTurn({
   if (!res.ok) return { ok: false, error: res.error };
   let parsed: unknown;
   try {
-    parsed = JSON.parse(res.text);
+    parsed = JSON.parse(stripJsonFences(res.text));
   } catch {
     return { ok: false, error: BAD_REPLY };
   }
@@ -355,6 +362,20 @@ export type ChatRequest = {
  * or session cookie, 429 (with retry-after) from the per-IP burst or a daily
  * cap; neither reaches Mistral.
  */
+/** Cookie + status side effects of a finished turn, shared by chat and review. */
+function applyTurnOutcome(
+  result: ChatResult | ReviewResult,
+  pendingCookie: string | undefined,
+  req: ChatRequest,
+): void {
+  const refusedByLimit = !result.ok && "retryAfter" in result;
+  if (pendingCookie && !refusedByLimit) req.setCookie(pendingCookie);
+  if (!result.ok && result.error === CHALLENGE_REQUIRED) req.setStatus(403);
+  if (!result.ok && "retryAfter" in result) {
+    req.setStatus(429, { "retry-after": String(result.retryAfter) });
+  }
+}
+
 async function chatRequestTurn<R extends ChatResult | ReviewResult>(
   data: TurnInput & { turnstileToken?: string },
   req: ChatRequest,
@@ -376,7 +397,7 @@ async function chatRequestTurn<R extends ChatResult | ReviewResult>(
   // Set only once the turn gets past the limiter (S4): a refused turn neither
   // renews the cookie nor spends one of its turns.
   let pendingCookie: string | undefined;
-  const result = (await run({
+  const result = await run({
     data: input,
     // Fails closed without the Turnstile secret or a 32-byte session secret.
     apiKey: secret && sessionSecretOk(sessionSecret) ? env.MISTRAL_API_KEY : undefined,
@@ -399,14 +420,9 @@ async function chatRequestTurn<R extends ChatResult | ReviewResult>(
       return g.ok;
     },
     limit: () => checkChatLimit(key, now, chatLimiter(env)),
-  })) as ChatResult | ReviewResult;
-  const refusedByLimit = !result.ok && "retryAfter" in result;
-  if (pendingCookie && !refusedByLimit) req.setCookie(pendingCookie);
-  if (!result.ok && result.error === CHALLENGE_REQUIRED) req.setStatus(403);
-  if (!result.ok && "retryAfter" in result) {
-    req.setStatus(429, { "retry-after": String(result.retryAfter) });
-  }
-  return result as R;
+  });
+  applyTurnOutcome(result, pendingCookie, req);
+  return result;
 }
 
 export async function sendChatHandler(

@@ -79,9 +79,9 @@ function ScenePage() {
           <Link
             to="/speak/$id"
             params={{ id: scenario.id }}
-            className="mt-3 flex items-start gap-3 rounded-[var(--radius-lg)] bg-accent p-4 text-accent-fg no-underline [&>svg:first-child]:text-accent-fg/70"
+            className="mt-3 flex items-start gap-3 rounded-[var(--radius-lg)] bg-accent p-4 text-accent-fg no-underline"
           >
-            <MessageCircle className="mt-0.5 size-5 shrink-0" />
+            <MessageCircle className="mt-0.5 size-5 shrink-0 [&]:text-accent-fg/70" />
             <span className="min-w-0">
               <span className="block text-xs font-medium uppercase tracking-wider text-accent-fg/80">
                 Conversas · {scenario.level} · {scenario.minutes} min

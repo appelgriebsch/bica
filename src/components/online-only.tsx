@@ -16,6 +16,9 @@ import { cn } from "@/lib/utils";
  * aria-label (WCAG 2.5.3 Label in Name); the online state is exposed as its
  * accessible description, never as a name override.
  * `placement="corner"` puts the marker top-right (cards); default is inline before the label.
+ * `placement="badge"` shows the marker, only while offline, as a small corner badge outside
+ * the glyph area of an icon-only button (the composer Send): the Slot gets `relative` and no
+ * opacity, because the child owns its disabled look.
  * `gate={false}`: marker only — for entry points whose content is bundled and opens offline
  * (scene cards); the online-only part inside them is gated on its own.
  */
@@ -27,7 +30,7 @@ export function OnlineOnly({
   children,
 }: {
   feature: OnlineFeatureId;
-  placement?: "inline" | "corner";
+  placement?: "inline" | "corner" | "badge";
   gate?: boolean;
   className?: string;
   children: ReactElement;
@@ -55,15 +58,22 @@ export function OnlineOnly({
       aria-describedby={stateId}
       aria-disabled={online ? undefined : true}
       onClickCapture={onClickCapture}
-      className={cn("aria-disabled:opacity-50", placement === "corner" && "relative", className)}
+      className={cn(
+        placement !== "badge" && "aria-disabled:opacity-50",
+        placement !== "inline" && "relative",
+        className,
+      )}
     >
-      <Cloud
-        aria-hidden
-        className={cn(
-          "size-3.5 shrink-0 text-muted",
-          placement === "corner" && "absolute right-3 top-3",
-        )}
-      />
+      {placement !== "badge" || !online ? (
+        <Cloud
+          aria-hidden
+          className={cn(
+            "size-3.5 shrink-0 text-muted",
+            placement === "corner" && "absolute right-3 top-3",
+            placement === "badge" && "absolute -right-1 -top-1 size-4! rounded-full bg-bg p-0.5",
+          )}
+        />
+      ) : null}
       <Slottable>{children}</Slottable>
       <span id={stateId} className="sr-only">
         {online ? "Needs internet." : "Unavailable offline."}

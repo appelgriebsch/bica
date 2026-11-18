@@ -830,7 +830,7 @@ test("chatTurn: Mistral request shape — global endpoint, mistral-small-latest,
   assert.equal(JSON.parse(seen[1].init.body).model, "mistral-large-latest");
 });
 
-test("chatTurn (#134, ADR 0018): a social scene pins the partner to its register; others unchanged", async () => {
+test("chatTurn (#134, ADR 0021): a social scene pins the partner to its register; others unchanged", async () => {
   const seen = [];
   const spy = async (url, init) => (
     seen.push(JSON.parse(init.body)),
@@ -1131,7 +1131,7 @@ test("reviewTurn (#131): JSON-mode request (temp 0.2, max_tokens 600, transcript
   assert.deepEqual(await reviewTurn(fenced), { ok: true, corrections: [BR] });
 });
 
-test("reviewTurn (#134, ADR 0018): social scenes add a Register context line; other scenes don't", async () => {
+test("reviewTurn (#134, ADR 0021): social scenes add a Register context line; other scenes don't", async () => {
   const seen = [];
   const spy = async (url, init) => (seen.push(JSON.parse(init.body)), reviewOk([]));
   const r1 = await m.reviewTurn({

@@ -60,7 +60,9 @@ export function SaveWordPanel({
         if (canSave) onSave(en.trim());
       }}
     >
-      <p className="truncate text-sm font-medium">{pt}</p>
+      <p className="truncate text-sm font-medium" title={pt}>
+        {pt}
+      </p>
       <label
         htmlFor={enId}
         className="mt-2 block text-xs font-medium uppercase tracking-wider text-muted"
@@ -88,7 +90,11 @@ export function SaveWordPanel({
           The translation is for the whole reply — adjust it for the selected words.
         </p>
       )}
-      {saved && <p className="mt-1 text-sm text-success">Already in Palavras.</p>}
+      {saved && (
+        <p role="status" className="mt-1 text-sm text-success">
+          Already in Palavras.
+        </p>
+      )}
       <div className="mt-2 flex items-center gap-2">
         <Button type="submit" disabled={!canSave}>
           {saved && <Check aria-hidden />}

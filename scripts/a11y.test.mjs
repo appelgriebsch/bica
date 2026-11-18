@@ -74,6 +74,12 @@ test("#80: save panel is a labelled form group with a labelled 44px+ input and a
   assert.match(panel, /id=\{errorId\} aria-live="polite"/, "errors in a polite live region");
   assert.match(panel, /h-12 min-h-12/, "44px+ input target");
   assert.match(panel, /Escape/, "Esc cancels");
+  assert.match(panel, /title=\{pt\}/, "the truncated pt line exposes the full text");
+  assert.match(
+    panel,
+    /role="status"[\s\S]*?Already in Palavras/,
+    "already-saved state is announced",
+  );
 });
 
 test("#80: the save controls on assistant bubbles mirror PhraseRow and stay outside OnlineOnly", () => {

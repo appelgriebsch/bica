@@ -29,6 +29,7 @@ function Home() {
   const streak = useProgress((s) => s.streak);
   const floor = useProgress((s) => s.floor);
   const cards = useProgress((s) => s.cards);
+  const savedWords = useProgress((s) => s.savedWords);
   const [hour, setHour] = useState(9);
 
   useEffect(() => {
@@ -44,7 +45,7 @@ function Home() {
   const nextRead = firstIncompleteOf(readingPieces, doneIds, level);
   const nextGram = firstIncompleteOf(grammarDrills, doneIds, level);
   const nextVerb = firstIncompleteOf(verbDesks, doneIds, level);
-  const dueCount = dueVocab(Object.keys(completed), cards, todayKey()).length;
+  const dueCount = dueVocab(Object.keys(completed), cards, todayKey(), undefined, savedWords).length;
   const doneCount = lessons.filter((l) => doneIds.has(l.id)).length;
   const pct = Math.round((doneCount / lessons.length) * 100);
   const todayDone = Object.values(completed).some((r) => {

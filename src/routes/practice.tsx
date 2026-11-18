@@ -24,6 +24,7 @@ export const Route = createFileRoute("/practice")({ component: PracticePage });
 function PracticePage() {
   const completed = useProgress((s) => s.completed);
   const cards = useProgress((s) => s.cards);
+  const savedWords = useProgress((s) => s.savedWords);
   const floor = useProgress((s) => s.floor);
   const doneIds = new Set(Object.keys(completed));
   const level = workingLevel(doneIds, floor);
@@ -35,7 +36,7 @@ function PracticePage() {
   const readDone = readingPieces.filter((p) => doneIds.has(p.id)).length;
   const gramDone = grammarDrills.filter((d) => doneIds.has(d.id)).length;
   const verbDone = verbDesks.filter((d) => doneIds.has(d.id)).length;
-  const dueCount = dueVocab(Object.keys(completed), cards, todayKey()).length;
+  const dueCount = dueVocab(Object.keys(completed), cards, todayKey(), undefined, savedWords).length;
 
 
   return (

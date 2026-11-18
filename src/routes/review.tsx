@@ -47,18 +47,24 @@ function buildQueue(items: ReviewItem[], mode: Mode): QueueCard[] {
 function ReviewPage() {
   const completed = useProgress((s) => s.completed);
   const cards = useProgress((s) => s.cards);
+  const savedWords = useProgress((s) => s.savedWords);
   const gradeVocab = useProgress((s) => s.gradeVocab);
   const touchStudy = useProgress((s) => s.touchStudy);
   const today = todayKey();
   const doneIds = useMemo(() => Object.keys(completed), [completed]);
 
-  const pool = useMemo(() => reviewPool(doneIds, cards), [doneIds, cards]);
+  const pool = useMemo(() => reviewPool(doneIds, cards, savedWords), [doneIds, cards, savedWords]);
   const [filter, setFilter] = useState<Filter>("all");
   const due = useMemo(
-    () => dueVocab(doneIds, cards, today, filter === "all" ? undefined : filter),
-    [doneIds, cards, today, filter],
+    () => dueVocab(doneIds, cards, today, filter === "all" ? undefined : filter, savedWords),
+    [doneIds, cards, today, filter, savedWords],
   );
-  const dueAll = useMemo(() => dueVocab(doneIds, cards, today), [doneIds, cards, today]);
+  const dueAll = useMemo(() => dueVocab(doneIds, cards, today, undefined, savedWords), [
+    doneIds,
+    cards,
+    today,
+    savedWords,
+  ]);
 
   const [phase, setPhase] = useState<"hub" | "session" | "done">("hub");
   const [queue, setQueue] = useState<QueueCard[]>([]);
@@ -191,7 +197,7 @@ function ReviewPage() {
                 key={lv.id}
                 label={lv.id}
                 on={filter === lv.id}
-                count={dueVocab(doneIds, cards, today, lv.id).length}
+                count={dueVocab(doneIds, cards, today, lv.id, savedWords).length}
                 onClick={() => setFilter(lv.id)}
               />
             ))}

@@ -145,6 +145,21 @@ test("reviewPool/dueVocab: a phrase joins the pile only once saved, and is due t
     [staple.id],
     "a saved staple is due today",
   );
+
+  // #142 (ADR 0019): the new savedWords param — a saved Conversas word joins via its chat: card.
+  const chatId = "chat:obrigado";
+  const saved = { [chatId]: { pt: "Obrigado", en: "Thank you", level: "A1" } };
+  const chatCards = { [chatId]: { interval: 0, ease: 0, due: today, reps: 0, lapses: 0 } };
+  assert.deepEqual(
+    reviewPool([], chatCards, saved).map((i) => i.id),
+    [chatId],
+    "saved chat word in the pool via the third param",
+  );
+  assert.deepEqual(
+    dueVocab([], chatCards, today, undefined, saved).map((i) => i.id),
+    [chatId],
+    "saved chat word due today via the fifth param",
+  );
 });
 
 test("saveToPalavras: creates a due-today card, is idempotent, leaves xp/streak alone", async () => {

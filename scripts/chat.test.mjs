@@ -1038,3 +1038,236 @@ test("S4: a turn refused by the burst limit or daily budget doesn't renew or spe
   const ok2 = await send({ data: turn2, cookie: first.cookie, ip });
   assert.equal((await m.readSession(SESSION, ok2.cookie, T0, ip)).n, 2);
 });
+
+// ---- reviewScene (#131, ADR 0017) ------------------------------------------
+
+const reviewData = {
+  scenarioId: "pastelaria",
+  messages: [
+    { role: "assistant", content: "Bom dia.\n(Good morning.)" },
+    { role: "user", content: "Eu vou pegar o ônibus" },
+  ],
+};
+const BR = {
+  youSaid: "Eu vou pegar o ônibus",
+  pt: "Eu vou apanhar o autocarro",
+  note: "In Portugal: o autocarro, apanhar.",
+  brazilian: true,
+};
+const reviewOk = (corrections) =>
+  Response.json({ choices: [{ message: { content: JSON.stringify({ corrections }) } }] });
+const reviewTurn = (fetch, o = {}) =>
+  m.reviewTurn({ data: reviewData, apiKey: "k", gate: yes, limit: ok, fetch, ...o });
+
+test("review validator (#131): known scene, at least one user turn, 16 msgs / 2000-per-msg / 8000 chars", () => {
+  const v = (o) => m.reviewInput.safeParse({ ...reviewData, ...o }).success;
+  assert.ok(v({}));
+  assert.ok(v({ turnstileToken: "t" }));
+  assert.ok(!v({ scenarioId: "nope" }));
+  assert.ok(!v({ messages: [{ role: "assistant", content: "só a fala do parceiro" }] }));
+  assert.ok(!v({ messages: Array.from({ length: 17 }, () => ({ role: "user", content: "x" })) }));
+  assert.ok(!v({ messages: [{ role: "user", content: "x".repeat(2001) }] }));
+  assert.ok(!v({ messages: [{ role: "user", content: "x".repeat(8001) }] }));
+  assert.ok(v({ messages: [...reviewData.messages, { role: "user", content: "x".repeat(2000) }] }));
+});
+
+test("reviewTurn (#131): JSON-mode request (temp 0.2, max_tokens 600, transcript); validated reply", async () => {
+  const seen = [];
+  const spy = async (url, init) => (
+    seen.push({ url: String(url), body: JSON.parse(init.body) }),
+    reviewOk([BR])
+  );
+  assert.deepEqual(await reviewTurn(spy), { ok: true, corrections: [BR] });
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].url, MISTRAL);
+  const b = seen[0].body;
+  assert.equal(b.model, "mistral-small-latest");
+  assert.deepEqual(b.response_format, { type: "json_object" });
+  assert.equal(b.temperature, 0.2);
+  assert.equal(b.max_tokens, 600);
+  assert.equal(b.messages[0].role, "system");
+  assert.match(b.messages[0].content, /JSON/);
+  assert.deepEqual(b.messages.slice(1), reviewData.messages);
+  // defaults fill note / brazilian; an empty list is a valid "no errors" reply
+  assert.deepEqual(await reviewTurn(async () => reviewOk([{ youSaid: "a", pt: "b" }])), {
+    ok: true,
+    corrections: [{ youSaid: "a", pt: "b", note: "", brazilian: false }],
+  });
+  assert.deepEqual(await reviewTurn(async () => reviewOk([])), { ok: true, corrections: [] });
+});
+
+test("reviewTurn (#131): non-JSON, wrong shape, over-long fields → BAD_REPLY; upstream 500/network → BUSY; never throws", async () => {
+  for (const body of [
+    "{not json",
+    "null",
+    JSON.stringify({}),
+    JSON.stringify({ nope: [] }),
+    JSON.stringify({ corrections: "x" }),
+    JSON.stringify({ corrections: [{ youSaid: 1, pt: "y" }] }),
+    JSON.stringify({ corrections: [{ youSaid: "x".repeat(301), pt: "y" }] }),
+  ]) {
+    const r = await reviewTurn(
+      async () => new Response(body, { headers: { "content-type": "application/json" } }),
+    );
+    assert.deepEqual(r, { ok: false, error: m.BAD_REPLY }, body.slice(0, 40));
+  }
+  assert.deepEqual(await reviewTurn(async () => json({}, { status: 500 })), {
+    ok: false,
+    error: m.BUSY,
+  });
+  assert.deepEqual(await reviewTurn(async () => Promise.reject(new TypeError("fetch failed"))), {
+    ok: false,
+    error: m.BUSY,
+  });
+});
+
+test("reviewTurn (#131): at most MAX_CORRECTIONS entries come back", async () => {
+  const many = Array.from({ length: 20 }, (_, i) => ({ youSaid: `a${i}`, pt: `b${i}` }));
+  const r = await reviewTurn(async () => reviewOk(many));
+  assert.equal(r.ok, true);
+  assert.equal(r.corrections.length, 12);
+  assert.equal(m.MAX_CORRECTIONS, 12);
+});
+
+test("reviewTurn (#131): shared preamble — no key / bad base / unknown scene refuse before gate+limit; gate before limit before upstream", async () => {
+  const never = () => assert.fail("called");
+  for (const o of [{ apiKey: undefined }, { apiKey: "k", apiBase: "https://evil.example.com/v1" }]) {
+    assert.deepEqual(await reviewTurn(never, { gate: never, limit: never, ...o }), {
+      ok: false,
+      error: m.UNAVAILABLE,
+    });
+  }
+  assert.deepEqual(
+    await reviewTurn(never, { data: { ...reviewData, scenarioId: "nope" }, gate: never, limit: never }),
+    { ok: false, error: "Unknown scene." },
+  );
+  assert.deepEqual(await reviewTurn(never, { gate: async () => false, limit: never }), {
+    ok: false,
+    error: "challenge_required",
+  });
+  assert.deepEqual(
+    await reviewTurn(never, { limit: async () => ({ ok: false, retryAfter: 42, scope: "global_day" }) }),
+    { ok: false, error: "rate_limited", retryAfter: 42, scope: "global_day" },
+  );
+});
+
+/** Runs sendReviewHandler with mocked fetch; mirrors the sendChat `send` helper. */
+async function sendReview({
+  data: d = reviewData,
+  token,
+  cookie,
+  ip = "203.0.113.7",
+  now = T0,
+  env = ENV,
+  siteverify = verifyOk,
+  bindings,
+} = {}) {
+  const calls = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    calls.push(String(url));
+    if (String(url) === m.SITEVERIFY_URL) return siteverify(url, init);
+    if (String(url) === MISTRAL) return reviewOk([BR]);
+    return assert.fail(`unexpected fetch ${url}`);
+  };
+  if (bindings) globalThis.__env__ = bindings;
+  const out = { status: 200, headers: {}, cookie: undefined };
+  try {
+    out.result = await m.sendReviewHandler(
+      { ...d, ...(token ? { turnstileToken: token } : {}) },
+      {
+        ip,
+        cookie,
+        setCookie: (v) => (out.cookie = v),
+        setStatus: (s, h = {}) => ((out.status = s), Object.assign(out.headers, h)),
+      },
+      now,
+      env,
+    );
+  } finally {
+    globalThis.fetch = realFetch;
+    delete globalThis.__env__;
+  }
+  out.calls = calls;
+  out.mistral = calls.filter((u) => u === MISTRAL).length;
+  return out;
+}
+
+test("sendReview (#131): missing token → 403 challenge_required, no limiter, no Mistral, no cookie", async () => {
+  const r = await sendReview({ bindings: refuseLimiter });
+  assert.deepEqual(r.result, { ok: false, error: "challenge_required" });
+  assert.equal(r.status, 403);
+  assert.deepEqual(r.calls, []);
+  assert.equal(r.cookie, undefined);
+});
+
+test("sendReview (#131): valid token → cookie set, corrections returned; later reviews ride the cookie", async () => {
+  const r = await sendReview({ token: "good" });
+  assert.deepEqual(r.result, { ok: true, corrections: [BR] });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.calls, [m.SITEVERIFY_URL, MISTRAL]);
+  assert.ok(await m.readSession(SESSION, r.cookie, T0, IP));
+  // a longer transcript is no longer a "first turn": the cookie rides, no token
+  const full = {
+    ...reviewData,
+    messages: [
+      ...reviewData.messages,
+      { role: "assistant", content: "Claro.\n(Sure.)" },
+      { role: "user", content: "Quanto custa?" },
+    ],
+  };
+  const again = await sendReview({ data: full, cookie: r.cookie });
+  assert.equal(again.result.ok, true);
+  assert.deepEqual(again.calls, [MISTRAL]);
+  assert.equal(again.mistral, 1);
+  // ...but a one-line conversation is still a first turn and needs a token
+  const solo = await sendReview({ data: reviewData, cookie: r.cookie, bindings: refuseLimiter });
+  assert.equal(solo.status, 403);
+  assert.deepEqual(solo.result, { ok: false, error: "challenge_required" });
+});
+
+test("sendReview (#131): the review is billed — burst refusal → 429 retry-after, no cookie, no Mistral", async () => {
+  const r = await sendReview({
+    token: "good",
+    bindings: { CHAT_RATE: { limit: async () => ({ success: false }) } },
+  });
+  assert.equal(r.status, 429);
+  assert.deepEqual(r.headers, { "retry-after": "60" });
+  assert.deepEqual(r.result, { ok: false, error: "rate_limited", retryAfter: 60, scope: "burst" });
+  assert.equal(r.mistral, 0);
+  assert.equal(r.cookie, undefined);
+});
+
+test("sendReview (#131): per-IP daily cap → 429 ip_day; another IP still passes", async () => {
+  const env = { ...ENV, CHAT_DAILY_PER_IP: "1" };
+  const ip = "198.51.100.77";
+  const at = (i) => T0 + i * 60_000; // one per minute: no burst
+  assert.equal((await sendReview({ token: "t", ip, env, now: at(1) })).status, 200);
+  const r = await sendReview({ token: "t", ip, env, now: at(2) });
+  assert.equal(r.status, 429);
+  assert.deepEqual(r.result, {
+    ok: false,
+    error: "rate_limited",
+    retryAfter: TO_MIDNIGHT - 120,
+    scope: "ip_day",
+  });
+  assert.equal(r.mistral, 0);
+  assert.equal((await sendReview({ token: "t", ip: "198.51.100.78", env, now: at(3) })).status, 200);
+});
+
+test("#131: reviewScene is wired like sendChat — validator + handler, no auth; panel renders text only", () => {
+  const server = readFileSync(join(root, "src/lib/chat-server.ts"), "utf8");
+  assert.match(server, /export const reviewScene = createServerFn\(\{ method: "POST" \}\)/);
+  assert.match(server, /\.validator\(\(input: unknown\) => reviewInput\.parse\(input\)\)/);
+  assert.match(server, /return sendReviewHandler\(data, chatRequest\(\)\);/);
+  assert.doesNotMatch(server, /authMiddleware|lib\/auth/);
+  const core = readFileSync(join(root, "src/lib/chat-core.ts"), "utf8");
+  assert.match(core, /response_format: \{ type: "json_object" \}/);
+  assert.match(core, /reviewOutputSchema\.safeParse/);
+  const speak = readFileSync(join(root, "src/routes/speak/$id.tsx"), "utf8");
+  assert.match(speak, /reviewScene/);
+  assert.match(speak, /SceneReview/);
+  const panel = readFileSync(join(root, "src/components/scene-review.tsx"), "utf8");
+  assert.match(panel, /aria-live="polite"/);
+  assert.doesNotMatch(panel, /dangerouslySetInnerHTML/);
+});

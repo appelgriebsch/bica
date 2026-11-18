@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BookOpen, Check, Compass, Headphones, MessageCircle, PenLine, RotateCcw, WholeWord } from "lucide-react";
+import { BookOpen, Check, Compass, Headphones, MessageCircle, PenLine, RotateCcw, Users, WholeWord } from "lucide-react";
 import { OnlineOnly } from "@/components/online-only";
 import { AppShell } from "@/components/app-shell";
 import {
@@ -11,6 +11,7 @@ import {
   radioBulletins,
   readingPieces,
   speakScenarios,
+  socialScenes,
   travelScenes,
   verbDesks,
   workingLevel,
@@ -156,7 +157,7 @@ function PracticePage() {
                   Conversas
                 </span>
                 <span className="mt-1 block text-sm text-accent-fg/80">
-                  Café, tickets, disagreement — a Lisbon partner.
+                  Café, tickets, family lunch — a Lisbon partner.
                 </span>
               </span>
             </Link>
@@ -227,6 +228,53 @@ function PracticePage() {
           })}
         </ul>
       </section>
+
+      {socialScenes.length > 0 && (
+        <section className="mt-10">
+          <h2 className="font-display text-xl font-medium">Cenas sociais</h2>
+          <p className="mt-1 text-sm text-muted">
+            Family, friends and colleagues, with tu or você. The text and sound work
+            offline; the live partner needs internet.
+          </p>
+          <ul className="mt-3 grid gap-2">
+            {socialScenes.map((s) => {
+              const lesson = getLesson(s.lessonId);
+              const register = speakScenarios.find((sc) => sc.id === s.scenarioId)?.register;
+              return (
+                <li key={s.id}>
+                  <Link
+                    to="/scene/$id"
+                    params={{ id: s.id }}
+                    className="flex items-center gap-3 rounded-[var(--radius-md)] bg-surface px-3 py-3 no-underline shadow-[var(--shadow-border)] transition-shadow duration-[var(--motion-quick)] hover:shadow-[var(--shadow-border-hover)]"
+                  >
+                    <span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] bg-soft text-accent sm:hidden">
+                      <Users className="size-4" />
+                    </span>
+                    <img
+                      src={s.image}
+                      alt=""
+                      className="scene hidden h-12 w-12 shrink-0 rounded-[var(--radius-sm)] object-cover sm:block"
+                    />
+                    <span className="min-w-0 flex-1 overflow-hidden">
+                      <span className="block truncate font-medium text-fg">
+                        {s.titlePt}
+                        <span className="ml-2 hidden font-sans text-sm font-normal text-muted sm:inline">
+                          {s.title}
+                        </span>
+                      </span>
+                      <span className="block truncate text-xs text-subtle">
+                        {s.level} · {s.minutes} min
+                        {register ? ` · ${register}` : ""}
+                        {lesson ? ` · Lesson: ${lesson.titlePt}` : ""}
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       <section className="mt-10">
         <h2 className="font-display text-xl font-medium">Bulletins</h2>

@@ -37,11 +37,11 @@ export function SceneReview({
               key={`${c.youSaid}→${c.pt}#${i}`}
               className="rounded-[var(--radius-md)] bg-soft px-3 py-2"
             >
-              <p className="text-xs font-medium uppercase tracking-wider text-subtle">You said</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted">You said</p>
               <p className="text-sm text-muted">{c.youSaid}</p>
               <div className="mt-1.5 flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-wider text-subtle">
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted">
                     In Portugal
                   </p>
                   <p className="text-sm font-medium text-fg">{c.pt}</p>

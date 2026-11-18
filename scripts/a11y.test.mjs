@@ -7,7 +7,8 @@
  *   m4: an unknown route renders the in-app 404 view with a working link to Home.
  *
  * The rendered-output checks run against a dev server spawned on a loopback port
- * (no public binding); browser checks skip when no Chromium is installed.
+ * (no public binding); browser checks skip when no Chromium is installed locally —
+ * CI installs it (#151 m4), so they run there.
  *
  * Also covers #134 (ADR 0018): s1 /speak heading structure + register pills (SSR),
  * s2 /speak at 390px without horizontal overflow (browser).
@@ -428,10 +429,20 @@ test(
     const ptShown = await panel.locator("p.truncate").first().textContent();
     assert.equal(ptShown, "Bom dia", `panel shows the selection, not the whole line: "${ptShown}"`);
     await panel.locator('button[type="submit"]').click();
-    // Bookmark flips to the saved state; the save is due on /review and listed on /me.
-    await page.locator('button[aria-label^="In Palavras:"]').waitFor({ state: "visible" });
+    // The bubble bookmark marks whole-line saves only: a sub-phrase save leaves it
+    // on "Save to Palavras: <whole line>". The save itself lands on /review and /me.
+    await panel.waitFor({ state: "detached", timeout: 10_000 });
+    assert.equal(
+      await page.locator('button[aria-label^="In Palavras:"]').count(),
+      0,
+      "sub-phrase save does not flip the bubble bookmark",
+    );
+    await page
+      .locator('button[aria-label^="Save to Palavras: Bom dia. "]')
+      .waitFor({ state: "visible", timeout: 10_000 });
     await page.goto(`${base}/review`, { waitUntil: "networkidle", timeout: 60_000 });
-    const due = await page.locator("text=Due today").first().textContent();
+    // Scoped to the kicker: the /review intro copy also says "Due today" (#144).
+    const due = await page.getByText(/Due today · \d+/).first().textContent();
     assert.match(due ?? "", /Due today · 1\b/, `saved word is due today: "${due}"`);
     await page.goto(`${base}/me`, { waitUntil: "networkidle", timeout: 60_000 });
     const group = page.locator("h3", { hasText: "From your conversas" });
@@ -480,7 +491,8 @@ test(
     await panel.locator('button[type="submit"]').click();
     await page.locator('button[aria-label^="In Palavras:"]').waitFor({ state: "visible" });
     await page.goto(`${base}/review`, { waitUntil: "networkidle", timeout: 60_000 });
-    const due = await page.locator("text=Due today").first().textContent();
+    // Scoped to the kicker: the /review intro copy also says "Due today" (#144).
+    const due = await page.getByText(/Due today · \d+/).first().textContent();
     assert.match(due ?? "", /Due today · 1\b/, `whole line due today: "${due}"`);
     assert.deepEqual(errors, [], `console/page errors: ${errors.join(" | ")}`);
     await page.close();

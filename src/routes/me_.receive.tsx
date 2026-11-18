@@ -540,7 +540,10 @@ function Unlock({
       const envelope = transferSchema(todayKey()).safeParse(await session.unlock(code));
       if (!envelope.success) return onInvalid();
       // Old senders omit savedWords (#80, ADR 0019): default it to an empty record.
-      onUnlocked({ ...envelope.data.snapshot, savedWords: envelope.data.snapshot.savedWords ?? {} });
+      onUnlocked({
+        ...envelope.data.snapshot,
+        savedWords: envelope.data.snapshot.savedWords ?? {},
+      });
     } catch (err) {
       const kind = err instanceof TransferError ? err.kind : "malformed";
       if (kind === "stale") return; // cancelled, rescanned or expired meanwhile: ignore

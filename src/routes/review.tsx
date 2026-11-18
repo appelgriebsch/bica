@@ -133,8 +133,8 @@ function ReviewPage() {
     <AppShell>
       <h1 className="font-display text-3xl font-medium tracking-tight">Palavras</h1>
       <p className="mt-2 text-muted">
-        Words from finished lessons and saved trip phrases. Due today come back.
-        New ones join the pile. Flip, or type the Portuguese.
+        Words from finished lessons, saved trip phrases, and your conversas. Due
+        today come back. New ones join the pile. Flip, or type the Portuguese.
       </p>
 
       {pool.length === 0 ? (

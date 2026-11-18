@@ -54,13 +54,13 @@ Seen in: `src/data/types.ts` (`QuizQuestion`), `src/components/quiz-block.tsx`
 
 ## Palavras
 
-Spaced review of words from finished Lessons.
+Spaced review of words from finished Lessons, saved Travel Phrasebook phrases, and words saved from Conversas (#80, ADR 0019).
 
 Seen in: `src/routes/practice.tsx`, `src/routes/index.tsx`, `src/routes/review.tsx`, `src/lib/online-features.ts`
 
 ## Phrasebook
 
-The You section with phrases you can play aloud: the Travel Phrasebook ("On the trip") always, plus "From your lessons" (words from finished Lessons) once a Lesson is finished.
+The You section with phrases you can play aloud: the Travel Phrasebook ("On the trip") always, plus "From your conversas" (words saved from Conversas replies) and "From your lessons" (words from finished Lessons) once a Lesson is finished.
 
 Seen in: `src/routes/me.tsx`
 
@@ -168,7 +168,7 @@ Seen in: `src/routes/practice.tsx`, `src/routes/scene/$id.tsx`, `src/data/travel
 
 ## Travel Phrasebook
 
-"On the trip" on You: trip phrases grouped by situation, available before any Lesson and working offline. "Qualquer lado" (the anywhere staples) first, then the six Travel Scenes' situations with their "You" lines. Each phrase plays with the Speak button and can be saved to Palavras. Below it, "From your lessons" holds the words from finished Lessons.
+"On the trip" on You: trip phrases grouped by situation, available before any Lesson and working offline. "Qualquer lado" (the anywhere staples) first, then the six Travel Scenes' situations with their "You" lines. Each phrase plays with the Speak button and can be saved to Palavras. Below it, "From your conversas" holds the words saved from Conversas replies and "From your lessons" the words from finished Lessons.
 
 Seen in: `src/routes/me.tsx`, `src/data/phrasebook.ts`
 

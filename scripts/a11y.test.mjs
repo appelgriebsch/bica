@@ -64,6 +64,42 @@ test("m4: router registers an in-app 404 with a link to Home (#110)", () => {
   assert.match(notFound, /<Link to="\/">/);
 });
 
+test("#80: save panel is a labelled form group with a labelled 44px+ input and an aria-live error region", () => {
+  const panel = read("src/components/save-word-panel.tsx");
+  assert.match(panel, /<form/);
+  assert.match(panel, /role="group"/);
+  assert.match(panel, /aria-label="Save to Palavras"/);
+  assert.match(panel, /<label[\s\S]*?htmlFor=\{enId\}/, "visible label for the en input");
+  assert.match(panel, /aria-describedby=\{errorId\}/);
+  assert.match(panel, /id=\{errorId\} aria-live="polite"/, "errors in a polite live region");
+  assert.match(panel, /h-12 min-h-12/, "44px+ input target");
+  assert.match(panel, /Escape/, "Esc cancels");
+});
+
+test("#80: the save controls on assistant bubbles mirror PhraseRow and stay outside OnlineOnly", () => {
+  const speak = read("src/routes/speak/$id.tsx");
+  assert.match(
+    speak,
+    /aria-label=\{saved \? `In Palavras: \$\{line\}` : `Save to Palavras: \$\{line\}`\}/,
+  );
+  assert.match(speak, /aria-pressed=\{saved \|\| undefined\}/);
+  assert.match(speak, /size="icon"/, "ghost 44px icon button like PhraseRow");
+  const chat = speak.slice(speak.indexOf("<ol"), speak.indexOf("</ol>"));
+  assert.ok(!chat.includes("OnlineOnly"), "save UI stays outside OnlineOnly (works offline)");
+  assert.match(speak, /selectionchange/, "selection tracking for word/phrase saves");
+  assert.match(speak, /\{ signal: ac\.signal \}/, "listener attached with an AbortSignal");
+});
+
+test('#80: /me renders the "From your conversas" group with its teaching empty state', () => {
+  const me = read("src/routes/me.tsx");
+  assert.match(me, /From your conversas/);
+  assert.match(me, /Save a word from a Conversas reply/);
+  assert.ok(
+    me.indexOf("From your conversas") < me.indexOf("From your lessons"),
+    "group order: conversas before lessons",
+  );
+});
+
 // ------------------------------------------------------- rendered output (HTTP)
 
 const freePort = () =>
@@ -195,6 +231,20 @@ test(
     assert.ok(body.includes("Page not found"), "in-app 404 view rendered");
     assert.match(body, /<a\b[^>]*href="\/"[^>]*>/, "404 view links to Home");
     assert.ok(!/<p>Not Found<\/p>/.test(body), "not the framework's plain-text fallback");
+  },
+);
+
+test(
+  "#80: /me SSR shows the conversas group; a Conversas scene SSR shows the bookmark button",
+  { timeout: 180_000 },
+  async () => {
+    const me = await get("/me");
+    assert.equal(me.status, 200);
+    assert.ok(me.body.includes("From your conversas"), "conversas group on You");
+    assert.ok(me.body.includes("Save a word from a Conversas reply"), "teaching empty state");
+    const speak = await get("/speak/pastelaria");
+    assert.equal(speak.status, 200);
+    assert.match(speak.body, /aria-label="Save to Palavras: [^"]*"/, "bookmark on the opener");
   },
 );
 
@@ -335,3 +385,98 @@ test("s2 (#134): /speak at 390px has no horizontal overflow and shows the regist
   assert.ok(pills >= 5, `expected >= 5 register pills, got ${pills}`);
   await page.close();
 });
+
+test(
+  "#80: select a word in the opener bubble, save via the chip, it lands due on /review and in the /me group",
+  { timeout: 180_000 },
+  async (t) => {
+    if (needBrowser(t)) return;
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("console", (m) => {
+      if (m.type() === "error") errors.push(m.text());
+    });
+    await page.goto(`${base}/speak/pastelaria`, { waitUntil: "networkidle", timeout: 60_000 });
+    // Select "Bom dia" inside the assistant opener bubble.
+    await page.evaluate(() => {
+      const p = document.querySelector('li[data-role="assistant"] p');
+      const range = document.createRange();
+      range.setStart(p.firstChild, 0);
+      range.setEnd(p.firstChild, 7);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+    const chip = page.locator('button:has-text("Save to Palavras")').first();
+    await chip.waitFor({ state: "visible", timeout: 10_000 });
+    await chip.click();
+    const panel = page.locator('[role="group"][aria-label="Save to Palavras"]');
+    await panel.waitFor({ state: "visible", timeout: 10_000 });
+    // Sub-phrase caveat + gloss prefilled from the whole reply.
+    await panel
+      .locator("text=adjust it for the selected words")
+      .waitFor({ state: "visible", timeout: 10_000 });
+    const enValue = await panel.locator("input").inputValue();
+    assert.ok(enValue.includes("Good morning"), `gloss prefilled from the reply: "${enValue}"`);
+    const ptShown = await panel.locator("p.truncate").first().textContent();
+    assert.equal(ptShown, "Bom dia", `panel shows the selection, not the whole line: "${ptShown}"`);
+    await panel.locator('button[type="submit"]').click();
+    // Bookmark flips to the saved state; the save is due on /review and listed on /me.
+    await page.locator('button[aria-label^="In Palavras:"]').waitFor({ state: "visible" });
+    await page.goto(`${base}/review`, { waitUntil: "networkidle", timeout: 60_000 });
+    const due = await page.locator("text=Due today").first().textContent();
+    assert.match(due ?? "", /Due today · 1\b/, `saved word is due today: "${due}"`);
+    await page.goto(`${base}/me`, { waitUntil: "networkidle", timeout: 60_000 });
+    const group = page.locator("h3", { hasText: "From your conversas" });
+    await group.waitFor({ state: "visible", timeout: 10_000 });
+    const row = group.locator("xpath=following-sibling::ul[1]//li", { hasText: "Bom dia" }).first();
+    await row.waitFor({ state: "visible", timeout: 10_000 });
+    assert.ok((await row.textContent())?.includes("Good morning"), "row shows the English meaning");
+    // 390 px: no horizontal overflow, clean console.
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
+    assert.equal(overflow, false, "no horizontal overflow at 390 px");
+    assert.deepEqual(errors, [], `console/page errors: ${errors.join(" | ")}`);
+    await page.close();
+  },
+);
+
+test(
+  "#80: the bookmark saves the whole opener line with its gloss (T1 flow, 390 px)",
+  { timeout: 180_000 },
+  async (t) => {
+    if (needBrowser(t)) return;
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("console", (m) => {
+      if (m.type() === "error") errors.push(m.text());
+    });
+    await page.goto(`${base}/speak/pastelaria`, { waitUntil: "networkidle", timeout: 60_000 });
+    await page.locator('button[aria-label^="Save to Palavras:"]').first().click();
+    const panel = page.locator('[role="group"][aria-label="Save to Palavras"]');
+    await panel.waitFor({ state: "visible", timeout: 10_000 });
+    const enValue = await panel.locator("input").inputValue();
+    assert.ok(enValue.includes("Good morning"), `gloss prefilled: "${enValue}"`);
+    assert.equal(
+      await panel.locator("p.truncate").first().textContent(),
+      "Bom dia. Então, o que vai ser?",
+      "whole first line without the selection",
+    );
+    // Focus moved into the input on open.
+    assert.equal(
+      await page.evaluate(() => document.activeElement?.tagName),
+      "INPUT",
+      "focus is in the en input",
+    );
+    await panel.locator('button[type="submit"]').click();
+    await page.locator('button[aria-label^="In Palavras:"]').waitFor({ state: "visible" });
+    await page.goto(`${base}/review`, { waitUntil: "networkidle", timeout: 60_000 });
+    const due = await page.locator("text=Due today").first().textContent();
+    assert.match(due ?? "", /Due today · 1\b/, `whole line due today: "${due}"`);
+    assert.deepEqual(errors, [], `console/page errors: ${errors.join(" | ")}`);
+    await page.close();
+  },
+);

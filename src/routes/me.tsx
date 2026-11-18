@@ -24,6 +24,7 @@ export const Route = createFileRoute("/me")({ component: MePage });
 function MePage() {
   const completed = useProgress((s) => s.completed);
   const cards = useProgress((s) => s.cards);
+  const savedWords = useProgress((s) => s.savedWords);
   const saveToPalabras = useProgress((s) => s.saveToPalabras);
   const xp = useProgress((s) => s.xp);
   const streak = useProgress((s) => s.streak);
@@ -35,6 +36,10 @@ function MePage() {
   const vocab = vocabFromCompleted(doneIds).slice(0, 24);
   const groups = phraseGroups();
   const savedCount = travelPhrases.filter((p) => cards[p.id]).length;
+  // #80 (ADR 0019): words saved from Conversas replies, shown once they have a card.
+  const chatWords = Object.entries(savedWords)
+    .filter(([id]) => Boolean(cards[id]))
+    .map(([id, w]) => ({ id, ...w }));
   const estimated = workingLevel(doneSet, floor);
 
   function savePhrase(phrase: TravelPhrase) {
@@ -112,11 +117,11 @@ function MePage() {
           <div>
             <h2 className="font-display text-xl font-medium">Phrasebook</h2>
             <p className="mt-1 text-sm text-muted">
-              Trip phrases for the road, plus words from lessons you finished. Tap the
-              speaker.
+              Trip phrases for the road, plus words from your conversas and finished
+              lessons. Tap the speaker.
             </p>
           </div>
-          {(vocab.length > 0 || savedCount > 0) && (
+          {(vocab.length > 0 || savedCount > 0 || chatWords.length > 0) && (
             <Button asChild variant="ghost" size="sm">
               <Link to="/review">Palavras</Link>
             </Button>
@@ -145,6 +150,25 @@ function MePage() {
             </ul>
           </div>
         ))}
+
+        <h3 className="mt-8 font-display text-lg font-medium">From your conversas</h3>
+        {chatWords.length === 0 ? (
+          <p className="mt-4 text-sm text-subtle">
+            Save a word from a Conversas reply — tap the bookmark on a partner's line.
+          </p>
+        ) : (
+          <ul className="mt-3 divide-y divide-border rounded-[var(--radius-lg)] bg-surface shadow-[var(--shadow-border)]">
+            {chatWords.map((w) => (
+              <li key={w.id} className="flex items-center gap-2 px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{w.pt}</p>
+                  <p className="truncate text-sm text-muted">{w.en}</p>
+                </div>
+                <SpeakButton text={w.pt} />
+              </li>
+            ))}
+          </ul>
+        )}
 
         <h3 className="mt-8 font-display text-lg font-medium">From your lessons</h3>
         {vocab.length === 0 ? (

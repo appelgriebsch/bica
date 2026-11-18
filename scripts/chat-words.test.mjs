@@ -82,7 +82,10 @@ test("schema: savedWords optional (old envelopes pass), bounded values, over-cap
   assert.ok(!ok(light({ [id]: { ...word, pt: "" } })), "empty pt rejected");
   assert.ok(!ok(light({ [id]: { ...word, pt: "x".repeat(161) } })), "pt over 160 rejected");
   assert.ok(!ok(light({ [id]: { ...word, en: "x".repeat(201) } })), "en over 200 rejected");
-  assert.ok(ok(light({ [id]: { ...word, pt: "x".repeat(160), en: "x".repeat(200) } })), "at the caps");
+  assert.ok(
+    ok(light({ [id]: { ...word, pt: "x".repeat(160), en: "x".repeat(200) } })),
+    "at the caps",
+  );
   // JSON.parse keeps "__proto__" as an own key (object literals do not). zod drops that key
   // instead of storing it; constructor/prototype are rejected outright. The codec layer also
   // rejects proto keys in decrypted JSON as malformed (transfer.test.mjs).
@@ -99,9 +102,16 @@ test("schema: savedWords optional (old envelopes pass), bounded values, over-cap
     Array.from({ length: S.MAX_SAVED_WORDS + 1 }, (_, i) => [`chat:w${i}`, word]),
   );
   assert.ok(!ok(light(many)), "over MAX_SAVED_WORDS rejected");
-  assert.ok(ok(light(Object.fromEntries(
-    Array.from({ length: S.MAX_SAVED_WORDS }, (_, i) => [`chat:w${i}`, word]),
-  ))), "at MAX_SAVED_WORDS accepted");
+  assert.ok(
+    ok(
+      light(
+        Object.fromEntries(
+          Array.from({ length: S.MAX_SAVED_WORDS }, (_, i) => [`chat:w${i}`, word]),
+        ),
+      ),
+    ),
+    "at MAX_SAVED_WORDS accepted",
+  );
   // A savedWords key without the colon shape is rejected like a bad card id.
   assert.ok(!ok(light({ "no-colon": word })), "savedWords keys must be card ids");
 });
@@ -138,11 +148,22 @@ test("saveChatWord: due-today chat: card + savedWords entry, idempotent, no XP/s
 test("mergeProgress: savedWords union, same id with different content selects remote", () => {
   const local = light({ [id]: word, "chat:local only": { pt: "local", en: "local", level: "B1" } });
   const remote = {
-    ...light({ [id]: { ...word, en: "remote wins" }, "chat:remote only": { pt: "r", en: "r", level: "A2" } }),
+    ...light({
+      [id]: { ...word, en: "remote wins" },
+      "chat:remote only": { pt: "r", en: "r", level: "A2" },
+    }),
   };
   const m = mergeProgress(local, remote);
-  assert.deepEqual(Object.keys(m.savedWords).sort(), [id, "chat:local only", "chat:remote only"].sort(), "union");
-  assert.equal(m.savedWords[id].en, "remote wins", "different content: remote wins (completed tie convention)");
+  assert.deepEqual(
+    Object.keys(m.savedWords).sort(),
+    [id, "chat:local only", "chat:remote only"].sort(),
+    "union",
+  );
+  assert.equal(
+    m.savedWords[id].en,
+    "remote wins",
+    "different content: remote wins (completed tie convention)",
+  );
   // Old snapshots without the field still merge.
   const old = { ...light(), savedWords: undefined };
   assert.deepEqual(mergeProgress(old, light({ [id]: word })).savedWords, { [id]: word });
@@ -153,11 +174,26 @@ test("reviewPool/dueVocab: saved chat words join the pile once they have a card,
   assert.deepEqual(reviewPool([], {}), [], "nothing saved, nothing in the pool");
   assert.deepEqual(reviewPool([], {}, { [id]: word }), [], "no card yet: stays out");
   const pool = reviewPool([], { [id]: card }, { [id]: word });
-  assert.deepEqual(pool.map((i) => [i.id, i.pt, i.en, i.level]), [[id, word.pt, word.en, "A1"]]);
+  assert.deepEqual(
+    pool.map((i) => [i.id, i.pt, i.en, i.level]),
+    [[id, word.pt, word.en, "A1"]],
+  );
   assert.equal(pool[0].hint, undefined, "no hint/examples — the review UI guards those");
-  assert.deepEqual(dueVocab([], { [id]: card }, today, undefined, { [id]: word }).map((i) => i.id), [id], "due today");
-  assert.deepEqual(dueVocab([], { [id]: card }, today, "B1", { [id]: word }), [], "level filter applies");
-  assert.deepEqual(dueVocab([], { [id]: { ...card, due: "2999-01-01" } }, today, undefined, { [id]: word }), [], "not yet due stays out");
+  assert.deepEqual(
+    dueVocab([], { [id]: card }, today, undefined, { [id]: word }).map((i) => i.id),
+    [id],
+    "due today",
+  );
+  assert.deepEqual(
+    dueVocab([], { [id]: card }, today, "B1", { [id]: word }),
+    [],
+    "level filter applies",
+  );
+  assert.deepEqual(
+    dueVocab([], { [id]: { ...card, due: "2999-01-01" } }, today, undefined, { [id]: word }),
+    [],
+    "not yet due stays out",
+  );
   // Defaulted param: existing callers keep working — a chat card without a savedWords entry stays out.
   assert.deepEqual(reviewPool([], { [id]: card }), []);
 });
@@ -194,6 +230,33 @@ test("hydration: an old stored snapshot without savedWords hydrates to {} — no
   assert.equal(reloaded.getState().hydrated, true);
   assert.deepEqual(reloaded.getState().savedWords, {}, "missing key hydrates to {}");
   assert.equal(reloaded.getState().xp, 5, "old fields intact");
+});
+
+test("transfer capacity with a savedWords pile (ADR 0019 consequence, measured in #144)", async (t) => {
+  const mk = (n) => {
+    const savedWords = {};
+    const cards = {};
+    for (let i = 0; i < n; i++) {
+      const pt = `palavra numero ${i} do cafe`;
+      const cid = `chat:${normalizePt(pt)}`;
+      savedWords[cid] = { pt, en: `word number ${i} from the cafe`, level: "A1" };
+      cards[cid] = card;
+    }
+    return { ...light(savedWords), cards };
+  };
+  // 100 saved words still fit the 16-frame QR cap and round-trip.
+  const frames = await T.encodeTransfer({ v: 1, snapshot: mk(100) }, CODE);
+  t.diagnostic(`100 saved words: ${frames.length} frames of <= ${T.MAX_PARTS} (cap)`);
+  assert.ok(frames.length <= T.MAX_PARTS);
+  const session = new T.ReceiveSession();
+  for (const f of frames) session.add(f);
+  const parsed = S.transferSchema(today).safeParse(await session.unlock(CODE));
+  assert.ok(parsed.success && Object.keys(parsed.data.snapshot.savedWords).length === 100);
+  // At the schema cap the QR framing refuses loudly, never truncates (ADR 0019).
+  await assert.rejects(
+    T.encodeTransfer({ v: 1, snapshot: mk(S.MAX_SAVED_WORDS) }, CODE),
+    (e) => e.kind === "too-large",
+  );
 });
 
 test("glossOf: `pt\\n(en)` → en without parens; missing/odd second line → empty", () => {

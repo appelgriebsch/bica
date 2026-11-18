@@ -222,4 +222,6 @@ test("mic-button.tsx follows the no-voice pattern: aria-disabled + NO_SPEECH_NOT
   assert.match(btn, /toast\(NO_SPEECH_NOTE, \{ id: "no-speech-input" \}\)/);
   assert.match(btn, /aria-pressed=\{listening \|\| undefined\}/);
   assert.match(btn, /announce\("Listening…"\)/);
+  // a superseded (aborted) session's onEnd must not end the live one (#149 review)
+  assert.match(btn, /if \(session\.current !== s\) return;/);
 });

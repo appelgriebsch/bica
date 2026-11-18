@@ -85,6 +85,8 @@ export function MicButton({
         else toast(errorNote(code), { id: "speech-input-error" });
       },
       onEnd() {
+        // A superseded session (aborted by a newer start) must not end the live one.
+        if (session.current !== s) return;
         session.current = null;
         setListeningBoth(false);
       },

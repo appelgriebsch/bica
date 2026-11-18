@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MAX_CHAT_TEXT } from "@/lib/chat-words";
@@ -7,16 +8,22 @@ import { normalizePt } from "@/lib/utils";
  * Inline "Save to Palavras" panel under a Conversas bubble (#80, ADR 0019).
  * The Portuguese is read-only; the English meaning is required and editable.
  * Wrapped in a form so Enter saves; Esc cancels; focus moves into the input on
- * open (the parent returns it to the trigger on close).
+ * open (the parent returns it to the trigger on close). `saved` mirrors the
+ * PhraseRow already-saved state; `caveat` flags a sub-phrase save, where the
+ * prefilled gloss describes the whole reply.
  */
 export function SaveWordPanel({
   pt,
   defaultEn,
+  saved = false,
+  caveat = false,
   onSave,
   onClose,
 }: {
   pt: string;
   defaultEn: string;
+  saved?: boolean;
+  caveat?: boolean;
   onSave: (en: string) => void;
   onClose: () => void;
 }) {
@@ -26,7 +33,7 @@ export function SaveWordPanel({
   const enId = useId();
   const errorId = useId();
   const tooLong = normalizePt(pt).length > MAX_CHAT_TEXT;
-  const canSave = !tooLong && en.trim().length > 0;
+  const canSave = !saved && !tooLong && en.trim().length > 0;
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -76,10 +83,20 @@ export function SaveWordPanel({
       <p id={errorId} aria-live="polite" className="mt-1 text-sm text-danger">
         {tooLong ? `Too long to save — keep it to ${MAX_CHAT_TEXT} characters or fewer.` : ""}
       </p>
-      <div className="mt-2 flex gap-2">
+      {caveat && !saved && (
+        <p className="mt-1 text-xs text-muted">
+          The translation is for the whole reply — adjust it for the selected words.
+        </p>
+      )}
+      {saved && <p className="mt-1 text-sm text-success">Already in Palavras.</p>}
+      <div className="mt-2 flex items-center gap-2">
         <Button type="submit" disabled={!canSave}>
+          {saved && <Check aria-hidden />}
           Save
         </Button>
+        {!canSave && !tooLong && !saved && (
+          <p className="text-xs text-subtle">Add the English meaning to save.</p>
+        )}
         <Button type="button" variant="outline" onClick={onClose}>
           Cancel
         </Button>

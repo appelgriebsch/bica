@@ -84,6 +84,8 @@ export const speakScenarios: SpeakScenario[] = [
     openerEn: "Hi! So, will you have time tomorrow night?",
     goals: ["Propose a time with que tal", "Accept or suggest another", "Close with combinado"],
     image: "/scenes/phone.jpg",
+    group: "social",
+    register: "tu",
   },
   {
     id: "trabalho-chat",
@@ -126,6 +128,8 @@ export const speakScenarios: SpeakScenario[] = [
     openerEn: "So, how was the weekend?",
     goals: ["Use fui / vi / gostei", "Ask a follow-up", "Keep it to a few sentences"],
     image: "/scenes/cafe.jpg",
+    group: "social",
+    register: "você",
   },
   {
     id: "alojamento",
@@ -186,6 +190,8 @@ export const speakScenarios: SpeakScenario[] = [
     openerEn: "And you, what do you think? Is this city still for the people who live here?",
     goals: ["Use por um lado / por outro", "Hedge with diria que", "Leave the door open"],
     image: "/scenes/dinner.jpg",
+    group: "social",
+    register: "tu",
   },
   {
     id: "saudade-talk",
@@ -200,6 +206,8 @@ export const speakScenarios: SpeakScenario[] = [
     openerEn: "Do you feel at ease yet, or do you still miss home?",
     goals: ["Use ter saudades de", "Qualify with já menos", "Ask them something back"],
     image: "/scenes/balcony.jpg",
+    group: "social",
+    register: "você",
   },
   {
     id: "mesa-serio",
@@ -214,5 +222,7 @@ export const speakScenarios: SpeakScenario[] = [
     openerEn: "This city is no longer for the people who live here. Full stop. Or do you still think otherwise?",
     goals: ["Use ainda que + subjunctive", "Quote without owning: há quem diga", "Land with podemos ficar por aqui"],
     image: "/scenes/dinner.jpg",
+    group: "social",
+    register: "tu",
   },
 ];

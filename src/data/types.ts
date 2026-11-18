@@ -79,6 +79,9 @@ export type Unit = {
   image: string;
 };
 
+/** Social Scenes (#81, ADR 0018): the register the partner addresses the learner with. */
+export type Register = "tu" | "você";
+
 export type SpeakScenario = {
   id: string;
   level: CefrLevel;
@@ -91,6 +94,10 @@ export type SpeakScenario = {
   openerEn: string;
   goals: string[];
   image: string;
+  /** Social Scenes set (#81, ADR 0018): rendered as "Cenas sociais" on /speak. */
+  group?: "social";
+  /** Register the partner keeps to; server-side data only, never client input (#81, ADR 0018). */
+  register?: Register;
 };
 
 export type DialogueLine = { speaker: string; pt: string; en: string };

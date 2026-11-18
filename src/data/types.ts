@@ -21,6 +21,13 @@ export type QuizQuestion = {
   explain: string;
 };
 
+/** Portugal × Brasil note (#82, ADR 0018): both forms of a contrast, side by side. */
+export type PtNote = {
+  pt: string;
+  br: string;
+  en: string;
+};
+
 export type LessonSection =
   | {
       type: "intro";
@@ -28,20 +35,23 @@ export type LessonSection =
       title: string;
       body: string;
       phrase: { pt: string; en: string };
+      ptNote?: PtNote;
     }
-  | { type: "vocab"; items: VocabItem[] }
+  | { type: "vocab"; items: VocabItem[]; ptNote?: PtNote }
   | {
       type: "grammar";
       title: string;
       body: string;
       examples: { pt: string; en: string }[];
+      ptNote?: PtNote;
     }
   | {
       type: "dialogue";
       setting: string;
       lines: DialogueLine[];
+      ptNote?: PtNote;
     }
-  | { type: "culture"; title: string; body: string };
+  | { type: "culture"; title: string; body: string; ptNote?: PtNote };
 
 export type Lesson = {
   id: string;

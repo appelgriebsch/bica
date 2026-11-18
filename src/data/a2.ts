@@ -43,6 +43,11 @@ export const a2Lessons: Lesson[] = [
           { pt: "Estou a gostar deste tempo.", en: "I'm enjoying this weather." },
           { pt: "Amanhã vai estar melhor.", en: "Tomorrow it'll be better." },
         ],
+        ptNote: {
+          pt: "Está a chover.",
+          br: "Está chovendo.",
+          en: "Same contrast in weather talk: está a chover in Portugal, está chovendo in Brazil.",
+        },
       },
       {
         type: "dialogue",
@@ -333,6 +338,11 @@ export const a2Lessons: Lesson[] = [
         type: "culture",
         title: "Connosco, not conosco",
         body: "Portugal writes connosco, connosco, facto, aspeto. Brazil writes conosco, fato, aspecto. Tiny letters, big flag. Dinner at 20:30 is early-normal; 19:00 is for tourists and families with children.",
+        ptNote: {
+          pt: "Facto, aspeto, connosco.",
+          br: "Fato, aspecto, conosco.",
+          en: "Portugal keeps the c and the double n: facto, aspeto, connosco. Brazil writes fato, aspecto, conosco.",
+        },
       },
     ],
     quiz: [
@@ -385,6 +395,11 @@ export const a2Lessons: Lesson[] = [
           { pt: "Tome um comprimido de oito em oito horas.", en: "Take a tablet every eight hours." },
           { pt: "Se não melhorar, vá ao médico.", en: "If it doesn't improve, go to the doctor." },
         ],
+        ptNote: {
+          pt: "Dói-me a garganta.",
+          br: "Minha garganta dói.",
+          en: "Portugal puts the pronoun after the verb — dói-me. Brazil puts the body part first: minha garganta dói.",
+        },
       },
       {
         type: "dialogue",
@@ -443,6 +458,11 @@ export const a2Lessons: Lesson[] = [
           { pt: "a troca / o reembolso", hint: "TRO-kuh / hee-em-BOL-soo", en: "exchange / refund", examplePt: "Posso trocar?", exampleEn: "Can I exchange it?" },
           { pt: "demasiado caro", hint: "duh-muh-SYA-doo KAH-roo", en: "too expensive", examplePt: "É demasiado caro para mim.", exampleEn: "It's too expensive for me." },
         ],
+        ptNote: {
+          pt: "Esses ficam-lhe bem.",
+          br: "Esses ficam bem em você.",
+          en: "After the verb, Portugal uses lhe: ficam-lhe bem. Brazil spells it out: ficam bem em você.",
+        },
       },
       {
         type: "grammar",

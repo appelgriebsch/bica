@@ -1341,8 +1341,9 @@ test("#132: corrections panel UI states + a11y (source level)", () => {
   assert.doesNotMatch(panel, /dangerouslySetInnerHTML/);
   assert.doesNotMatch(panel, /size="sm"/);
   const speak = readFileSync(join(root, "src/routes/speak/$id.tsx"), "utf8");
-  // distinct states: loading, error via chatErrorMessage (covers 403 challenge and 429 caps), done panel
-  assert.match(speak, /A rever a conversa…/);
+  // distinct states: loading (line rendered inside the panel), error via
+  // chatErrorMessage (covers 403 challenge and 429 caps), done panel
+  assert.match(panel, /A rever a conversa…/);
   assert.match(speak, /chatErrorMessage\(res\)/);
   assert.match(speak, /review\.status === "loading"/);
   assert.match(speak, /review\.status === "error"/);

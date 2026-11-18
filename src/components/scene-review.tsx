@@ -32,7 +32,11 @@ export function SceneReview({
       <p className="mt-1 text-sm text-muted">
         What to practise — European Portuguese, not Brazilian.
       </p>
-      {loading ? null : corrections.length === 0 ? (
+      {loading ? (
+        <p id="scene-review-status" tabIndex={-1} className="mt-3 text-sm text-muted">
+          A rever a conversa…
+        </p>
+      ) : corrections.length === 0 ? (
         <p className="mt-3 text-sm text-fg">Sem erros — muito bem! No corrections needed.</p>
       ) : (
         <ul className="mt-3 space-y-3">

@@ -111,6 +111,7 @@ function SpeakScene() {
   useEffect(() => {
     if (review.status === "loading") document.getElementById("scene-review-status")?.focus();
     else if (review.status === "done") document.getElementById("scene-review-heading")?.focus();
+    else if (review.status === "error") document.getElementById("scene-review-error")?.focus();
   }, [review.status]);
 
   if (!scenario) {
@@ -349,12 +350,11 @@ function SpeakScene() {
           <Flag /> Finish scene — see my corrections
         </Button>
       </OnlineOnly>
-      {review.status === "loading" && (
-        <p id="scene-review-status" tabIndex={-1} className="mt-4 text-sm text-muted">
-          A rever a conversa…
+      {review.status === "error" && (
+        <p id="scene-review-error" tabIndex={-1} role="alert" className="mt-4 text-sm text-danger">
+          {review.message}
         </p>
       )}
-      {review.status === "error" && <p className="mt-4 text-sm text-danger">{review.message}</p>}
       {(review.status === "loading" || review.status === "done") && (
         <SceneReview
           loading={review.status === "loading"}

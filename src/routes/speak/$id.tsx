@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, Flag, Send } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { SceneReview } from "@/components/scene-review";
 import { Button } from "@/components/ui/button";
 import { SpeakButton } from "@/components/speak-button";
 import { speakScenarios } from "@/data/curriculum";
-import { sendChat } from "@/lib/chat-server";
+import type { Correction } from "@/lib/chat-core";
+import { reviewScene, sendChat } from "@/lib/chat-server";
 import { chatErrorMessage } from "@/lib/chat-messages";
 import { createTurnstile } from "@/lib/turnstile";
 import { sceneImageFor } from "@/lib/scene-image";
@@ -16,6 +18,11 @@ import { useOnline } from "@/lib/online";
 export const Route = createFileRoute("/speak/$id")({ component: SpeakScene });
 
 type Turn = { role: "user" | "assistant"; content: string };
+type ReviewState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "done"; corrections: Correction[] }
+  | { status: "error"; message: string };
 
 function SpeakScene() {
   const { id } = Route.useParams();
@@ -37,9 +44,15 @@ function SpeakScene() {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // #131 (ADR 0017): the end-of-scene corrections review, session-only.
+  const [review, setReview] = useState<ReviewState>({ status: "idle" });
   // #35: the Turnstile widget (invisible unless Cloudflare wants an interaction).
   const challengeEl = useRef<HTMLDivElement>(null);
   const turnstile = useRef<ReturnType<typeof createTurnstile> | null>(null);
+  const token = () => {
+    turnstile.current ??= createTurnstile(challengeEl.current!);
+    return turnstile.current.token();
+  };
 
   if (!scenario) {
     return (
@@ -58,10 +71,6 @@ function SpeakScene() {
     setDraft("");
     setBusy(true);
     setError(null);
-    const token = () => {
-      turnstile.current ??= createTurnstile(challengeEl.current!);
-      return turnstile.current.token();
-    };
     const send = (turnstileToken?: string) =>
       sendChat({ data: { scenarioId: scenario.id, messages: nextTurns, turnstileToken } });
     try {
@@ -81,6 +90,32 @@ function SpeakScene() {
       // Turnstile tokens are single-use: reset after every chat request.
       turnstile.current?.reset();
       setBusy(false);
+    }
+  }
+
+  // #131 (ADR 0017): "Finish scene" sends the transcript to reviewScene; the
+  // gate, burst and daily caps are the same as for a chat turn.
+  async function onFinish() {
+    if (!scenario || !online || busy || review.status === "loading") return;
+    if (!turns.some((t) => t.role === "user")) return;
+    setReview({ status: "loading" });
+    const sendReview = (turnstileToken?: string) =>
+      reviewScene({ data: { scenarioId: scenario.id, messages: turns, turnstileToken } });
+    try {
+      const first = turns.filter((t) => t.role === "user").length === 1;
+      let res = await sendReview(first ? await token() : undefined);
+      if (!res.ok && res.error === "challenge_required" && !first)
+        res = await sendReview(await token());
+      if (!res.ok) {
+        setReview({ status: "error", message: chatErrorMessage(res) });
+        return;
+      }
+      setReview({ status: "done", corrections: res.corrections });
+    } catch {
+      setReview({ status: "error", message: "Could not review. Try again." });
+    } finally {
+      // Turnstile tokens are single-use: reset after every review request.
+      turnstile.current?.reset();
     }
   }
 
@@ -143,6 +178,38 @@ function SpeakScene() {
           <li className="text-sm text-muted">A pensar…</li>
         )}
       </ol>
+
+      <OnlineOnly feature="conversas">
+        <Button
+          type="button"
+          variant="outline"
+          className="mt-4 w-full"
+          onClick={() => void onFinish()}
+          disabled={
+            busy ||
+            review.status === "loading" ||
+            !online ||
+            !turns.some((t) => t.role === "user")
+          }
+        >
+          <Flag /> Finish scene — see my corrections
+        </Button>
+      </OnlineOnly>
+      {review.status === "loading" && (
+        <p className="mt-4 text-sm text-muted">A rever a conversa…</p>
+      )}
+      {review.status === "error" && <p className="mt-4 text-sm text-danger">{review.message}</p>}
+      {review.status === "done" && (
+        <SceneReview
+          corrections={review.corrections}
+          onRestart={() => {
+            setTurns([
+              { role: "assistant", content: `${scenario.openerPt}\n(${scenario.openerEn})` },
+            ]);
+            setReview({ status: "idle" });
+          }}
+        />
+      )}
 
       <div ref={challengeEl} className="mt-3 empty:hidden" />
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}

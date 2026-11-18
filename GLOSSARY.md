@@ -142,6 +142,12 @@ Control that plays a sentence or a word aloud. The accessible name is "Play pron
 
 Seen in: `src/components/speak-button.tsx`, `src/lib/tts.ts`, `src/routes/me.tsx`, `src/components/lesson-player.tsx`
 
+## Spoken answer
+
+Answering a Conversas Scene by speaking instead of typing (#83, ADR 0020). The microphone button in the `/speak/$id` composer starts pt-PT speech recognition (Web Speech API); what was understood streams into the composer — visible and editable before sending — and typing stays available the whole time. Devices without pt-PT speech recognition say so (toast + disabled mic) and keep the typed composer.
+
+Seen in: `src/lib/speech-input.ts`, `src/components/mic-button.tsx`, `src/routes/speak/$id.tsx`, `docs/adr/0020-spoken-conversas.md`
+
 ## CIPLE A2 practice
 
 Practice set modelled on the CIPLE A2 exam.

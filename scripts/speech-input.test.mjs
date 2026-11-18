@@ -218,7 +218,7 @@ test("the /speak/$id composer keeps the typed input and adds the mic button besi
 test("mic-button.tsx follows the no-voice pattern: aria-disabled + NO_SPEECH_NOTE toast", () => {
   const btn = read("src/components/mic-button.tsx");
   assert.match(btn, /export const NO_SPEECH_NOTE =/);
-  assert.match(btn, /aria-disabled=\{unsupported \|\| undefined\}/);
+  assert.match(btn, /aria-disabled=\{unsupported \|\| \(disabled && !listening\) \|\| undefined\}/);
   assert.match(btn, /toast\(NO_SPEECH_NOTE, \{ id: "no-speech-input" \}\)/);
   assert.match(btn, /aria-pressed=\{listening \|\| undefined\}/);
   assert.match(btn, /announce\("Listening…"\)/);

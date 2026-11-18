@@ -76,6 +76,14 @@ const PAIRS = [
   ["tile", "bg", UI],
 ];
 
+// #150 disabled-state pairs: every button variant's disabled label on its disabled
+// background, the empty ghost Send glyph on bg-bg, and the OnlineOnly badge Cloud on bg-bg.
+const DISABLED_PAIRS = [
+  ["subtle", "surface-2", TEXT],
+  ["subtle", "bg", TEXT],
+  ["muted", "bg", TEXT],
+];
+
 // [foreground, opacity, background, minimum]: every text-*/NN on a solid fill in src/.
 // Also pins the aria-disabled glyph pairs (#129 M1): the separate opacity-60 class is
 // not scanned above, so the disabled play/snail glyphs are asserted here at UI 3:1.
@@ -140,7 +148,7 @@ for (const [theme, t] of [
   ["light", light],
   ["dark", dark],
 ]) {
-  for (const [fg, bg, min] of PAIRS) {
+  for (const [fg, bg, min] of [...PAIRS, ...DISABLED_PAIRS]) {
     test(`${theme}: ${fg} on ${bg} >= ${min}:1`, () => {
       assert.ok(t[fg] && t[bg], `missing token ${fg} or ${bg} in ${theme}`);
       const ratio = contrast(t[fg], t[bg]);

@@ -110,7 +110,7 @@ export function MicButton({
     <Button
       type="button"
       variant="ghost"
-      size="icon"
+      size="icon-lg"
       aria-label={
         unsupported
           ? `Speak your line. ${NO_SPEECH_NOTE}`
@@ -119,7 +119,7 @@ export function MicButton({
             : "Speak your line in Portuguese"
       }
       aria-pressed={listening || undefined}
-      aria-disabled={unsupported || undefined}
+      aria-disabled={unsupported || (disabled && !listening) || undefined}
       title={
         unsupported
           ? NO_SPEECH_NOTE
@@ -127,12 +127,16 @@ export function MicButton({
             ? "Stop listening"
             : "Speak your line in Portuguese"
       }
-      disabled={disabled && !listening}
-      onClick={() => (listening ? stop() : start())}
+      onClick={() => {
+        if (disabled && !listening) return;
+        if (listening) stop();
+        else start();
+      }}
       className={cn(
         unsupported ? "text-tile hover:bg-soft" : "text-accent hover:bg-soft",
         listening && "bg-soft text-accent",
         unsupported && "opacity-60",
+        disabled && !listening && !unsupported && "text-subtle hover:bg-transparent",
       )}
     >
       {listening ? <Square className="fill-current" /> : <Mic />}

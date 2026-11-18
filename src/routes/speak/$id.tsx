@@ -115,6 +115,10 @@ function SpeakScene() {
     );
   }
 
+  // #150: Send is only sendable online, idle and non-empty; otherwise it is a
+  // quiet ghost with aria-disabled (never native disabled, so it stays focusable).
+  const canSend = online && !busy && Boolean(draft.trim());
+
   async function onSend() {
     const text = draft.trim();
     if (!text || busy || !scenario || !online) return;
@@ -335,7 +339,6 @@ function SpeakScene() {
           disabled={
             busy ||
             review.status === "loading" ||
-            !online ||
             !turns.some((t) => t.role === "user")
           }
         >
@@ -367,7 +370,7 @@ function SpeakScene() {
       )}
 
       <form
-        className="sticky bottom-0 mt-6 flex gap-2 bg-bg py-3"
+        className="sticky bottom-0 mt-6 flex items-center gap-2 bg-bg py-3"
         onSubmit={(e) => {
           e.preventDefault();
           void onSend();
@@ -390,12 +393,23 @@ function SpeakScene() {
           onListeningChange={setListening}
           disabled={busy}
         />
-        <OnlineOnly feature="conversas">
+        <OnlineOnly feature="conversas" placement="badge">
           <Button
             type="submit"
-            size="icon"
+            size="icon-lg"
+            variant={canSend ? "default" : "ghost"}
             aria-label="Send"
-            disabled={busy || (online && !draft.trim())}
+            aria-disabled={!canSend || undefined}
+            className={cn(
+              !canSend &&
+                "bg-transparent text-subtle shadow-[var(--shadow-border)] hover:bg-transparent",
+            )}
+            onClick={(e) => {
+              if (online && !busy && !draft.trim()) {
+                e.preventDefault();
+                document.getElementById("line")?.focus();
+              }
+            }}
           >
             <Send />
           </Button>

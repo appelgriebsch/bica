@@ -147,9 +147,9 @@ function PracticePage() {
           <OnlineOnly feature="conversas" placement="corner">
             <Link
               to="/speak"
-              className="flex items-start gap-3 rounded-[var(--radius-lg)] bg-accent p-4 text-accent-fg no-underline [&>svg:first-child]:text-accent-fg/70"
+              className="flex items-start gap-3 rounded-[var(--radius-lg)] bg-accent p-4 text-accent-fg no-underline"
             >
-              <MessageCircle className="mt-0.5 size-5 shrink-0" />
+              <MessageCircle className="mt-0.5 size-5 shrink-0 [&]:text-accent-fg/70" />
               <span>
                 <span className="block text-xs font-medium uppercase tracking-wider text-accent-fg/80">
                   Speak · {speakScenarios.length} scenes

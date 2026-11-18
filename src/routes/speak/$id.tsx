@@ -318,7 +318,6 @@ function SpeakScene() {
         <div className="fixed z-10" style={{ top: chip.top, left: chip.left }}>
           <Button
             type="button"
-            size="sm"
             onMouseDown={(e) => e.preventDefault() /* keep the selection until the click lands */}
             onClick={() => openPanel(chip.index, chip.pt)}
           >

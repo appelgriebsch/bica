@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { DialogueView } from "@/components/dialogue";
 import { LevelComplete } from "@/components/level-complete";
+import { PortugalNote } from "@/components/portugal-note";
 import { QuizBlock } from "@/components/quiz-block";
 import { SpeakButton } from "@/components/speak-button";
 import { Button } from "@/components/ui/button";
@@ -108,7 +109,7 @@ function Player({ lesson }: { lesson: Lesson }) {
         ) : current?.type === "quiz" ? (
           <QuizBlock questions={lesson.quiz} onFinished={(n) => finishQuiz(n)} />
         ) : (
-          <SectionView section={current as LessonSection} />
+          <SectionStep section={current as LessonSection} />
         )}
       </div>
 
@@ -128,6 +129,15 @@ function Player({ lesson }: { lesson: Lesson }) {
         </div>
       )}
     </div>
+  );
+}
+
+function SectionStep({ section }: { section: LessonSection }) {
+  return (
+    <>
+      <SectionView section={section} />
+      {section.ptNote && <PortugalNote note={section.ptNote} />}
+    </>
   );
 }
 

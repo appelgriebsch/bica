@@ -33,6 +33,11 @@ export const a1Lessons: Lesson[] = [
           { pt: "obrigado / obrigada", hint: "oh-bree-GAH-doo / -dah", en: "thank you (m / f speaker)", examplePt: "Obrigado.", exampleEn: "Thank you." },
           { pt: "de nada", hint: "duh NAH-duh", en: "you're welcome", examplePt: "De nada.", exampleEn: "You're welcome." },
         ],
+        ptNote: {
+          pt: "Chamo-me Andreas.",
+          br: "Meu nome é Andreas.",
+          en: "In Portugal the pronoun hangs after the verb: chamo-me. In Brazil it's meu nome é.",
+        },
       },
       {
         type: "grammar",
@@ -113,6 +118,11 @@ export const a1Lessons: Lesson[] = [
           { pt: "O senhor está bem?", en: "Are you well, sir?" },
           { pt: "Tudo bem? — Tudo, e tu?", en: "All good? — All good, and you?" },
         ],
+        ptNote: {
+          pt: "Tu estás bem?",
+          br: "Você está bem?",
+          en: "Friends get tu in Portugal; Brazil uses você for everyone. In Lisbon, você can sound cold — tu or o senhor is safer.",
+        },
       },
       {
         type: "dialogue",
@@ -182,6 +192,11 @@ export const a1Lessons: Lesson[] = [
           { pt: "Falo alemão e um pouco de português.", en: "I speak German and a little Portuguese." },
           { pt: "Estou a aprender desde janeiro.", en: "I've been learning since January." },
         ],
+        ptNote: {
+          pt: "Estou a aprender português.",
+          br: "Estou aprendendo português.",
+          en: "European Portuguese builds the continuous with estar a + infinitive; Brazilian uses -ndo: estou aprendendo.",
+        },
       },
       {
         type: "dialogue",

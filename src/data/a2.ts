@@ -43,6 +43,11 @@ export const a2Lessons: Lesson[] = [
           { pt: "Estou a gostar deste tempo.", en: "I'm enjoying this weather." },
           { pt: "Amanhã vai estar melhor.", en: "Tomorrow it'll be better." },
         ],
+        ptNote: {
+          pt: "Está a chover.",
+          br: "Está chovendo.",
+          en: "Same contrast in weather talk: está a chover in Portugal, está chovendo in Brazil.",
+        },
       },
       {
         type: "dialogue",
@@ -385,6 +390,11 @@ export const a2Lessons: Lesson[] = [
           { pt: "Tome um comprimido de oito em oito horas.", en: "Take a tablet every eight hours." },
           { pt: "Se não melhorar, vá ao médico.", en: "If it doesn't improve, go to the doctor." },
         ],
+        ptNote: {
+          pt: "Dói-me a garganta.",
+          br: "Minha garganta dói.",
+          en: "Portugal puts the pronoun after the verb — dói-me. Brazil puts the body part first: minha garganta dói.",
+        },
       },
       {
         type: "dialogue",

@@ -9,9 +9,11 @@ import type { Correction } from "@/lib/chat-core";
  * as text only. Session-only — the parent owns the state, nothing is stored.
  */
 export function SceneReview({
+  loading,
   corrections,
   onRestart,
 }: {
+  loading: boolean;
   corrections: Correction[];
   onRestart: () => void;
 }) {
@@ -23,12 +25,18 @@ export function SceneReview({
     >
       <div className="flex items-center gap-2">
         <ListChecks className="size-5 shrink-0 text-accent" />
-        <h2 className="font-display text-lg font-medium">As tuas correções</h2>
+        <h2 id="scene-review-heading" tabIndex={-1} className="font-display text-lg font-medium">
+          As tuas correções
+        </h2>
       </div>
       <p className="mt-1 text-sm text-muted">
         What to practise — European Portuguese, not Brazilian.
       </p>
-      {corrections.length === 0 ? (
+      {loading ? (
+        <p id="scene-review-status" tabIndex={-1} className="mt-3 text-sm text-muted">
+          A rever a conversa…
+        </p>
+      ) : corrections.length === 0 ? (
         <p className="mt-3 text-sm text-fg">Sem erros — muito bem! No corrections needed.</p>
       ) : (
         <ul className="mt-3 space-y-3">
@@ -37,11 +45,11 @@ export function SceneReview({
               key={`${c.youSaid}→${c.pt}#${i}`}
               className="rounded-[var(--radius-md)] bg-soft px-3 py-2"
             >
-              <p className="text-xs font-medium uppercase tracking-wider text-subtle">You said</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted">You said</p>
               <p className="text-sm text-muted">{c.youSaid}</p>
               <div className="mt-1.5 flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-wider text-subtle">
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted">
                     In Portugal
                   </p>
                   <p className="text-sm font-medium text-fg">{c.pt}</p>
@@ -58,9 +66,11 @@ export function SceneReview({
           ))}
         </ul>
       )}
-      <Button type="button" variant="outline" className="mt-4" onClick={onRestart}>
-        <RotateCcw /> Start again
-      </Button>
+      {!loading && (
+        <Button type="button" variant="outline" className="mt-4" onClick={onRestart}>
+          <RotateCcw /> Start again
+        </Button>
+      )}
     </section>
   );
 }

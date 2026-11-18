@@ -106,6 +106,14 @@ function SpeakScene() {
     return () => ac.abort();
   }, [turns]);
 
+  // #151 (l3): the Finish button disables while loading and the panel unmounts
+  // on restart — move focus to the status/panel instead of dropping to <body>.
+  useEffect(() => {
+    if (review.status === "loading") document.getElementById("scene-review-status")?.focus();
+    else if (review.status === "done") document.getElementById("scene-review-heading")?.focus();
+    else if (review.status === "error") document.getElementById("scene-review-error")?.focus();
+  }, [review.status]);
+
   if (!scenario) {
     return (
       <AppShell>
@@ -345,18 +353,21 @@ function SpeakScene() {
           <Flag /> Finish scene — see my corrections
         </Button>
       </OnlineOnly>
-      {review.status === "loading" && (
-        <p className="mt-4 text-sm text-muted">A rever a conversa…</p>
+      {review.status === "error" && (
+        <p id="scene-review-error" tabIndex={-1} role="alert" className="mt-4 text-sm text-danger">
+          {review.message}
+        </p>
       )}
-      {review.status === "error" && <p className="mt-4 text-sm text-danger">{review.message}</p>}
-      {review.status === "done" && (
+      {(review.status === "loading" || review.status === "done") && (
         <SceneReview
-          corrections={review.corrections}
+          loading={review.status === "loading"}
+          corrections={review.status === "done" ? review.corrections : []}
           onRestart={() => {
             setTurns([
               { role: "assistant", content: `${scenario.openerPt}\n(${scenario.openerEn})` },
             ]);
             setReview({ status: "idle" });
+            document.getElementById("line")?.focus();
           }}
         />
       )}

@@ -247,7 +247,7 @@ export function getSocialScene(id: string): SocialScene | undefined {
   return socialScenes.find((s) => s.id === id);
 }
 
-/** One scripted scene of either kind (#81, ADR 0018): travel or social. */
+/** One scripted scene of either kind (#81, ADR 0021): travel or social. */
 export function getScriptedScene(
   id: string,
 ): { scene: TravelScene | SocialScene; kind: "travel" | "social" } | undefined {

@@ -60,7 +60,7 @@ Seen in: `src/routes/practice.tsx`, `src/routes/index.tsx`, `src/routes/review.t
 
 ## Phrasebook
 
-The You section with phrases you can play aloud: the Travel Phrasebook ("On the trip") always, plus "From your conversas" (words saved from Conversas replies) and "From your lessons" (words from finished Lessons) once a Lesson is finished.
+The You section with phrases you can play aloud: the Travel Phrasebook ("On the trip") always, plus "From your conversas" (words saved from Conversas replies) and "From your lessons" (words from finished Lessons) — both groups always render, with a teaching empty state until there is something to list.
 
 Seen in: `src/routes/me.tsx`
 
@@ -126,19 +126,19 @@ Seen in: `src/lib/online-features.ts`, `src/components/online-only.tsx`, `src/co
 
 ## Corrections
 
-Errors and European forms shown after a Scene. Not a screen in the tree. During a Scene the partner recasts a grammar, word or Brazilian form in the next line ("Recasts come for free").
+Errors and European forms shown after a Scene: the end-of-scene panel "As tuas correções" lists each learner line that needed a fix with its European Portuguese form (#131, ADR 0017). During a Scene the partner recasts a grammar, word or Brazilian form in the next line ("Recasts come for free").
 
-Seen in: `src/lib/chat-core.ts`, `src/routes/speak/index.tsx`. No post-Scene Corrections view.
+Seen in: `src/components/scene-review.tsx`, `src/routes/speak/$id.tsx`, `src/lib/chat-core.ts`
 
 ## Portugal note
 
-Lesson note contrasting European and Brazilian forms. Not a separate name in the tree. Culture sections are labelled "Portugal", and some of those notes (and other Lesson lines) make the contrast, for example eléctrico / bonde and connosco / conosco.
+Lesson note contrasting European and Brazilian forms side by side, rendered as the `PortugalNote` component below the lesson section that teaches it (#82, ADR 0018). Culture sections are labelled "Portugal", and some of those notes (and other Lesson lines) make the contrast, for example eléctrico / bonde and connosco / conosco.
 
-Seen in: `src/components/lesson-player.tsx` (kicker "Portugal"), `src/data/types.ts` (`culture`), `src/data/a1.ts`, `src/data/a2.ts`
+Seen in: `src/components/portugal-note.tsx`, `src/components/lesson-player.tsx` (renders a section's `ptNote`; kicker "Portugal"), `src/data/types.ts` (`PtNote`), `src/data/a1.ts`, `src/data/a2.ts`
 
 ## Speak button
 
-Control that plays a sentence or a word aloud. The accessible name is "Play pronunciation".
+Control that plays a sentence or a word aloud. The accessible name is `Play "…"` with a snippet of the line — `Play "…" slower` for the snail button, "Stop" while playing.
 
 Seen in: `src/components/speak-button.tsx`, `src/lib/tts.ts`, `src/routes/me.tsx`, `src/components/lesson-player.tsx`
 
@@ -174,6 +174,6 @@ Seen in: `src/routes/me.tsx`, `src/data/phrasebook.ts`
 
 ## Social Scenes
 
-A named set in Conversas, listed first under "Cenas sociais" on `/speak`: family, friends and colleagues situations tagged `group: "social"` on `SpeakScenario`, from A2 up. Each Scene states its register (tu or você) — as a pill on the `/speak` card, in the `/speak/$id` kicker and in the setting text — and the partner prompt pins that register (`registerPrompt` in `src/lib/chat-core.ts`), with the end-of-scene review repeating it as a `Register:` line (ADR 0018). 8 chat scenes: the family lunch, meeting the partner's friends and the colleagues' coffee are new (#135); the 5 existing friend/colleague situations were retagged (#134). The same 8 situations also run as offline scripted scenes on Practice under "Cenas sociais" (`SocialScene`: 1:1 `scenarioId` link to the Conversas partner, a required `lessonId` whose words feed Palavras), opened via `/scene/$id`. The 3 new situations got their own illustrations via `scripts/scene-regen` (#136); the 5 existing ones keep their current images.
+A named set in Conversas, listed first under "Cenas sociais" on `/speak`: family, friends and colleagues situations tagged `group: "social"` on `SpeakScenario`, from A2 up. Each Scene states its register (tu or você) — as a pill on the `/speak` card, in the `/speak/$id` kicker and in the setting text — and the partner prompt pins that register (`registerPrompt` in `src/lib/chat-core.ts`), with the end-of-scene review repeating it as a `Register:` line (ADR 0021). 8 chat scenes: the family lunch, meeting the partner's friends and the colleagues' coffee are new (#135); the 5 existing friend/colleague situations were retagged (#134). The same 8 situations also run as offline scripted scenes on Practice under "Cenas sociais" (`SocialScene`: 1:1 `scenarioId` link to the Conversas partner, a required `lessonId` whose words feed Palavras), opened via `/scene/$id`. The 3 new situations got their own illustrations via `scripts/scene-regen` (#136); the 5 existing ones keep their current images.
 
-Seen in: `src/data/scenarios.ts`, `src/data/social-scenes.ts`, `src/data/types.ts`, `src/routes/speak/index.tsx`, `src/routes/speak/$id.tsx`, `src/routes/scene/$id.tsx`, `src/routes/practice.tsx`, `src/components/register-pill.tsx`, `src/lib/chat-core.ts`, `docs/adr/0018-social-scenes.md`
+Seen in: `src/data/scenarios.ts`, `src/data/social-scenes.ts`, `src/data/types.ts`, `src/routes/speak/index.tsx`, `src/routes/speak/$id.tsx`, `src/routes/scene/$id.tsx`, `src/routes/practice.tsx`, `src/components/register-pill.tsx`, `src/lib/chat-core.ts`, `docs/adr/0021-social-scenes.md`

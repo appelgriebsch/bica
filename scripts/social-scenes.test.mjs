@@ -1,4 +1,4 @@
-/** #134/#135 (ADR 0018): Social Scenes data contract. Conversas side: every
+/** #134/#135 (ADR 0021): Social Scenes data contract. Conversas side: every
  * `group: "social"` scene declares a register (tu/você), sits at A2 or above,
  * states the register in its setting, and has a precached image. Practice side:
  * every SocialScene has a unique id, level >= A2, a lesson with vocab (feeds
@@ -39,7 +39,7 @@ const { speakScenarios, cefrRank, socialScenes, getSocialScene, getScriptedScene
 
 const registerSentence = (r) => (r === "tu" ? "Falam de tu." : "Falam de você.");
 
-test("social scenarios (#134, ADR 0018): unique ids, register declared, level >= A2, precached image", () => {
+test("social scenarios (#134, ADR 0021): unique ids, register declared, level >= A2, precached image", () => {
   const ids = speakScenarios.map((s) => s.id);
   assert.equal(new Set(ids).size, ids.length, "duplicate scenario ids");
   const social = speakScenarios.filter((s) => s.group === "social");
@@ -72,7 +72,7 @@ test("the three new social chat scenes (#135): ids, levels, registers", () => {
   }
 });
 
-test("social scenes (#135, ADR 0018): contract — ids, level, lesson with vocab, partner link, image, register words", () => {
+test("social scenes (#135, ADR 0021): contract — ids, level, lesson with vocab, partner link, image, register words", () => {
   assert.ok(socialScenes.length >= 8, `expected at least 8 social scenes, got ${socialScenes.length}`);
   const ids = socialScenes.map((s) => s.id);
   assert.equal(new Set(ids).size, ids.length, "duplicate social scene ids");
@@ -102,7 +102,7 @@ test("social scenes (#135, ADR 0018): contract — ids, level, lesson with vocab
   assert.deepEqual([...linked].sort(), [...socialScenarioIds].sort(), "social scenes must map 1:1 to social scenarios");
 });
 
-test("getScriptedScene resolves both kinds (#135, ADR 0018)", () => {
+test("getScriptedScene resolves both kinds (#135, ADR 0021)", () => {
   const travel = travelScenes[0];
   assert.deepEqual(getScriptedScene(travel.id), { scene: travel, kind: "travel" });
   const social = socialScenes[0];

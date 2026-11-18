@@ -1,7 +1,7 @@
 import type { SocialScene } from "./types";
 
 /**
- * Social Scenes (#81, ADR 0018): scripted social situations offered from Practice.
+ * Social Scenes (#81, ADR 0021): scripted social situations offered from Practice.
  * Static data in the precached bundle, images under /scenes/ — text and audio
  * work offline; only `scenarioId` (Conversas) needs internet. Each scene links
  * to a matching lesson whose words feed Palavras when finished, and to the

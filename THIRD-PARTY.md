@@ -101,7 +101,7 @@ These 23 files in `public/scenes/` are AI-generated illustrations, produced on
 Terms of Use](https://mistral.ai/terms-of-use/) assign all intellectual
 property rights in the output to the user and require no attribution phrase;
 Bica discloses them as AI-generated (EU AI Act Art. 50). They replaced the
-former Grok-generated scenes in the same change. The three social-scene additions (ADR 0018, issue #136: `colleagues.jpg`, `family-lunch.jpg`, `friends.jpg`) currently reuse the generated `office.jpg` / `dinner.jpg` / `terrace.jpg` art until regenerated via `scripts/scene-regen`.
+former Grok-generated scenes in the same change. The three social-scene additions (ADR 0021, issue #136: `colleagues.jpg`, `family-lunch.jpg`, `friends.jpg`) are new illustrations, generated on 2026-11-18 via `scripts/scene-regen` with the same Mistral AI `image_generation` tool (BFL FLUX1.1 [pro] Ultra) — not reuses of the `office.jpg` / `dinner.jpg` / `terrace.jpg` art.
 
 - `public/scenes/balcony.jpg`
 - `public/scenes/books.jpg`

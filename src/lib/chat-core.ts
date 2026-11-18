@@ -23,7 +23,7 @@ export const CHAT_API_BASE = "https://api.mistral.ai/v1";
 export const CHAT_MODEL = "mistral-small-latest";
 
 /**
- * #134 (ADR 0018): one system-prompt line that pins the partner to the scene's
+ * #134 (ADR 0021): one system-prompt line that pins the partner to the scene's
  * register (tu / você). Empty for scenes without one, so other prompts are unchanged.
  */
 export function registerPrompt(register: Register | undefined): string {

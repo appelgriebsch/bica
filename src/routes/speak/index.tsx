@@ -44,7 +44,7 @@ function ScenarioCard({ s }: { s: SpeakScenario }) {
 }
 
 function SpeakIndex() {
-  // #134 (ADR 0018): Social Scenes are a named, headed set on top; guarded so an
+  // #134 (ADR 0021): Social Scenes are a named, headed set on top; guarded so an
   // empty set never renders an empty header.
   const social = speakScenarios.filter((s) => s.group === "social");
   const rest = speakScenarios.filter((s) => s.group !== "social");

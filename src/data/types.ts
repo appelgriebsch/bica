@@ -79,7 +79,7 @@ export type Unit = {
   image: string;
 };
 
-/** Social Scenes (#81, ADR 0018): the register the partner addresses the learner with. */
+/** Social Scenes (#81, ADR 0021): the register the partner addresses the learner with. */
 export type Register = "tu" | "você";
 
 export type SpeakScenario = {
@@ -94,9 +94,9 @@ export type SpeakScenario = {
   openerEn: string;
   goals: string[];
   image: string;
-  /** Social Scenes set (#81, ADR 0018): rendered as "Cenas sociais" on /speak. */
+  /** Social Scenes set (#81, ADR 0021): rendered as "Cenas sociais" on /speak. */
   group?: "social";
-  /** Register the partner keeps to; server-side data only, never client input (#81, ADR 0018). */
+  /** Register the partner keeps to; server-side data only, never client input (#81, ADR 0021). */
   register?: Register;
 };
 
@@ -131,7 +131,7 @@ export type TravelScene = {
 };
 
 /**
- * Social Scenes (#81, ADR 0018): scripted social situations on Practice — family,
+ * Social Scenes (#81, ADR 0021): scripted social situations on Practice — family,
  * friends, colleagues. Unlike TravelScene there is no `situation` field: the
  * phrasebook derives from `travelScenes` only and stays travel-only.
  */
@@ -145,9 +145,9 @@ export type SocialScene = {
   partner: string;
   lines: DialogueLine[];
   image: string;
-  /** Matching lesson; its words feed Palavras when finished (ADR 0018). */
+  /** Matching lesson; its words feed Palavras when finished (ADR 0021). */
   lessonId: string;
-  /** Conversas partner, online-only; carries the register (ADR 0018). */
+  /** Conversas partner, online-only; carries the register (ADR 0021). */
   scenarioId: string;
 };
 

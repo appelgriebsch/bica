@@ -1,7 +1,7 @@
 import type { Register } from "@/data/types";
 
 /**
- * #134 (ADR 0018): a scene's register (tu / você) as a visible-text pill on
+ * #134 (ADR 0021): a scene's register (tu / você) as a visible-text pill on
  * /speak cards. The accent/accent-fg pair is pinned by scripts/contrast.test.mjs.
  */
 export function RegisterPill({ register }: { register: Register }) {

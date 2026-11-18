@@ -24,10 +24,11 @@ test("static headers: HSTS without preload, DENY, referrer, nosniff, COOP same-o
   assert.equal(STATIC_SECURITY_HEADERS["referrer-policy"], "strict-origin-when-cross-origin");
   assert.equal(STATIC_SECURITY_HEADERS["x-content-type-options"], "nosniff");
   assert.equal(STATIC_SECURITY_HEADERS["cross-origin-opener-policy"], "same-origin");
-  // #36: camera for same-origin QR scanning only; mic and location stay off.
+  // #36: camera for same-origin QR scanning; #83 (ADR 0020): mic for same-origin
+  // Spoken Conversas (#151: microphone=() blocked the app's own mic); location off.
   assert.equal(
     STATIC_SECURITY_HEADERS["permissions-policy"],
-    "camera=(self), geolocation=(), microphone=()",
+    "camera=(self), geolocation=(), microphone=(self)",
   );
 });
 

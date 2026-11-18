@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Flag, Send } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import { MicButton } from "@/components/mic-button";
 import { SceneReview } from "@/components/scene-review";
 import { Button } from "@/components/ui/button";
 import { SpeakButton } from "@/components/speak-button";
@@ -42,6 +43,8 @@ function SpeakScene() {
       : [],
   );
   const [draft, setDraft] = useState("");
+  // #83 (ADR 0020): spoken answers — the mic streams the pt-PT transcript into `draft`.
+  const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // #131 (ADR 0017): the end-of-scene corrections review, session-only.
@@ -234,9 +237,15 @@ function SpeakScene() {
           id="line"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Write in Portuguese…"
+          placeholder={listening ? "A ouvir…" : "Write in Portuguese…"}
           maxLength={500}
           className="h-12 min-h-12 flex-1 rounded-[var(--radius-md)] border border-border bg-surface px-3 text-base text-fg outline-none ring-accent placeholder:text-subtle focus:ring-2"
+        />
+        <MicButton
+          value={draft}
+          onChange={setDraft}
+          onListeningChange={setListening}
+          disabled={busy}
         />
         <OnlineOnly feature="conversas">
           <Button

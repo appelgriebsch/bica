@@ -104,6 +104,7 @@ test("review, streak and floor persist locally too; nothing sync-related is stor
     "floor",
     "floorUpdatedAt",
     "lastStudyDate",
+    "savedWords", // #80 (ADR 0019): words saved from Conversas persist locally too
     "streak",
     "xp",
   ]);

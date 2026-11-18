@@ -7,6 +7,8 @@ import { z } from "zod";
 
 export const MAX_LESSONS = 1000;
 export const MAX_CARDS = 5000;
+/** #80 (ADR 0019): words saved from Conversas travel with the snapshot, bounded. */
+export const MAX_SAVED_WORDS = 1000;
 export const MAX_QUIZ = 100;
 export const MAX_LESSON_XP = 1000;
 export const MAX_XP = 10_000_000;
@@ -93,12 +95,19 @@ export function transferSchema(today: string) {
     reps: count(MAX_COUNTER),
     lapses: count(MAX_COUNTER),
   });
+  const savedWord = z.strictObject({
+    pt: z.string().min(1).max(160),
+    en: z.string().min(1).max(200),
+    level: z.enum(["A1", "A2", "B1", "B2", "C1"]),
+  });
   const snapshot = z.strictObject({
     completed: capped(z.record(key(LESSON_ID), lesson), MAX_LESSONS),
     xp: count(MAX_XP),
     streak: count(MAX_STREAK),
     lastStudyDate: observedDay.nullable(),
     cards: capped(z.record(key(CARD_ID), card), MAX_CARDS),
+    // Optional: old senders omit the field, old receivers reject it (ADR 0019).
+    savedWords: capped(z.record(key(CARD_ID), savedWord), MAX_SAVED_WORDS).optional(),
     floor: z.enum(["A1", "A2", "B1", "B2", "C1"]),
     // Older snapshots have no floorUpdatedAt; null means "never on record" (#15).
     floorUpdatedAt: observedTime.nullable().optional(),

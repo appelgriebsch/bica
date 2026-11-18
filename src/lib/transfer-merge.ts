@@ -18,6 +18,8 @@ export type MergePreview = {
   changedLessons: number;
   newCards: number;
   changedCards: number;
+  newSaved: number;
+  changedSaved: number;
   xp: [number, number];
   streak: [number, number];
   floor: [string, string];
@@ -50,12 +52,15 @@ export function previewMerge(local: ProgressSnapshot, remote: ProgressSnapshot):
   const merged = mergeProgress(local, remote);
   const [newLessons, changedLessons] = rowDiff(local.completed, merged.completed);
   const [newCards, changedCards] = rowDiff(local.cards, merged.cards);
+  const [newSaved, changedSaved] = rowDiff(local.savedWords ?? {}, merged.savedWords);
   return {
     merged,
     newLessons,
     changedLessons,
     newCards,
     changedCards,
+    newSaved,
+    changedSaved,
     xp: [local.xp, merged.xp],
     streak: [local.streak, merged.streak],
     floor: [local.floor, merged.floor],

@@ -1,20 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Flag, Send } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { ArrowLeft, BookmarkPlus, Check, Flag, Send } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
 import { MicButton } from "@/components/mic-button";
+import { SaveWordPanel } from "@/components/save-word-panel";
 import { SceneReview } from "@/components/scene-review";
 import { Button } from "@/components/ui/button";
 import { SpeakButton } from "@/components/speak-button";
 import { speakScenarios } from "@/data/curriculum";
+import { chatCardId, clampSelection, glossOf, needsGlossCaveat } from "@/lib/chat-words";
 import type { Correction } from "@/lib/chat-core";
 import { reviewScene, sendChat } from "@/lib/chat-server";
 import { chatErrorMessage } from "@/lib/chat-messages";
+import { announce, useOnline } from "@/lib/online";
+import { useProgress } from "@/lib/progress-store";
 import { createTurnstile } from "@/lib/turnstile";
 import { sceneImageFor } from "@/lib/scene-image";
 import { cn } from "@/lib/utils";
 import { OnlineOnly } from "@/components/online-only";
-import { useOnline } from "@/lib/online";
 
 export const Route = createFileRoute("/speak/$id")({ component: SpeakScene });
 
@@ -47,6 +51,14 @@ function SpeakScene() {
   const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // #80 (ADR 0019): save a partner line/word to Palavras; saving is local, works offline and while busy.
+  const savedWords = useProgress((s) => s.savedWords);
+  const saveChatWord = useProgress((s) => s.saveChatWord);
+  const [panelFor, setPanelFor] = useState<{ index: number; pt: string } | null>(null);
+  // #143: floating chip at a selection inside an assistant bubble (viewport coords).
+  const [chip, setChip] = useState<{ index: number; pt: string; top: number; left: number } | null>(
+    null,
+  );
   // #131 (ADR 0017): the end-of-scene corrections review, session-only.
   const [review, setReview] = useState<ReviewState>({ status: "idle" });
   // #35: the Turnstile widget (invisible unless Cloudflare wants an interaction).
@@ -56,6 +68,43 @@ function SpeakScene() {
     turnstile.current ??= createTurnstile(challengeEl.current!);
     return turnstile.current.token();
   };
+
+  // #143 (ADR 0019): track a non-empty selection whose anchor is inside an assistant
+  // bubble; the chip anchors at the selection's bounding rect. Removed with the view.
+  useEffect(() => {
+    setChip(null);
+    const ac = new AbortController();
+    const onSelection = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return setChip(null);
+      const text = sel.toString();
+      if (!text.trim()) return setChip(null);
+      const anchor = sel.anchorNode;
+      const el = anchor
+        ? anchor.nodeType === Node.ELEMENT_NODE
+          ? (anchor as Element)
+          : anchor.parentElement
+        : null;
+      const bubble = el?.closest("li[data-bubble]");
+      const index = bubble ? Number(bubble.getAttribute("data-bubble")) : -1;
+      const turn = turns[index];
+      if (
+        !bubble ||
+        bubble.getAttribute("data-role") !== "assistant" ||
+        !turn ||
+        turn.role !== "assistant"
+      ) {
+        return setChip(null);
+      }
+      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      const top =
+        rect.bottom + 56 > window.innerHeight ? Math.max(8, rect.top - 48) : rect.bottom + 6;
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - 180));
+      setChip({ index, pt: text.trim(), top, left });
+    };
+    document.addEventListener("selectionchange", onSelection, { signal: ac.signal });
+    return () => ac.abort();
+  }, [turns]);
 
   if (!scenario) {
     return (
@@ -124,6 +173,44 @@ function SpeakScene() {
 
   const ptOf = (content: string) => content.split("\n")[0] ?? content;
 
+  const bookmarkId = (i: number) => `save-palavras-${i}`;
+
+  /** The current selection's text when its anchor lies inside assistant bubble `i`, else null. */
+  function selectionInBubble(i: number): string | null {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return null;
+    const anchor = sel.anchorNode;
+    const el = anchor
+      ? anchor.nodeType === Node.ELEMENT_NODE
+        ? (anchor as Element)
+        : anchor.parentElement
+      : null;
+    const bubble = el?.closest("li[data-bubble]");
+    if (!bubble || bubble.getAttribute("data-bubble") !== String(i)) return null;
+    const text = sel.toString();
+    return text.trim() ? text : null;
+  }
+
+  function openPanel(index: number, pt: string) {
+    setChip(null);
+    setPanelFor({ index, pt });
+  }
+
+  // #80 (ADR 0019): save a partner line/word with its English meaning; due today, no XP/streak.
+  function saveLine(i: number, pt: string, en: string) {
+    if (!scenario) return;
+    saveChatWord({ pt, en, level: scenario.level });
+    toast("Added to Palavras.");
+    announce("Added to Palavras.");
+    setPanelFor(null);
+    document.getElementById(bookmarkId(i))?.focus();
+  }
+
+  function closePanel(i: number) {
+    setPanelFor(null);
+    document.getElementById(bookmarkId(i))?.focus();
+  }
+
   return (
     <AppShell hideNav>
       <div className="mb-4 flex items-center gap-3">
@@ -164,24 +251,80 @@ function SpeakScene() {
       </ul>
 
       <ol className="mt-6 space-y-3">
-        {turns.map((t, i) => (
-          <li
-            key={i}
-            className={cn(
-              "max-w-[92%] rounded-[var(--radius-lg)] px-3 py-2 text-sm",
-              t.role === "user"
-                ? "ml-auto bg-accent text-accent-fg"
-                : "bg-surface text-fg shadow-[var(--shadow-border)]",
-            )}
-          >
-            <p className="min-w-0 whitespace-pre-wrap">{t.content}</p>
-            {t.role === "assistant" && <SpeakButton text={ptOf(t.content)} layout="footer" />}
-          </li>
-        ))}
+        {turns.map((t, i) => {
+          const line = ptOf(t.content);
+          const cardId = chatCardId(line);
+          const saved = Boolean(savedWords[cardId]);
+          return (
+            <li
+              key={i}
+              data-bubble={i}
+              data-role={t.role}
+              className={cn(
+                "max-w-[92%] rounded-[var(--radius-lg)] px-3 py-2 text-sm",
+                t.role === "user"
+                  ? "ml-auto bg-accent text-accent-fg"
+                  : "bg-surface text-fg shadow-[var(--shadow-border)]",
+              )}
+            >
+              <p className="min-w-0 whitespace-pre-wrap">{t.content}</p>
+              {t.role === "assistant" && (
+                <div className="flex items-center justify-between">
+                  <SpeakButton text={line} layout="footer" />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    id={bookmarkId(i)}
+                    aria-label={saved ? `In Palavras: ${line}` : `Save to Palavras: ${line}`}
+                    aria-pressed={saved || undefined}
+                    title={saved ? "In Palavras" : "Save to Palavras"}
+                    className={saved ? "text-success" : "text-muted hover:text-accent"}
+                    onClick={(e) => {
+                      // Keep the tap from clearing the selection before it is read.
+                      e.stopPropagation();
+                      if (saved) {
+                        toast("Already in Palavras.");
+                        return;
+                      }
+                      // Read the selection inside this click, before any state update:
+                      // a selection in this bubble wins, else the whole first line.
+                      openPanel(i, clampSelection(selectionInBubble(i), line));
+                    }}
+                  >
+                    {saved ? <Check /> : <BookmarkPlus />}
+                  </Button>
+                </div>
+              )}
+              {t.role === "assistant" && panelFor?.index === i && (
+                <SaveWordPanel
+                  pt={panelFor.pt}
+                  defaultEn={glossOf(t.content)}
+                  saved={Boolean(savedWords[chatCardId(panelFor.pt)])}
+                  caveat={needsGlossCaveat(panelFor.pt, line)}
+                  onSave={(en) => saveLine(i, panelFor.pt, en)}
+                  onClose={() => closePanel(i)}
+                />
+              )}
+            </li>
+          );
+        })}
         {busy && (
           <li className="text-sm text-muted">A pensar…</li>
         )}
       </ol>
+
+      {chip && panelFor?.index !== chip.index && (
+        <div className="fixed z-10" style={{ top: chip.top, left: chip.left }}>
+          <Button
+            type="button"
+            onMouseDown={(e) => e.preventDefault() /* keep the selection until the click lands */}
+            onClick={() => openPanel(chip.index, chip.pt)}
+          >
+            <BookmarkPlus aria-hidden /> Save to Palavras
+          </Button>
+        </div>
+      )}
 
       <OnlineOnly feature="conversas">
         <Button

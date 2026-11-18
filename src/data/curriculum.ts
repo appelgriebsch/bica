@@ -23,6 +23,7 @@ import type {
   VerbDesk,
   VocabItem,
 } from "./types";
+import type { SavedWord } from "@/lib/progress-store";
 import type { SrsCard } from "@/lib/srs";
 import { isDue } from "@/lib/srs";
 import { normalizePt } from "@/lib/utils";
@@ -178,7 +179,7 @@ export function vocabFromCompleted(completedIds: string[]): CatalogVocab[] {
   return catalogVocab().filter((item) => done.has(item.lessonId));
 }
 
-/** One row of the Palavras pile: lesson vocab, or a saved Travel Phrasebook phrase (#77, ADR 0015). */
+/** One row of the Palavras pile: lesson vocab, a saved Travel Phrasebook phrase (#77, ADR 0015), or a saved Conversas word (#80, ADR 0019). */
 export type ReviewItem = {
   id: string;
   pt: string;
@@ -189,12 +190,20 @@ export type ReviewItem = {
   exampleEn?: string;
 };
 
-/** Lesson vocab from completed lessons plus saved travel phrases (a phrase joins only once it has a card). */
+/** Lesson vocab from completed lessons plus saved phrases/chat words (they join only once they have a card). */
 export function reviewPool(
   completedIds: string[],
   cards: Record<string, SrsCard>,
+  savedWords: Record<string, SavedWord> = {},
 ): ReviewItem[] {
-  return [...vocabFromCompleted(completedIds), ...travelPhrases.filter((p) => cards[p.id])];
+  const chat: ReviewItem[] = Object.entries(savedWords)
+    .filter(([id]) => Boolean(cards[id]))
+    .map(([id, w]) => ({ id, pt: w.pt, en: w.en, level: w.level }));
+  return [
+    ...vocabFromCompleted(completedIds),
+    ...travelPhrases.filter((p) => cards[p.id]),
+    ...chat,
+  ];
 }
 
 export function dueVocab(
@@ -202,8 +211,9 @@ export function dueVocab(
   cards: Record<string, SrsCard>,
   today: string,
   level?: CefrLevel,
+  savedWords: Record<string, SavedWord> = {},
 ): ReviewItem[] {
-  return reviewPool(completedIds, cards).filter((item) => {
+  return reviewPool(completedIds, cards, savedWords).filter((item) => {
     if (level && item.level !== level) return false;
     return isDue(cards[item.id], today);
   });

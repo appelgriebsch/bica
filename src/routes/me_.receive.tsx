@@ -539,7 +539,11 @@ function Unlock({
     try {
       const envelope = transferSchema(todayKey()).safeParse(await session.unlock(code));
       if (!envelope.success) return onInvalid();
-      onUnlocked(envelope.data.snapshot);
+      // Old senders omit savedWords (#80, ADR 0019): default it to an empty record.
+      onUnlocked({
+        ...envelope.data.snapshot,
+        savedWords: envelope.data.snapshot.savedWords ?? {},
+      });
     } catch (err) {
       const kind = err instanceof TransferError ? err.kind : "malformed";
       if (kind === "stale") return; // cancelled, rescanned or expired meanwhile: ignore
@@ -607,6 +611,8 @@ function Review({ p, done = false }: { p: MergePreview; done?: boolean }) {
   if (p.changedLessons) rows.push(["Lesson scores updated", String(p.changedLessons)]);
   if (p.newCards) rows.push(["Cards added", `+${p.newCards}`]);
   if (p.changedCards) rows.push(["Cards updated", String(p.changedCards)]);
+  if (p.newSaved) rows.push(["Saved words added", `+${p.newSaved}`]);
+  if (p.changedSaved) rows.push(["Saved words updated", String(p.changedSaved)]);
   if (p.xp[0] !== p.xp[1]) rows.push(["XP", `${p.xp[0]} → ${p.xp[1]}`]);
   const streak =
     p.streak[0] === p.streak[1] ? `${p.streak[1]} · unchanged` : `${p.streak[0]} → ${p.streak[1]}`;

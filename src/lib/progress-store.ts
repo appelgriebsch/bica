@@ -1,8 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { CefrLevel } from "@/data/types";
+import { chatCardId, MAX_CHAT_TEXT } from "@/lib/chat-words";
 import { gradeCard, type SrsCard } from "@/lib/srs";
-import { asDayKey, todayKey, yesterdayKey } from "@/lib/utils";
+import { asDayKey, normalizePt, todayKey, yesterdayKey } from "@/lib/utils";
 
 export type LessonResult = {
   quizScore: number;
@@ -11,12 +12,20 @@ export type LessonResult = {
   completedAt: string;
 };
 
+/** A word/phrase saved from a Conversas reply (#80, ADR 0019), keyed by its `chat:` card id. */
+export type SavedWord = {
+  pt: string;
+  en: string;
+  level: CefrLevel;
+};
+
 export type ProgressSnapshot = {
   completed: Record<string, LessonResult>;
   xp: number;
   streak: number;
   lastStudyDate: string | null;
   cards: Record<string, SrsCard>;
+  savedWords: Record<string, SavedWord>;
   floor: CefrLevel;
   /** When the floor was last set (Date.toISOString), or null if never on record. */
   floorUpdatedAt?: string | null;
@@ -30,6 +39,7 @@ export type ProgressState = {
   floor: CefrLevel;
   floorUpdatedAt: string | null;
   cards: Record<string, SrsCard>;
+  savedWords: Record<string, SavedWord>;
   /** True once persist has restored this device's progress (false if that failed). */
   hydrated: boolean;
   /** Set when restoring this device's progress from localStorage failed. */
@@ -40,6 +50,8 @@ export type ProgressState = {
   gradeVocab: (cardId: string, knew: boolean) => void;
   /** Save a Travel Phrasebook phrase (#77, ADR 0015) or any card id to Palavras: due today, no XP/streak. */
   saveToPalabras: (cardId: string) => void;
+  /** Save a Conversas word/phrase (#80, ADR 0019): `chat:` card due today, no XP/streak. */
+  saveChatWord: (word: SavedWord) => void;
   touchStudy: (xp?: number) => void;
   mergeRemote: (remote: ProgressSnapshot) => void;
   snapshot: () => ProgressSnapshot;
@@ -87,6 +99,11 @@ export function mergeProgress(
       cards[id] = row;
     }
   }
+  // Saved words: union; the same id with different content selects remote (the `completed` tie convention).
+  const savedWords = { ...(remote.savedWords ?? {}) };
+  for (const [id, row] of Object.entries(local.savedWords ?? {})) {
+    if (!(id in savedWords)) savedWords[id] = row;
+  }
   const localDay = asDayKey(local.lastStudyDate);
   const remoteDay = asDayKey(remote.lastStudyDate);
   // The streak goes with the later study day, so a broken streak can drop; max only on a tie.
@@ -103,6 +120,7 @@ export function mergeProgress(
   return {
     completed,
     cards,
+    savedWords,
     xp: Math.max(local.xp, remote.xp),
     streak,
     lastStudyDate,
@@ -123,6 +141,7 @@ export const useProgress = create<ProgressState>()(
       floor: "A1",
       floorUpdatedAt: null,
       cards: {},
+      savedWords: {},
       hydrated: false,
       hydrationFailed: false,
       markHydrated: () => set({ hydrated: true }),
@@ -176,6 +195,23 @@ export const useProgress = create<ProgressState>()(
           },
         });
       },
+      saveChatWord: ({ pt, en, level }) => {
+        const normalized = normalizePt(pt);
+        // Reject empty or over-long input (the CARD_ID limit); no XP/streak (ADR 0016).
+        if (!normalized || normalized.length > MAX_CHAT_TEXT || !en.trim()) return;
+        const prev = get();
+        const id = chatCardId(pt);
+        set({
+          savedWords: { ...prev.savedWords, [id]: { pt, en: en.trim(), level } },
+          // Idempotent: never reset a card that already has review history.
+          cards: prev.cards[id]
+            ? prev.cards
+            : {
+                ...prev.cards,
+                [id]: { interval: 0, ease: 0, due: todayKey(), reps: 0, lapses: 0 },
+              },
+        });
+      },
       touchStudy: (xp = 0) => {
         const today = todayKey();
         const prev = get();
@@ -199,6 +235,7 @@ export const useProgress = create<ProgressState>()(
           streak: s.streak,
           lastStudyDate: asDayKey(s.lastStudyDate),
           cards: s.cards,
+          savedWords: s.savedWords,
           floor: s.floor,
           floorUpdatedAt: s.floorUpdatedAt,
         };
@@ -214,6 +251,7 @@ export const useProgress = create<ProgressState>()(
         floor: s.floor,
         floorUpdatedAt: s.floorUpdatedAt,
         cards: s.cards,
+        savedWords: s.savedWords,
       }),
       // A failed hydration leaves `hydrated` false (#34's import must not merge into it).
       // Uses the callback's `state`: with synchronous storage this runs inside create(),

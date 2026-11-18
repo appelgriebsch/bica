@@ -419,6 +419,17 @@ test("schema: bounds, dates, ids, enums", () => {
   assert.ok(!ok({ ...base, completed: { ["x".repeat(65)]: base.completed["a1-ola"] } }));
   assert.ok(!ok({ ...base, cards: { "no-colon": card({}).cards["a1-ola:bom dia"] } }));
   assert.ok(!ok({ ...base, cards: { "a1:\u0000": card({}).cards["a1-ola:bom dia"] } }));
+  // savedWords (#80, ADR 0019): optional, card-id keys, bounded strict values.
+  const sw = { pt: "Bom dia", en: "Good morning", level: "A1" };
+  assert.ok(ok({ ...base, savedWords: { "chat:bom dia": sw } }), "savedWords accepted");
+  assert.ok(!ok({ ...base, savedWords: { "chat:bom dia": { ...sw, level: "C2" } } }));
+  assert.ok(!ok({ ...base, savedWords: { "chat:bom dia": { ...sw, pt: "" } } }));
+  assert.ok(!ok({ ...base, savedWords: { "chat:bom dia": { ...sw, extra: 1 } } }), "strictObject");
+  assert.ok(!ok({ ...base, savedWords: { "no-colon": sw } }), "savedWords keys are card ids");
+  const manySaved = Object.fromEntries(
+    Array.from({ length: S.MAX_SAVED_WORDS + 1 }, (_, i) => [`chat:w${i}`, sw]),
+  );
+  assert.ok(!ok({ ...base, savedWords: manySaved }), "over MAX_SAVED_WORDS rejected");
   // Count caps.
   const many = (n) =>
     Object.fromEntries(Array.from({ length: n }, (_, i) => [`l${i}`, base.completed["a1-ola"]]));

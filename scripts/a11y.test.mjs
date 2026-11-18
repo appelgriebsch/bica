@@ -8,6 +8,9 @@
  *
  * The rendered-output checks run against a dev server spawned on a loopback port
  * (no public binding); browser checks skip when no Chromium is installed.
+ *
+ * Also covers #134 (ADR 0018): s1 /speak heading structure + register pills (SSR),
+ * s2 /speak at 390px without horizontal overflow (browser).
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -301,5 +304,34 @@ test("m4: 404 view's Home link navigates back (#110)", { timeout: 180_000 }, asy
   await page.getByRole("link", { name: /Back to Today/ }).click();
   await page.waitForURL(`${base}/`, { timeout: 15_000 });
   assert.equal(new URL(page.url()).pathname, "/");
+  await page.close();
+});
+
+// ------------------------------------------------------- #134 social scenes (ADR 0018)
+
+test(
+  "s1 (#134): /speak renders one h1, the Cenas sociais h2 after it, and a register pill per social card",
+  { timeout: 180_000 },
+  async () => {
+    const { status, body } = await get("/speak");
+    assert.equal(status, 200);
+    assert.equal((body.match(/<h1[\s>]/g) ?? []).length, 1, "exactly one h1");
+    assert.ok(body.includes("Cenas sociais"), "social section header missing");
+    assert.ok(body.indexOf("<h2") > body.indexOf("<h1"), "h2 must come after the h1");
+    const pills = body.match(/bg-accent px-2 py-0\.5[^>]*>(tu|você)</g) ?? [];
+    assert.ok(pills.length >= 5, `expected >= 5 register pills, got ${pills.length}: ${pills}`);
+  },
+);
+
+test("s2 (#134): /speak at 390px has no horizontal overflow and shows the register pills", { timeout: 180_000 }, async (t) => {
+  if (needBrowser(t)) return;
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.goto(`${base}/speak`, { waitUntil: "networkidle", timeout: 60_000 });
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  assert.ok(overflow <= 0, `horizontal overflow at 390px: ${overflow}px`);
+  const pills = await page.locator('span[class*="rounded-full bg-accent"]').count();
+  assert.ok(pills >= 5, `expected >= 5 register pills, got ${pills}`);
   await page.close();
 });

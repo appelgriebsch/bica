@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { speakScenarios } from "@/data/curriculum";
-import type { SpeakScenario } from "@/data/types";
+import type { Register, SpeakScenario } from "@/data/types";
 import { checkGate, parseHostnames, sessionSecretOk } from "@/lib/chat-gate";
 import {
   chatLimiter,
@@ -21,6 +21,20 @@ export const CHAT_TIMEOUT_MS = 20_000;
 export const CHAT_API_BASE = "https://api.mistral.ai/v1";
 /** ADR 0006; the plain var MISTRAL_MODEL overrides it. */
 export const CHAT_MODEL = "mistral-small-latest";
+
+/**
+ * #134 (ADR 0018): one system-prompt line that pins the partner to the scene's
+ * register (tu / você). Empty for scenes without one, so other prompts are unchanged.
+ */
+export function registerPrompt(register: Register | undefined): string {
+  if (register === "tu") {
+    return "Address the learner as 'tu' (informal you) — never 'você' or 'o senhor/a senhora'.";
+  }
+  if (register === "você") {
+    return "Address the learner as 'você' — never 'tu'.";
+  }
+  return "";
+}
 
 /**
  * Vendored from hiato (ADR 0006): `choices[0].message.content` may be a string
@@ -240,6 +254,7 @@ export async function chatTurn({
   const system = [
     `You are ${scenario.partner}, a native speaker from Portugal (European Portuguese, never Brazilian).`,
     `Scene: ${scenario.setting}`,
+    ...(scenario.register ? [registerPrompt(scenario.register)] : []),
     `CEFR level of the learner: ${scenario.level}. Keep your Portuguese at or just above that level.`,
     "Stay in character. Keep replies to 1–3 short sentences of Portuguese.",
     "After the Portuguese, on a new line, add a plain English gloss in parentheses.",
@@ -308,6 +323,7 @@ export async function reviewTurn({
   const system = [
     "You are reviewing a learner's Portuguese conversation after a role-play scene.",
     `Scene: ${scenario.setting}`,
+    ...(scenario.register ? [`Register: ${scenario.register}.`] : []),
     `CEFR level of the learner: ${scenario.level}.`,
     `Learner goals: ${scenario.goals.join("; ")}.`,
     "Review only the learner's own lines. For each line that needed a fix — grammar, word choice, or a Brazilian form — add one entry to \"corrections\".",

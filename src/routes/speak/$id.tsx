@@ -131,7 +131,8 @@ function SpeakScene() {
         </Button>
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wider text-accent">
-            {scenario.level} · {scenario.partner}
+            {scenario.level}
+            {scenario.register ? ` · ${scenario.register}` : ""} · {scenario.partner}
           </p>
           <h1 className="truncate font-display text-xl font-medium">{scenario.titlePt}</h1>
         </div>

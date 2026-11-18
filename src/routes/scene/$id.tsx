@@ -4,14 +4,14 @@ import { AppShell } from "@/components/app-shell";
 import { DialogueView } from "@/components/dialogue";
 import { OnlineOnly } from "@/components/online-only";
 import { Button } from "@/components/ui/button";
-import { getLesson, getTravelScene, speakScenarios } from "@/data/curriculum";
+import { getLesson, getScriptedScene, speakScenarios } from "@/data/curriculum";
 
 export const Route = createFileRoute("/scene/$id")({ component: ScenePage });
 
 function ScenePage() {
   const { id } = Route.useParams();
-  const scene = getTravelScene(id);
-  if (!scene) {
+  const found = getScriptedScene(id);
+  if (!found) {
     return (
       <AppShell>
         <p>Scene not found.</p>
@@ -21,6 +21,7 @@ function ScenePage() {
       </AppShell>
     );
   }
+  const { scene, kind } = found;
   const lesson = getLesson(scene.lessonId);
   const scenario = scene.scenarioId
     ? speakScenarios.find((s) => s.id === scene.scenarioId)
@@ -36,7 +37,8 @@ function ScenePage() {
         </Button>
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wider text-accent">
-            Cenas de viagem · {scene.level} · {scene.minutes} min
+            {kind === "social" ? "Cenas sociais" : "Cenas de viagem"} · {scene.level}
+            {scenario?.register ? ` · ${scenario.register}` : ""} · {scene.minutes} min
           </p>
           <h1 className="truncate font-display text-2xl font-medium tracking-tight">
             {scene.titlePt}

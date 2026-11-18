@@ -79,6 +79,9 @@ export type Unit = {
   image: string;
 };
 
+/** Social Scenes (#81, ADR 0018): the register the partner addresses the learner with. */
+export type Register = "tu" | "você";
+
 export type SpeakScenario = {
   id: string;
   level: CefrLevel;
@@ -91,6 +94,10 @@ export type SpeakScenario = {
   openerEn: string;
   goals: string[];
   image: string;
+  /** Social Scenes set (#81, ADR 0018): rendered as "Cenas sociais" on /speak. */
+  group?: "social";
+  /** Register the partner keeps to; server-side data only, never client input (#81, ADR 0018). */
+  register?: Register;
 };
 
 export type DialogueLine = { speaker: string; pt: string; en: string };
@@ -121,6 +128,27 @@ export type TravelScene = {
   lessonId: string;
   /** Conversas partner, online-only (ADR 0016/0014). */
   scenarioId?: string;
+};
+
+/**
+ * Social Scenes (#81, ADR 0018): scripted social situations on Practice — family,
+ * friends, colleagues. Unlike TravelScene there is no `situation` field: the
+ * phrasebook derives from `travelScenes` only and stays travel-only.
+ */
+export type SocialScene = {
+  id: string;
+  level: CefrLevel;
+  minutes: number;
+  title: string;
+  titlePt: string;
+  setting: string;
+  partner: string;
+  lines: DialogueLine[];
+  image: string;
+  /** Matching lesson; its words feed Palavras when finished (ADR 0018). */
+  lessonId: string;
+  /** Conversas partner, online-only; carries the register (ADR 0018). */
+  scenarioId: string;
 };
 
 /** Travel Phrasebook (#77, ADR 0015): a trip situation, or "anywhere" for the staples group. */

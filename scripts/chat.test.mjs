@@ -830,6 +830,33 @@ test("chatTurn: Mistral request shape — global endpoint, mistral-small-latest,
   assert.equal(JSON.parse(seen[1].init.body).model, "mistral-large-latest");
 });
 
+test("chatTurn (#134, ADR 0018): a social scene pins the partner to its register; others unchanged", async () => {
+  const seen = [];
+  const spy = async (url, init) => (
+    seen.push(JSON.parse(init.body)),
+    json({ choices: [{ message: { content: "Olá!" } }] })
+  );
+  const social = (scenarioId) =>
+    m.chatTurn({
+      data: { scenarioId, messages: [{ role: "user", content: "Olá" }] },
+      apiKey: "k",
+      gate: yes,
+      limit: ok,
+      fetch: spy,
+    });
+  const sys = (i) => seen[i].messages[0].content;
+  assert.deepEqual(await social("planos"), { ok: true, text: "Olá!" });
+  assert.ok(
+    sys(0).includes("Address the learner as 'tu' (informal you) — never 'você' or 'o senhor/a senhora'."),
+    sys(0),
+  );
+  assert.deepEqual(await social("fim-de-semana"), { ok: true, text: "Olá!" });
+  assert.ok(sys(1).includes("Address the learner as 'você' — never 'tu'."), sys(1));
+  assert.deepEqual(await turn(spy), { ok: true, text: "Olá!" });
+  assert.ok(!sys(2).includes("Address the learner as"), sys(2));
+  assert.equal(m.registerPrompt(undefined), "");
+});
+
 test("chatTurn: a non-Mistral apiBase fails closed and never sends the Bearer key", async () => {
   for (const apiBase of [
     "https://evil.example.com/v1",
@@ -1102,6 +1129,22 @@ test("reviewTurn (#131): JSON-mode request (temp 0.2, max_tokens 600, transcript
       ],
     });
   assert.deepEqual(await reviewTurn(fenced), { ok: true, corrections: [BR] });
+});
+
+test("reviewTurn (#134, ADR 0018): social scenes add a Register context line; other scenes don't", async () => {
+  const seen = [];
+  const spy = async (url, init) => (seen.push(JSON.parse(init.body)), reviewOk([]));
+  const r1 = await m.reviewTurn({
+    data: { ...reviewData, scenarioId: "planos" },
+    apiKey: "k",
+    gate: yes,
+    limit: ok,
+    fetch: spy,
+  });
+  assert.deepEqual(r1, { ok: true, corrections: [] });
+  assert.ok(seen[0].messages[0].content.includes("Register: tu."), seen[0].messages[0].content);
+  assert.deepEqual(await reviewTurn(spy), { ok: true, corrections: [] });
+  assert.ok(!seen[1].messages[0].content.includes("Register:"), seen[1].messages[0].content);
 });
 
 test("reviewTurn (#131): non-JSON, wrong shape, over-long fields → BAD_REPLY; upstream 500/network → BUSY; never throws", async () => {

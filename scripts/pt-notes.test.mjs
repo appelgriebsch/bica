@@ -1,7 +1,8 @@
-/** #139 (parent #82, ADR 0018): Portugal notes — shape of every `ptNote`, the
- * three required A1/A2 contrasts, and a source assertion that only the European
- * `pt` form is playable. T2 (#140) adds the "mentions Brazil ⇒ has a note"
- * coverage guard. Run with `bun run test` (node --test scripts/*.test.mjs). */
+/** #139 + #140 (parent #82, ADR 0018): Portugal notes — shape of every `ptNote`,
+ * the required A1/A2 contrasts, the planned set of noted lessons, the
+ * "mentions Brazil ⇒ has a note" coverage guard for A1/A2 (#140), and a source
+ * assertion that only the European `pt` form is playable.
+ * Run with `bun run test` (node --test scripts/*.test.mjs). */
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -37,6 +38,28 @@ const { lessons } = await load("src/data/curriculum.ts");
 const a1a2 = lessons.filter((l) => l.level === "A1" || l.level === "A2");
 const notesOf = (lesson) => lesson.sections.flatMap((s) => (s.ptNote ? [s.ptNote] : []));
 
+/** The planned #82 pass: every A1/A2 lesson teaching a form that differs in Brazil. */
+const NOTED_LESSONS = [
+  "a1-ola",
+  "a1-como-esta",
+  "a1-de-onde",
+  "a1-numeros",
+  "a1-ordinais",
+  "a1-bica",
+  "a1-onde-fica",
+  "a1-metro",
+  "a1-mesa",
+  "a2-tempo",
+  "a2-planos",
+  "a2-farmacia",
+  "a2-compras",
+];
+
+test("the A1/A2 lessons carrying a note are exactly the planned set", () => {
+  const noted = a1a2.filter((l) => notesOf(l).length > 0).map((l) => l.id);
+  assert.deepEqual([...noted].sort(), [...NOTED_LESSONS].sort());
+});
+
 test("every ptNote has non-empty pt/br/en and pt !== br", () => {
   let count = 0;
   for (const lesson of a1a2) {
@@ -49,7 +72,7 @@ test("every ptNote has non-empty pt/br/en and pt !== br", () => {
       assert.notEqual(note.pt, note.br, `${lesson.id}: pt and br must differ`);
     }
   }
-  assert.ok(count >= 5, `expected at least the 5 T1 notes, got ${count}`);
+  assert.ok(count >= NOTED_LESSONS.length, `expected at least ${NOTED_LESSONS.length} notes, got ${count}`);
 });
 
 test("the three required contrasts are present in A1 and A2", () => {
@@ -65,6 +88,36 @@ test("the three required contrasts are present in A1 and A2", () => {
   assert.ok(hasNote("a2-tempo", "a chover", "chovendo"), "estar a + infinitive missing in A2");
   assert.ok(hasNote("a1-ola", "chamo-me", "meu nome é"), "pronoun after the verb missing in A1");
   assert.ok(hasNote("a2-farmacia", "dói-me", "garganta dói"), "pronoun after the verb missing in A2");
+});
+
+test("the T2 widening contrasts are present (spelling, words, word order)", () => {
+  const hasNote = (lessonId, ptFrag, brFrag) => {
+    const lesson = lessons.find((l) => l.id === lessonId);
+    assert.ok(lesson, `lesson ${lessonId} not found`);
+    return notesOf(lesson).find(
+      (n) => n.pt.toLowerCase().includes(ptFrag) && n.br.toLowerCase().includes(brFrag),
+    );
+  };
+  assert.ok(hasNote("a1-numeros", "dezasseis", "dezesseis"), "teens contrast missing");
+  assert.ok(hasNote("a1-ordinais", "rés-do-chão", "térreo"), "floor contrast missing");
+  assert.ok(hasNote("a1-bica", "bica", "cafezinho"), "coffee contrast missing");
+  assert.ok(hasNote("a1-onde-fica", "autocarro", "ônibus"), "transport contrast missing (a1-onde-fica)");
+  assert.ok(hasNote("a1-metro", "autocarro", "ônibus"), "transport contrast missing (a1-metro)");
+  assert.ok(hasNote("a1-mesa", "ementa", "cardápio"), "menu contrast missing");
+  assert.ok(hasNote("a2-planos", "connosco", "conosco"), "spelling contrast missing");
+  assert.ok(hasNote("a2-compras", "ficam-lhe bem", "em você"), "word-order contrast missing");
+});
+
+test("every A1/A2 lesson whose section body or quiz explain mentions Brazil has a ptNote (#82 AC1)", () => {
+  for (const lesson of a1a2) {
+    const prose = [
+      ...lesson.sections.map((s) => ("body" in s ? s.body : "")),
+      ...lesson.quiz.map((q) => q.explain),
+    ].join("\n");
+    if (/brazil/i.test(prose)) {
+      assert.ok(notesOf(lesson).length > 0, `${lesson.id} mentions Brazil but has no ptNote`);
+    }
+  }
 });
 
 test("portugal-note.tsx renders SpeakButton only for the pt form", () => {

@@ -277,6 +277,11 @@ export const a1Lessons: Lesson[] = [
           { pt: "Fica em um euro e vinte.", en: "That's one euro twenty." },
           { pt: "Quanto custa uma água?", en: "How much is a water?" },
         ],
+        ptNote: {
+          pt: "Dezasseis, dezassete, dezanove.",
+          br: "Dezesseis, dezessete, dezenove.",
+          en: "Portugal keeps the extra s in the teens: dezasseis. Brazil writes dezesseis.",
+        },
       },
       {
         type: "dialogue",
@@ -377,6 +382,11 @@ export const a1Lessons: Lesson[] = [
         type: "culture",
         title: "The 25th is a number, not a rank",
         body: "Portugal writes the Carnation Revolution as 25 de Abril — vinte e cinco, said as a date, not an ordinal. The bridge over the Tagus is the Ponte 25 de Abril. Labour Day is o primeiro de maio: here the ordinal is allowed, because it is the first. On a door, 1.º andar (masculine º) and 1.ª vez (feminine ª). Brazil says térreo for the ground floor; here it is rés-do-chão.",
+        ptNote: {
+          pt: "O café fica no rés-do-chão.",
+          br: "O café fica no térreo.",
+          en: "The ground floor is rés-do-chão in Portugal, térreo in Brazil. O primeiro andar is one flight up.",
+        },
       },
     ],
     quiz: [
@@ -409,6 +419,11 @@ export const a1Lessons: Lesson[] = [
         title: "This cup is the country",
         body: "A bica is Lisbon's short espresso in a tiny cup. Not a Brazilian cafezinho, not an Italian lungo. Learning the drinks is learning to stand at the bar without explaining yourself.",
         phrase: { pt: "Uma bica, se faz favor.", en: "An espresso, please." },
+        ptNote: {
+          pt: "Uma bica, se faz favor.",
+          br: "Um cafezinho, por favor.",
+          en: "In Lisbon the espresso is uma bica; in Brazil it's um cafezinho.",
+        },
       },
       {
         type: "vocab",
@@ -517,6 +532,11 @@ export const a1Lessons: Lesson[] = [
         type: "culture",
         title: "Eléctrico, not bonde",
         body: "The yellow tram is o eléctrico (often just o 28). Bus is autocarro, train comboio, underground o metro. Brazilian words (ônibus, trem) will be understood and will mark you as not from here — which is fine, but these lessons stay with Portugal.",
+        ptNote: {
+          pt: "Vou de autocarro e de comboio.",
+          br: "Vou de ônibus e de trem.",
+          en: "Bus is autocarro and train is comboio in Portugal; Brazil says ônibus and trem.",
+        },
       },
     ],
     quiz: [
@@ -697,6 +717,11 @@ export const a1Lessons: Lesson[] = [
           { pt: "vai para…?", hint: "vai PAH-ruh", en: "does this go to…?", examplePt: "Este eléctrico vai para a Graça?", exampleEn: "Does this tram go to Graça?" },
           { pt: "descer / sair", hint: "de-SEHR / sa-EER", en: "to get off / to exit", examplePt: "Onde é que eu desço?", exampleEn: "Where do I get off?" },
         ],
+        ptNote: {
+          pt: "O autocarro e o comboio.",
+          br: "O ônibus e o trem.",
+          en: "Autocarro (bus) and comboio (train) in Portugal; Brazil says ônibus and trem.",
+        },
       },
       {
         type: "grammar",
@@ -792,6 +817,11 @@ export const a1Lessons: Lesson[] = [
         type: "culture",
         title: "Couvert and the hour",
         body: "Lunch is often 12:30–15:00; dinner starts around 20:00. Couvert is not a gift — decline it if you don't want it. Tipping is modest, not American. 'A ementa' is the menu; cardápio is Brazilian. If the waiter says então?, it means 'so — what will it be?'",
+        ptNote: {
+          pt: "A ementa, se faz favor.",
+          br: "O cardápio, por favor.",
+          en: "The menu is a ementa in Portugal, o cardápio in Brazil.",
+        },
       },
     ],
     quiz: [

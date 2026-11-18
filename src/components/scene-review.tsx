@@ -48,7 +48,7 @@ export function SceneReview({
                   {c.note && <p className="mt-0.5 text-xs text-muted">{c.note}</p>}
                 </div>
                 {c.brazilian && (
-                  <span className="mt-1 shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
+                  <span className="mt-1 shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-fg">
                     BR → PT
                   </span>
                 )}

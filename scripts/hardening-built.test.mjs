@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { STATIC_SECURITY_HEADERS } from "../src/lib/security-headers.mjs";
 import { buildOutput } from "./build-output.mjs";
 import { resolveBuildShaFull } from "./build-sha.mjs";
-import { CHAT_TURN, SEND_CHAT } from "./chat-smoke.mjs";
+import { CHAT_TURN, REVIEW_SCENE, REVIEW_TURN, SEND_CHAT } from "./chat-smoke.mjs";
 
 const skip = !process.env.BICA_BUILT && "set BICA_BUILT=1 after bun run build:cf";
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -456,6 +456,31 @@ test(
     assert.equal(unknown.headers.get("cache-control"), "no-store");
     assert.deepEqual(JSON.parse(unknownBody), { error: "not_found" });
     assert.doesNotMatch(unknownBody, /Server function|\$TSR/);
+  },
+);
+
+test(
+  "#132: reviewScene is gated like sendChat — no token/cookie → 403 challenge_required, forged cookie 403, no data 400",
+  { skip },
+  async () => {
+    const res = await callFn(REVIEW_SCENE, REVIEW_TURN);
+    const text = await res.text();
+    assert.equal(res.status, 403, text);
+    assert.match(text, /challenge_required/);
+    assert.equal(res.headers.get("set-cookie"), null);
+    const forged = await callFn(REVIEW_SCENE, REVIEW_TURN, {
+      cookie: "bica_chat=v1.99999999999999.1.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    });
+    assert.equal(forged.status, 403);
+    const cross = await callFn(REVIEW_SCENE, REVIEW_TURN, {
+      "sec-fetch-site": "cross-site",
+      "sec-fetch-mode": "cors",
+      origin: "https://evil.example",
+    });
+    assert.equal(cross.status, 403);
+    const noData = await callFn(REVIEW_SCENE, NO_DATA);
+    assert.equal(noData.status, 400);
+    assert.match(await noData.text(), /"invalid_input"/);
   },
 );
 

@@ -1279,3 +1279,32 @@ test("#131: reviewScene is wired like sendChat — validator + handler, no auth;
   assert.match(panel, /aria-live="polite"/);
   assert.doesNotMatch(panel, /dangerouslySetInnerHTML/);
 });
+
+test("#132: corrections panel UI states + a11y (source level)", () => {
+  const panel = readFileSync(join(root, "src/components/scene-review.tsx"), "utf8");
+  // BR → PT badge next to the European form, as a solid accent pill (AA in both themes:
+  // accent/15 over soft was 4.40:1 in dark)
+  assert.match(panel, /c\.brazilian &&/);
+  assert.match(panel, /BR → PT/);
+  assert.match(panel, /bg-accent px-2 py-0\.5 text-xs font-medium text-accent-fg/);
+  assert.doesNotMatch(panel, /bg-accent\/\d+/);
+  // empty state ("a learner with no errors is told so") and a semantic list
+  assert.match(panel, /Sem erros — muito bem! No corrections needed\./);
+  assert.match(panel, /<ul className="mt-3 space-y-3">/);
+  assert.match(panel, /<li/);
+  // a11y: live region + accessible name, text-only rendering, ≥44px controls (no size="sm")
+  assert.match(panel, /aria-live="polite"/);
+  assert.match(panel, /aria-label="Scene corrections"/);
+  assert.doesNotMatch(panel, /dangerouslySetInnerHTML/);
+  assert.doesNotMatch(panel, /size="sm"/);
+  const speak = readFileSync(join(root, "src/routes/speak/$id.tsx"), "utf8");
+  // distinct states: loading, error via chatErrorMessage (covers 403 challenge and 429 caps), done panel
+  assert.match(speak, /A rever a conversa…/);
+  assert.match(speak, /chatErrorMessage\(res\)/);
+  assert.match(speak, /review\.status === "loading"/);
+  assert.match(speak, /review\.status === "error"/);
+  assert.match(speak, /review\.status === "done"/);
+  // Finish is a real button, disabled while busy/loading/offline or without a learner turn
+  assert.match(speak, /<Flag \/> Finish scene — see my corrections/);
+  assert.match(speak, /!turns\.some\(\(t\) => t\.role === "user"\)/);
+});

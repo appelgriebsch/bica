@@ -22,17 +22,17 @@ Forces in play: no accounts and no database (#33) — progress is device-only (z
 
 ## Options Considered
 
-| Option | Pros | Cons |
-| --- | --- | --- |
-| Fixed banded check, 3 items per band, reusing QuizBlock (chosen) | ~5 min, offline, smallest diff, per-band scores fall out of `onFinished` | Hand-authored, uncalibrated items |
-| Adaptive / multistage CAT | Stops when confident; fewer items on average | Needs calibrated item bank and routing logic; overkill for 5 bands |
-| AI-generated questions via Mistral | Zero authoring | Violates the ADR 0006 rule (only Conversas calls AI); not offline; non-deterministic |
-| Self-assessment can-do list | Zero items to author | Measures self-image, not performance; #85 asks for a check |
-| Score = overall majority of 15 mapped to one band | One number | Hides per-band gaps; CEFR is an ordinal ladder |
-| Highest cleared band without the cap | Simpler rule | A lucky pass on a hard band places the learner too high |
-| Persist the full placement result (scores, timestamp) in the snapshot | "Last check" display; analytics | Requires `transfer-schema.ts` + `mergeProgress` changes; not asked for (#85) |
-| Accept writes only the existing `floor` via `setFloor` (chosen) | Zero schema/merge changes; QR semantics unchanged (#15) | No record that a check was taken; retake is always available anyway |
-| Silent accept, no result screen | Fewest states | Learner never sees why Today changed; breaks "accept or override on You" |
+| Option                                                                | Pros                                                                     | Cons                                                                                 |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| Fixed banded check, 3 items per band, reusing QuizBlock (chosen)      | ~5 min, offline, smallest diff, per-band scores fall out of `onFinished` | Hand-authored, uncalibrated items                                                    |
+| Adaptive / multistage CAT                                             | Stops when confident; fewer items on average                             | Needs calibrated item bank and routing logic; overkill for 5 bands                   |
+| AI-generated questions via Mistral                                    | Zero authoring                                                           | Violates the ADR 0006 rule (only Conversas calls AI); not offline; non-deterministic |
+| Self-assessment can-do list                                           | Zero items to author                                                     | Measures self-image, not performance; #85 asks for a check                           |
+| Score = overall majority of 15 mapped to one band                     | One number                                                               | Hides per-band gaps; CEFR is an ordinal ladder                                       |
+| Highest cleared band without the cap                                  | Simpler rule                                                             | A lucky pass on a hard band places the learner too high                              |
+| Persist the full placement result (scores, timestamp) in the snapshot | "Last check" display; analytics                                          | Requires `transfer-schema.ts` + `mergeProgress` changes; not asked for (#85)         |
+| Accept writes only the existing `floor` via `setFloor` (chosen)       | Zero schema/merge changes; QR semantics unchanged (#15)                  | No record that a check was taken; retake is always available anyway                  |
+| Silent accept, no result screen                                       | Fewest states                                                            | Learner never sees why Today changed; breaks "accept or override on You"             |
 
 ## Consequences
 

@@ -31,6 +31,7 @@ function Home() {
   const cards = useProgress((s) => s.cards);
   const savedWords = useProgress((s) => s.savedWords);
   const [hour, setHour] = useState(9);
+  const [showPicker, setShowPicker] = useState(false);
 
   useEffect(() => {
     setHour(new Date().getHours());
@@ -71,11 +72,34 @@ function Home() {
 
       {doneCount === 0 && (
         <section className="mt-6">
-          <StartLevelPicker label="I am starting at" />
-          <p className="mt-2 text-sm text-subtle">
-            Jump the early units if you already greet and order. The path stays
-            open.
-          </p>
+          {showPicker ? (
+            <>
+              <StartLevelPicker label="I am starting at" />
+              <p className="mt-2 text-sm text-subtle">
+                Jump the early units if you already greet and order. The path stays
+                open.
+              </p>
+            </>
+          ) : (
+            <>
+              <Button asChild className="w-full sm:w-auto">
+                <Link to="/placement" className="no-underline">
+                  Take the five-minute check
+                  <ArrowRight />
+                </Link>
+              </Button>
+              <p className="mt-2 text-sm text-subtle">
+                Fifteen quick questions and we recommend where to start.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowPicker(true)}
+                className="mt-2 text-sm font-medium text-accent underline-offset-2 hover:underline"
+              >
+                or choose yourself
+              </button>
+            </>
+          )}
         </section>
       )}
 

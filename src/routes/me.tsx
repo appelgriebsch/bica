@@ -106,6 +106,11 @@ function MePage() {
         <p className="mt-2 text-sm text-subtle">
           Today will offer the next unfinished lesson from this level up.
         </p>
+        <Button asChild variant="outline" size="sm" className="mt-3">
+          <Link to="/placement" className="no-underline">
+            Find my level with a short check
+          </Link>
+        </Button>
       </section>
 
       <DailyReminder className="mt-8" />

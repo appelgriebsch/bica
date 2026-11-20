@@ -14,6 +14,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as GrammarRouteImport } from './routes/grammar'
 import { Route as MeRouteImport } from './routes/me'
 import { Route as PathRouteImport } from './routes/path'
+import { Route as PlacementRouteImport } from './routes/placement'
 import { Route as PracticeRouteImport } from './routes/practice'
 import { Route as ReviewRouteImport } from './routes/review'
 import { Route as SpeakRouteImport } from './routes/speak'
@@ -57,6 +58,11 @@ const MeRoute = MeRouteImport.update({
 const PathRoute = PathRouteImport.update({
   id: '/path',
   path: '/path',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlacementRoute = PlacementRouteImport.update({
+  id: '/placement',
+  path: '/placement',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PracticeRoute = PracticeRouteImport.update({
@@ -161,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/grammar': typeof GrammarRouteWithChildren
   '/me': typeof MeRoute
   '/path': typeof PathRoute
+  '/placement': typeof PlacementRoute
   '/practice': typeof PracticeRoute
   '/review': typeof ReviewRoute
   '/speak': typeof SpeakRouteWithChildren
@@ -186,6 +193,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/me': typeof MeRoute
   '/path': typeof PathRoute
+  '/placement': typeof PlacementRoute
   '/practice': typeof PracticeRoute
   '/review': typeof ReviewRoute
   '/api/csp-report': typeof ApiCspReportRoute
@@ -211,6 +219,7 @@ export interface FileRoutesById {
   '/grammar': typeof GrammarRouteWithChildren
   '/me': typeof MeRoute
   '/path': typeof PathRoute
+  '/placement': typeof PlacementRoute
   '/practice': typeof PracticeRoute
   '/review': typeof ReviewRoute
   '/speak': typeof SpeakRouteWithChildren
@@ -239,6 +248,7 @@ export interface FileRouteTypes {
     | '/grammar'
     | '/me'
     | '/path'
+    | '/placement'
     | '/practice'
     | '/review'
     | '/speak'
@@ -264,6 +274,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/me'
     | '/path'
+    | '/placement'
     | '/practice'
     | '/review'
     | '/api/csp-report'
@@ -288,6 +299,7 @@ export interface FileRouteTypes {
     | '/grammar'
     | '/me'
     | '/path'
+    | '/placement'
     | '/practice'
     | '/review'
     | '/speak'
@@ -315,6 +327,7 @@ export interface RootRouteChildren {
   GrammarRoute: typeof GrammarRouteWithChildren
   MeRoute: typeof MeRoute
   PathRoute: typeof PathRoute
+  PlacementRoute: typeof PlacementRoute
   PracticeRoute: typeof PracticeRoute
   ReviewRoute: typeof ReviewRoute
   SpeakRoute: typeof SpeakRouteWithChildren
@@ -365,6 +378,13 @@ declare module '@tanstack/react-router' {
       path: '/path'
       fullPath: '/path'
       preLoaderRoute: typeof PathRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/placement': {
+      id: '/placement'
+      path: '/placement'
+      fullPath: '/placement'
+      preLoaderRoute: typeof PlacementRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/practice': {
@@ -546,6 +566,7 @@ const rootRouteChildren: RootRouteChildren = {
   GrammarRoute: GrammarRouteWithChildren,
   MeRoute: MeRoute,
   PathRoute: PathRoute,
+  PlacementRoute: PlacementRoute,
   PracticeRoute: PracticeRoute,
   ReviewRoute: ReviewRoute,
   SpeakRoute: SpeakRouteWithChildren,

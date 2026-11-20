@@ -26,12 +26,15 @@ export function OnlineOnly({
   feature,
   placement = "inline",
   gate = true,
+  onAccent = false,
   className,
   children,
 }: {
   feature: OnlineFeatureId;
   placement?: "inline" | "corner" | "badge";
   gate?: boolean;
+  /** Corner Cloud sits on `bg-accent`; accent-fg clears 3:1, text-muted does not (#158). */
+  onAccent?: boolean;
   className?: string;
   children: ReactElement;
 }) {
@@ -68,7 +71,8 @@ export function OnlineOnly({
         <Cloud
           aria-hidden
           className={cn(
-            "size-3.5 shrink-0 text-muted",
+            "size-3.5 shrink-0",
+            onAccent ? "text-accent-fg" : "text-muted",
             placement === "corner" && "absolute right-3 top-3",
             placement === "badge" && "absolute -right-1 -top-1 size-4! rounded-full bg-bg p-0.5",
           )}

@@ -144,7 +144,7 @@ function PracticePage() {
           </Link>
         </li>
         <li>
-          <OnlineOnly feature="conversas" placement="corner">
+          <OnlineOnly feature="conversas" placement="corner" onAccent>
             <Link
               to="/speak"
               className="flex items-start gap-3 rounded-[var(--radius-lg)] bg-accent p-4 text-accent-fg no-underline"

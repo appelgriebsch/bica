@@ -75,7 +75,7 @@ function ScenePage() {
       )}
 
       {scenario && (
-        <OnlineOnly feature="conversas" placement="corner">
+        <OnlineOnly feature="conversas" placement="corner" onAccent>
           <Link
             to="/speak/$id"
             params={{ id: scenario.id }}

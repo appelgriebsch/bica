@@ -1348,7 +1348,9 @@ test("#132: corrections panel UI states + a11y (source level)", () => {
   assert.match(speak, /review\.status === "loading"/);
   assert.match(speak, /review\.status === "error"/);
   assert.match(speak, /review\.status === "done"/);
-  // Finish is a real button, disabled while busy/loading/offline or without a learner turn
+  // Finish is a real button. Without a learner turn it is aria-disabled (still
+  // focusable, #158); busy/loading with a turn stays native-disabled.
   assert.match(speak, /<Flag \/> Finish scene — see my corrections/);
   assert.match(speak, /!turns\.some\(\(t\) => t\.role === "user"\)/);
+  assert.match(speak, /"aria-disabled": true/);
 });

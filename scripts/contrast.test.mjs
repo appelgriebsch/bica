@@ -68,6 +68,7 @@ const PAIRS = [
   ["muted", "soft", TEXT], // voice-notice hint
   ["accent", "soft", TEXT], // active nav tab (app-shell)
   ["accent-fg", "accent", TEXT],
+  ["accent-fg", "accent", UI], // #158 Cloud badge on accent cards (text-muted is ~1.2:1)
   ["accent-fg", "tile", TEXT],
   ["success-fg", "success", TEXT],
   ["danger-fg", "danger", TEXT],
@@ -142,6 +143,29 @@ test("contrast() matches WCAG reference values", () => {
   assert.equal(contrast("#000000", "#ffffff").toFixed(2), "21.00");
   assert.equal(contrast("#777777", "#ffffff").toFixed(2), "4.48");
   assert.equal(contrast("#948c82", "#f3eee6").toFixed(2), "2.87"); // ticket's old value
+});
+
+// #158 m3: Practice and Scene draw the corner Cloud on bg-accent. The old
+// text-muted pair is about 1.21:1 light and 1.02:1 dark, under the 3:1 UI bar.
+test("corner Cloud on accent cards is accent-fg, and text-muted fails 3:1 (#158)", () => {
+  const online = readFileSync(new URL("../src/components/online-only.tsx", import.meta.url), "utf8");
+  const practice = readFileSync(new URL("../src/routes/practice.tsx", import.meta.url), "utf8");
+  const scene = readFileSync(new URL("../src/routes/scene/$id.tsx", import.meta.url), "utf8");
+  assert.match(online, /onAccent \? "text-accent-fg" : "text-muted"/);
+  assert.match(practice, /placement="corner" onAccent/);
+  assert.match(scene, /placement="corner" onAccent/);
+  for (const [theme, t] of [
+    ["light", light],
+    ["dark", dark],
+  ]) {
+    const used = contrast(t["accent-fg"], t.accent);
+    assert.ok(used >= UI, `${theme} accent-fg on accent is ${used.toFixed(2)}:1`);
+    const old = contrast(t.muted, t.accent);
+    assert.ok(
+      old < UI,
+      `${theme} text-muted on accent is ${old.toFixed(2)}:1; the old badge pair must fail`,
+    );
+  }
 });
 
 for (const [theme, t] of [

@@ -13,7 +13,7 @@ const buttonVariants = cva(
         secondary:
           "bg-surface-2 text-fg hover:bg-border disabled:text-subtle disabled:hover:bg-surface-2 aria-disabled:text-subtle aria-disabled:hover:bg-surface-2",
         outline:
-          "bg-surface text-fg shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)] disabled:bg-surface-2 disabled:text-subtle disabled:hover:shadow-[var(--shadow-border)]",
+          "bg-surface text-fg shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)] disabled:bg-surface-2 disabled:text-subtle disabled:hover:shadow-[var(--shadow-border)] aria-disabled:bg-surface-2 aria-disabled:text-subtle aria-disabled:hover:shadow-[var(--shadow-border)]",
         ghost: "text-fg hover:bg-surface-2 disabled:text-subtle disabled:hover:bg-surface-2",
         success:
           "bg-success text-success-fg hover:opacity-90 disabled:bg-surface-2 disabled:text-subtle disabled:hover:bg-surface-2 disabled:hover:opacity-100 aria-disabled:bg-surface-2 aria-disabled:text-subtle aria-disabled:hover:bg-surface-2 aria-disabled:hover:opacity-100",

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, BookOpen, Clock3, Headphones, MessageCircle, PenLine, RotateCcw, WholeWord } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { StartLevelPicker } from "@/components/start-level";
 import { Button } from "@/components/ui/button";
@@ -32,11 +33,21 @@ function Home() {
   const savedWords = useProgress((s) => s.savedWords);
   const [hour, setHour] = useState(9);
   const [showPicker, setShowPicker] = useState(false);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setHour(new Date().getHours());
     void loadPtVoice();
   }, []);
+
+  // #158: move focus in the click, not in an effect. A mount effect runs twice
+  // under StrictMode and would land focus on this toggle on a fresh Today load.
+  function togglePicker() {
+    const open = !showPicker;
+    flushSync(() => setShowPicker(open));
+    (open ? pickerRef : toggleRef).current?.focus();
+  }
 
   const greet = greetingForHour(hour);
   const doneIds = useMemo(() => new Set(Object.keys(completed)), [completed]);
@@ -62,7 +73,11 @@ function Home() {
   return (
     <AppShell>
       <p className="text-sm font-medium tracking-wide text-accent">{greet.pt}</p>
-      <h1 className="mt-1 font-display text-3xl font-medium tracking-tight">
+      <h1
+        id="today-heading"
+        tabIndex={-1}
+        className="mt-1 font-display text-3xl font-medium tracking-tight outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
         Portuguese in sips.
       </h1>
       <p className="mt-2 max-w-prose text-muted">
@@ -72,15 +87,7 @@ function Home() {
 
       {doneCount === 0 && (
         <section className="mt-6">
-          {showPicker ? (
-            <>
-              <StartLevelPicker label="I am starting at" />
-              <p className="mt-2 text-sm text-subtle">
-                Jump the early units if you already greet and order. The path stays
-                open.
-              </p>
-            </>
-          ) : (
+          {!showPicker && (
             <>
               <Button asChild className="w-full sm:w-auto">
                 <Link to="/placement" className="no-underline">
@@ -91,15 +98,33 @@ function Home() {
               <p className="mt-2 text-sm text-subtle">
                 Fifteen quick questions and we recommend where to start.
               </p>
-              <button
-                type="button"
-                onClick={() => setShowPicker(true)}
-                className="mt-2 text-sm font-medium text-accent underline-offset-2 hover:underline"
-              >
-                or choose yourself
-              </button>
             </>
           )}
+          <button
+            ref={toggleRef}
+            type="button"
+            aria-expanded={showPicker}
+            aria-controls="today-level-picker"
+            onClick={togglePicker}
+            className="mt-2 text-sm font-medium text-accent underline-offset-2 hover:underline"
+          >
+            {showPicker ? "Hide levels" : "or choose yourself"}
+          </button>
+          <div
+            id="today-level-picker"
+            ref={pickerRef}
+            role="group"
+            aria-labelledby="today-level-label"
+            tabIndex={-1}
+            hidden={!showPicker}
+            className="mt-4 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            <StartLevelPicker label="I am starting at" labelId="today-level-label" />
+            <p className="mt-2 text-sm text-subtle">
+              Jump the early units if you already greet and order. The path stays
+              open.
+            </p>
+          </div>
         </section>
       )}
 

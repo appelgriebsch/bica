@@ -54,7 +54,7 @@ test("m3: OnlineOnly never overrides the accessible name; state is the descripti
   assert.match(onlineOnly, /aria-describedby=\{stateId\}/);
   assert.match(onlineOnly, /className="sr-only"/);
   const practice = read("src/routes/practice.tsx");
-  assert.match(practice, /<OnlineOnly feature="conversas" placement="corner">/);
+  assert.match(practice, /<OnlineOnly feature="conversas" placement="corner" onAccent>/);
   assert.match(practice, /Conversas/);
 });
 

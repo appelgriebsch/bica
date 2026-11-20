@@ -53,7 +53,7 @@ export const placementBands: PlacementBand[] = [
       {
         id: "a2-q2",
         kind: "choice",
-        prompt: "“Ontem fui à Belém” — 'fui' here means…",
+        prompt: "“Ontem fui a Belém” — 'fui' here means…",
         options: ["I go", "I went", "I was (for good)", "I will go"],
         answer: 1,
         explain: "Fui is the pretérito of ir: a finished 'went'.",

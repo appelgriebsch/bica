@@ -40,28 +40,32 @@ export async function runFocusSmoke(page, base) {
   });
   check(!freshToggle, "fresh Today does not focus the level toggle");
 
-  const toggle = page.getByRole("button", { name: "or choose yourself" });
-  await toggle.click();
+  await page.getByRole("button", { name: "or choose yourself" }).click();
+  const hide = page.getByRole("button", { name: "Hide levels" });
   await page.waitForFunction(() => document.activeElement?.id === "today-level-picker");
   await notBody("toggle open");
+  check((await hide.getAttribute("aria-expanded")) === "true", "toggle aria-expanded is true");
   check(
-    (await toggle.getAttribute("aria-expanded")) === "true",
-    "toggle aria-expanded is true",
+    (await page.locator("#today-level-picker").getAttribute("aria-labelledby")) ===
+      "today-level-label",
+    "today picker group is named",
   );
-  await toggle.click();
-  await page.waitForFunction(() =>
-    (document.activeElement?.textContent ?? "").includes("or choose yourself"),
+  await hide.click();
+  const closed = page.getByRole("button", { name: "or choose yourself" });
+  await page.waitForFunction(
+    () =>
+      document.activeElement?.tagName === "BUTTON" &&
+      (document.activeElement.textContent ?? "").includes("or choose yourself"),
   );
   await notBody("toggle closed");
-  check(
-    (await toggle.getAttribute("aria-expanded")) === "false",
-    "toggle aria-expanded is false",
-  );
+  check((await closed.getAttribute("aria-expanded")) === "false", "toggle aria-expanded is false");
 
   async function placement(then) {
     await page.evaluate(() => localStorage.removeItem("bica.progress.v1"));
     await page.goto(`${base}/placement`, { waitUntil: "networkidle" });
-    await page.waitForFunction(() => document.activeElement?.tagName === "H2");
+    await page.locator("article h2").first().waitFor();
+    const bandOne = await page.evaluate(() => document.activeElement?.tagName ?? "none");
+    check(bandOne !== "H2", `band 1 leaves the prompt unfocused (${bandOne})`);
     for (let n = 1; n <= 15; n++) {
       const lastInBand = n % 3 === 0;
       const band = Math.ceil(n / 3);
@@ -69,7 +73,7 @@ export async function runFocusSmoke(page, base) {
       if (await input.count()) {
         await input.fill("teste");
         await page.getByRole("button", { name: "Check", exact: true }).click();
-        await page.waitForFunction(() => document.activeElement?.tagName === "H3");
+        await page.waitForFunction(() => document.activeElement?.id === "quiz-result");
       } else {
         await page.locator("article ul button").first().click();
       }
@@ -98,9 +102,24 @@ export async function runFocusSmoke(page, base) {
 
   await placement(async () => {
     const level = (await page.locator("h2").first().innerText()).trim();
+    const beforeRaw = await page.evaluate(() => localStorage.getItem("bica.progress.v1"));
     await page.getByRole("button", { name: `Start at ${level}` }).click();
     await page.waitForURL(`${base}/`);
     await page.waitForFunction(() => document.activeElement?.id === "today-heading");
+    const toast = (await page.locator("[data-sonner-toast]").first().innerText()).replace(/\s+/g, " ");
+    const said = await page.getByRole("status").filter({ hasText: "Start level set to" }).innerText();
+    check(toast.includes(`Start level set to ${level}`), `toast says the level (${toast})`);
+    check(said.includes(`Start level set to ${level}`), `announcement says the level (${said})`);
+    const afterRaw = await page.evaluate(() => localStorage.getItem("bica.progress.v1"));
+    const before = beforeRaw ? JSON.parse(beforeRaw).state : {};
+    const after = JSON.parse(afterRaw).state;
+    const changed = Object.keys({ ...before, ...after }).filter(
+      (k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]),
+    );
+    check(
+      changed.length > 0 && changed.every((k) => k === "floor" || k === "floorUpdatedAt"),
+      `setFloor writes only floor and floorUpdatedAt (${changed.join(", ") || "nothing"})`,
+    );
     check(true, `accept lands on Today with focus on #today-heading (${level})`);
   });
 

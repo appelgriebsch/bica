@@ -5,15 +5,19 @@ import { cn } from "@/lib/utils";
 
 export function StartLevelPicker({
   label = "Start from",
+  labelId,
 }: {
   label?: string;
+  labelId?: string;
 }) {
   const floor = useProgress((s) => s.floor);
   const setFloor = useProgress((s) => s.setFloor);
 
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wider text-muted">{label}</p>
+      <p id={labelId} className="text-xs font-medium uppercase tracking-wider text-muted">
+        {label}
+      </p>
       <div className="mt-2 flex flex-wrap gap-2">
         {levels.map((lv) => {
           const on = floor === lv.id;

@@ -108,16 +108,18 @@ function Home() {
             onClick={togglePicker}
             className="mt-2 text-sm font-medium text-accent underline-offset-2 hover:underline"
           >
-            or choose yourself
+            {showPicker ? "Hide levels" : "or choose yourself"}
           </button>
           <div
             id="today-level-picker"
             ref={pickerRef}
+            role="group"
+            aria-labelledby="today-level-label"
             tabIndex={-1}
             hidden={!showPicker}
             className="mt-4 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            <StartLevelPicker label="I am starting at" />
+            <StartLevelPicker label="I am starting at" labelId="today-level-label" />
             <p className="mt-2 text-sm text-subtle">
               Jump the early units if you already greet and order. The path stays
               open.

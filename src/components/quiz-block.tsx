@@ -14,11 +14,16 @@ export function QuizBlock({
   questions,
   onFinished,
   lastLabel = "See results",
+  autoFocusOnMount = false,
 }: {
   questions: QuizQuestion[];
   onFinished: (correct: number) => void;
   /** Last item of a placement band that continues says "Next band" (#158). */
   lastLabel?: string;
+  /** Focus the prompt on mount. Placement sets this after band 1, when the
+   *  previous band's button unmounts. Lesson, listen, read, grammar and verb
+   *  quizzes leave it off so the page heading keeps focus (#158). */
+  autoFocusOnMount?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const { playing, activate, reset, none: noVoice, loading: voiceLoading } = useSpeakPlayback(
@@ -30,7 +35,8 @@ export function QuizBlock({
   const [typedChecked, setTypedChecked] = useState(false);
   const correctRef = useRef(0);
   const promptRef = useRef<HTMLHeadingElement>(null);
-  const feedbackRef = useRef<HTMLHeadingElement>(null);
+  const feedbackRef = useRef<HTMLParagraphElement>(null);
+  const seenFocus = useRef<string | null>(null);
 
   const question = questions[index];
   const revealed = question
@@ -40,12 +46,19 @@ export function QuizBlock({
     : false;
 
   // #158: Next/See results unmounts the control that had focus, and Check
-  // unmounts itself. Move focus to the next prompt, or to the result heading.
+  // unmounts itself. Move focus to the next prompt, or to the result line.
+  // The first key is the mount. Skip it unless autoFocusOnMount, and ignore a
+  // repeat of the same key so StrictMode's second effect run does not focus.
   useEffect(() => {
     if (!question) return;
+    const key = `${index}:${typedChecked ? 1 : 0}`;
+    const prev = seenFocus.current;
+    seenFocus.current = key;
+    if (prev === key) return;
+    if (prev === null && !autoFocusOnMount) return;
     if (question.kind === "type" && typedChecked) feedbackRef.current?.focus();
     else promptRef.current?.focus();
-  }, [index, typedChecked, question]);
+  }, [index, typedChecked, question, autoFocusOnMount]);
 
   if (!question) return null;
 
@@ -104,11 +117,7 @@ export function QuizBlock({
             aria-pressed={playing === "normal" || undefined}
             aria-disabled={noVoice || undefined}
             title={noVoice ? NO_VOICE_NOTE : undefined}
-            className={cn(
-              "[&_svg]:size-5",
-              playing === "normal" && "bg-soft text-accent",
-              noVoice && "opacity-60",
-            )}
+            className={cn("[&_svg]:size-5", playing === "normal" && "bg-soft text-accent")}
             onClick={() => activate("normal")}
           >
             {playing === "normal" ? (
@@ -131,11 +140,7 @@ export function QuizBlock({
             aria-pressed={playing === "slow" || undefined}
             aria-disabled={noVoice || undefined}
             title={noVoice ? NO_VOICE_NOTE : undefined}
-            className={cn(
-              "[&_svg]:size-5",
-              playing === "slow" && "bg-soft text-accent",
-              noVoice && "opacity-60",
-            )}
+            className={cn("[&_svg]:size-5", playing === "slow" && "bg-soft text-accent")}
             onClick={() => activate("slow")}
           >
             <Snail />
@@ -200,7 +205,8 @@ export function QuizBlock({
 
       {revealed && (
         <div className="mt-4">
-          <h3
+          <p
+            id="quiz-result"
             ref={feedbackRef}
             tabIndex={-1}
             className={cn(
@@ -210,7 +216,7 @@ export function QuizBlock({
             )}
           >
             {ok ? "That's it." : "Not quite."}
-          </h3>
+          </p>
           <p className="mt-1 text-sm text-muted">{question.explain}</p>
           {question.kind === "type" && !ok && (question.accept?.[0] ?? "") && (
             <p className="mt-1 text-sm text-fg">

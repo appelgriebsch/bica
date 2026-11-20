@@ -49,6 +49,8 @@ function PlacementPage() {
   // #158: accepting writes floor + floorUpdatedAt (setFloor) and leaves for Today.
   function accept() {
     setFloor(recommended);
+    // ponytail: #158 keeps both. The toast is the sighted line; announce() is the
+    // live region. They use the same words, so a screen reader hears it twice.
     announce(`Start level set to ${recommended}.`);
     toast(`Start level set to ${recommended}.`);
     void navigate({ to: "/" }).then(() => {
@@ -89,6 +91,7 @@ function PlacementPage() {
               questions={band.items}
               onFinished={finishBand}
               lastLabel={bandIndex === placementBands.length - 1 ? "See results" : "Next band"}
+              autoFocusOnMount={bandIndex > 0}
             />
           </div>
         </>
@@ -128,10 +131,12 @@ function PlacementPage() {
           {showPicker ? (
             <div
               ref={pickerRef}
+              role="group"
+              aria-labelledby="placement-level-label"
               tabIndex={-1}
               className={cn("mt-6", focusable)}
             >
-              <StartLevelPicker label="Start from" />
+              <StartLevelPicker label="Start from" labelId="placement-level-label" />
               <Button asChild variant="outline" className="mt-4 w-full">
                 <Link to="/" className="no-underline">
                   Done

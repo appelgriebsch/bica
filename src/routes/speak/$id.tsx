@@ -342,7 +342,7 @@ function SpeakScene() {
         </div>
       )}
 
-      <OnlineOnly feature="conversas">
+      <OnlineOnly feature="conversas" dim={false}>
         <Button
           type="button"
           variant="outline"

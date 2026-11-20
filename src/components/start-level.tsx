@@ -21,6 +21,7 @@ export function StartLevelPicker({
             <button
               key={lv.id}
               type="button"
+              aria-pressed={on}
               onClick={() => setFloor(lv.id as CefrLevel)}
               className={cn(
                 "min-h-11 rounded-[var(--radius-md)] px-4 text-sm font-medium transition-colors duration-[var(--motion-quick)]",

@@ -156,7 +156,7 @@ Seen in: not in the tree.
 
 ## Placement check
 
-Short test that recommends a Start level. Choosing a Level by hand is Start level, not this check. Fifteen questions, three per Level A1–C1, run one Level at a time through the Quiz; the result screen recommends the highest cleared Level (≥2 of 3), never above a failed one, and "Start at X" writes `floor`. Offered on Today to a new learner and on You as a retake ("Find my level with a short check").
+Short test that recommends a Start level. Choosing a Level by hand is Start level, not this check. Fifteen questions, three per Level A1–C1, run one Level at a time through the Quiz; the result screen recommends the highest cleared Level (≥2 of 3), never above a failed one, and "Start at X" writes `floor` and opens Today. Offered on Today to a new learner and on You as a retake ("Find my level with a short check").
 
 Seen in: `src/data/placement.ts`, `src/routes/placement.tsx`, `src/routes/index.tsx`, `src/routes/me.tsx`
 

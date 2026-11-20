@@ -10,7 +10,7 @@
  * (no public binding); browser checks skip when no Chromium is installed locally —
  * CI installs it (#151 m4), so they run there.
  *
- * Also covers #134 (ADR 0021): s1 /speak heading structure + register pills (SSR),
+ * Also covers #154 (ADR 0022): s1 /speak level/topic heading structure + register pills (SSR),
  * s2 /speak at 390px without horizontal overflow (browser).
  */
 import assert from "node:assert/strict";
@@ -367,14 +367,16 @@ test("m4: 404 view's Home link navigates back (#110)", { timeout: 180_000 }, asy
 // ------------------------------------------------------- #134 social scenes (ADR 0021)
 
 test(
-  "s1 (#134): /speak renders one h1, the Cenas sociais h2 after it, and a register pill per social card",
+  "s1 (#154, ADR 0022): /speak renders one h1, then level h2s with topic h3s, and a register pill per social card",
   { timeout: 180_000 },
   async () => {
     const { status, body } = await get("/speak");
     assert.equal(status, 200);
     assert.equal((body.match(/<h1[\s>]/g) ?? []).length, 1, "exactly one h1");
-    assert.ok(body.includes("Cenas sociais"), "social section header missing");
+    assert.ok(body.includes("Survive the counter"), "level h2 title missing");
     assert.ok(body.indexOf("<h2") > body.indexOf("<h1"), "h2 must come after the h1");
+    assert.ok(body.indexOf("<h3") > body.indexOf("<h2"), "topic h3 must come after the first h2");
+    assert.ok(body.includes(">Travel<"), "topic h3 label missing");
     const pills = body.match(/bg-accent px-2 py-0\.5[^>]*>(tu|você)</g) ?? [];
     assert.ok(pills.length >= 5, `expected >= 5 register pills, got ${pills.length}: ${pills}`);
   },

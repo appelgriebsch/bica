@@ -11,13 +11,16 @@ import { socialScenes } from "./social-scenes";
 import { travelScenes } from "./travel-scenes";
 import { phraseGroups, travelPhrases } from "./phrasebook";
 import { verbDesks } from "./verbs";
+import { SCENARIO_TOPICS, topicLabels } from "./types";
 import type {
   CefrLevel,
   GrammarDrill,
   Lesson,
   RadioBulletin,
   ReadingPiece,
+  ScenarioTopic,
   SocialScene,
+  SpeakScenario,
   TravelScene,
   Unit,
   VerbDesk,
@@ -150,6 +153,35 @@ export {
   travelPhrases,
   phraseGroups,
 };
+
+export type SpeakScenarioTopicGroup = {
+  topic: ScenarioTopic;
+  label: string;
+  scenarios: SpeakScenario[];
+};
+
+export type SpeakScenarioLevelGroup = {
+  level: CefrLevel;
+  title: string;
+  topics: SpeakScenarioTopicGroup[];
+};
+
+/** #154 (ADR 0022): /speak grouping — one group per level in cefrRank order (titles from
+ * `levels`), inside it one sub-group per topic in SCENARIO_TOPICS order; authored array
+ * order is kept within a sub-group and empty groups are dropped. */
+export function speakScenarioGroups(): SpeakScenarioLevelGroup[] {
+  return levels
+    .map((lv) => ({
+      level: lv.id,
+      title: lv.title,
+      topics: SCENARIO_TOPICS.map((topic) => ({
+        topic,
+        label: topicLabels[topic],
+        scenarios: speakScenarios.filter((s) => s.level === lv.id && s.topic === topic),
+      })).filter((g) => g.scenarios.length > 0),
+    }))
+    .filter((g) => g.topics.length > 0);
+}
 
 export type CatalogVocab = VocabItem & {
   id: string;

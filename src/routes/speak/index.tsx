@@ -2,11 +2,20 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { OnlineOnly } from "@/components/online-only";
 import { RegisterPill } from "@/components/register-pill";
-import { speakScenarios } from "@/data/curriculum";
-import type { SpeakScenario } from "@/data/types";
+import { speakScenarioGroups } from "@/data/curriculum";
+import { topicLabels } from "@/data/types";
+import type { ScenarioTopic, SpeakScenario } from "@/data/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/speak/")({ component: SpeakIndex });
+
+function TopicChip({ topic }: { topic: ScenarioTopic }) {
+  return (
+    <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted">
+      {topicLabels[topic]}
+    </span>
+  );
+}
 
 function ScenarioCard({ s }: { s: SpeakScenario }) {
   return (
@@ -26,13 +35,14 @@ function ScenarioCard({ s }: { s: SpeakScenario }) {
               className="scene hidden h-28 w-28 shrink-0 object-cover sm:block"
             />
             <div className="min-w-0 p-4">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <p className="min-w-0 text-xs font-medium uppercase tracking-wider text-accent">
                   {s.level} · {s.minutes} min
                 </p>
+                <TopicChip topic={s.topic} />
                 {s.register ? <RegisterPill register={s.register} /> : null}
               </div>
-              <h2 className="mt-1 font-display text-xl font-medium">{s.titlePt}</h2>
+              <h4 className="mt-1 font-display text-xl font-medium">{s.titlePt}</h4>
               <p className="text-sm text-muted">{s.title}</p>
               <p className="mt-2 line-clamp-2 text-sm text-subtle">{s.setting}</p>
             </div>
@@ -44,37 +54,34 @@ function ScenarioCard({ s }: { s: SpeakScenario }) {
 }
 
 function SpeakIndex() {
-  // #134 (ADR 0021): Social Scenes are a named, headed set on top; guarded so an
-  // empty set never renders an empty header.
-  const social = speakScenarios.filter((s) => s.group === "social");
-  const rest = speakScenarios.filter((s) => s.group !== "social");
+  // #154 (ADR 0022): one section per level (A1 → C1), each with topic sub-groups;
+  // speakScenarioGroups() drops empty groups and keeps authored order within a group.
+  const groups = speakScenarioGroups();
   return (
     <AppShell>
       <h1 className="font-display text-3xl font-medium tracking-tight">Speak</h1>
       <p className="mt-2 text-muted">
-        Short scenes with a native of Portugal — not Brazil. Stay in character.
-        Make mistakes. Recasts come for free. The partner is live.
+        Short scenes with a native of Portugal — not Brazil. Stay in character. Make mistakes.
+        Recasts come for free. The partner is live.
       </p>
 
-      {social.length > 0 && (
-        <section className="mt-6">
-          <h2 className="font-display text-xl font-medium">Cenas sociais</h2>
-          <ul className="mt-3 grid gap-3">
-            {social.map((s) => (
-              <ScenarioCard key={s.id} s={s} />
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section className="mt-6">
-        <h2 className="font-display text-xl font-medium">Outras cenas</h2>
-        <ul className="mt-3 grid gap-3">
-          {rest.map((s) => (
-            <ScenarioCard key={s.id} s={s} />
+      {groups.map((g) => (
+        <section key={g.level} className="mt-6">
+          <h2 className="font-display text-xl font-medium">
+            {g.level} · {g.title}
+          </h2>
+          {g.topics.map((t) => (
+            <div key={t.topic} className="mt-4">
+              <h3 className="text-xs font-medium uppercase tracking-wider text-muted">{t.label}</h3>
+              <ul className="mt-3 grid gap-3">
+                {t.scenarios.map((s) => (
+                  <ScenarioCard key={s.id} s={s} />
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
-      </section>
+        </section>
+      ))}
     </AppShell>
   );
 }

@@ -82,6 +82,31 @@ export type Unit = {
 /** Social Scenes (#81, ADR 0021): the register the partner addresses the learner with. */
 export type Register = "tu" | "você";
 
+/** Conversas topics (#154, ADR 0022): fixed set in display order, inner groups on /speak. */
+export const SCENARIO_TOPICS = [
+  "social",
+  "travel",
+  "food",
+  "shopping",
+  "health",
+  "work",
+  "home",
+  "leisure",
+] as const;
+
+export type ScenarioTopic = (typeof SCENARIO_TOPICS)[number];
+
+export const topicLabels: Record<ScenarioTopic, string> = {
+  social: "Social",
+  travel: "Travel",
+  food: "Food",
+  shopping: "Shopping",
+  health: "Health",
+  work: "Work",
+  home: "Home",
+  leisure: "Leisure",
+};
+
 export type SpeakScenario = {
   id: string;
   level: CefrLevel;
@@ -94,8 +119,8 @@ export type SpeakScenario = {
   openerEn: string;
   goals: string[];
   image: string;
-  /** Social Scenes set (#81, ADR 0021): rendered as "Cenas sociais" on /speak. */
-  group?: "social";
+  /** Topic group on /speak (#154, ADR 0022); "social" keeps the ADR 0021 register contract. */
+  topic: ScenarioTopic;
   /** Register the partner keeps to; server-side data only, never client input (#81, ADR 0021). */
   register?: Register;
 };

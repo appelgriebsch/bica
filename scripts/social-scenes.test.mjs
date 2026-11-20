@@ -1,5 +1,5 @@
 /** #134/#135 (ADR 0021): Social Scenes data contract. Conversas side: every
- * `group: "social"` scene declares a register (tu/você), sits at A2 or above,
+ * `topic: "social"` scene declares a register (tu/você), sits at A2 or above,
  * states the register in its setting, and has a precached image. Practice side:
  * every SocialScene has a unique id, level >= A2, a lesson with vocab (feeds
  * Palavras), a 1:1 link to a social Conversas partner, an existing image, and a
@@ -42,7 +42,7 @@ const registerSentence = (r) => (r === "tu" ? "Falam de tu." : "Falam de você."
 test("social scenarios (#134, ADR 0021): unique ids, register declared, level >= A2, precached image", () => {
   const ids = speakScenarios.map((s) => s.id);
   assert.equal(new Set(ids).size, ids.length, "duplicate scenario ids");
-  const social = speakScenarios.filter((s) => s.group === "social");
+  const social = speakScenarios.filter((s) => s.topic === "social");
   assert.ok(social.length >= 5, `expected at least the 5 tagged social scenes, got ${social.length}`);
   for (const s of social) {
     assert.ok(s.register === "tu" || s.register === "você", `register missing on social scene ${s.id}`);
@@ -64,7 +64,7 @@ test("the three new social chat scenes (#135): ids, levels, registers", () => {
   for (const [id, [level, register]] of Object.entries(expected)) {
     const s = speakScenarios.find((sc) => sc.id === id);
     assert.ok(s, `missing scenario ${id}`);
-    assert.equal(s.group, "social", `${id} group`);
+    assert.equal(s.topic, "social", `${id} topic`);
     assert.equal(s.level, level, `${id} level`);
     assert.equal(s.register, register, `${id} register`);
     assert.ok(s.openerPt && s.openerEn && s.partner && s.setting, `${id} fields`);
@@ -77,7 +77,7 @@ test("social scenes (#135, ADR 0021): contract — ids, level, lesson with vocab
   const ids = socialScenes.map((s) => s.id);
   assert.equal(new Set(ids).size, ids.length, "duplicate social scene ids");
   const socialScenarioIds = new Set(
-    speakScenarios.filter((s) => s.group === "social").map((s) => s.id),
+    speakScenarios.filter((s) => s.topic === "social").map((s) => s.id),
   );
   const linked = new Set();
   for (const s of socialScenes) {

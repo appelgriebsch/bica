@@ -4,6 +4,7 @@ export const speakScenarios: SpeakScenario[] = [
   {
     id: "pastelaria",
     level: "A1",
+    topic: "food",
     minutes: 8,
     title: "At the pastelaria",
     titlePt: "Na pastelaria",
@@ -18,6 +19,7 @@ export const speakScenarios: SpeakScenario[] = [
   {
     id: "direcoes",
     level: "A1",
+    topic: "travel",
     minutes: 8,
     title: "Lost near the castle",
     titlePt: "Perto do Castelo",
@@ -32,6 +34,7 @@ export const speakScenarios: SpeakScenario[] = [
   {
     id: "bilhete",
     level: "A1",
+    topic: "travel",
     minutes: 8,
     title: "The ticket desk",
     titlePt: "O bilhete",
@@ -46,6 +49,7 @@ export const speakScenarios: SpeakScenario[] = [
   {
     id: "origem",
     level: "A1",
+    topic: "home",
     minutes: 8,
     title: "Where you're from",
     titlePt: "De onde é?",
@@ -60,6 +64,7 @@ export const speakScenarios: SpeakScenario[] = [
   {
     id: "restaurante",
     level: "A1",
+    topic: "food",
     minutes: 8,
     title: "At the restaurant",
     titlePt: "No restaurante",
@@ -74,6 +79,7 @@ export const speakScenarios: SpeakScenario[] = [
   {
     id: "planos",
     level: "A2",
+    topic: "social",
     minutes: 10,
     title: "Making dinner plans",
     titlePt: "Marcar jantar",
@@ -84,12 +90,12 @@ export const speakScenarios: SpeakScenario[] = [
     openerEn: "Hi! So, will you have time tomorrow night?",
     goals: ["Propose a time with que tal", "Accept or suggest another", "Close with combinado"],
     image: "/scenes/phone.jpg",
-    group: "social",
     register: "tu",
   },
   {
     id: "trabalho-chat",
     level: "A2",
+    topic: "work",
     minutes: 8,
     title: "What you do",
     titlePt: "O trabalho",
@@ -104,6 +110,7 @@ export const speakScenarios: SpeakScenario[] = [
   {
     id: "farmacia",
     level: "A2",
+    topic: "health",
     minutes: 8,
     title: "At the chemist",
     titlePt: "Na farmácia",
@@ -118,6 +125,7 @@ export const speakScenarios: SpeakScenario[] = [
   {
     id: "fim-de-semana",
     level: "A2",
+    topic: "social",
     minutes: 10,
     title: "How was the weekend?",
     titlePt: "O fim de semana",
@@ -128,12 +136,12 @@ export const speakScenarios: SpeakScenario[] = [
     openerEn: "So, how was the weekend?",
     goals: ["Use fui / vi / gostei", "Ask a follow-up", "Keep it to a few sentences"],
     image: "/scenes/cafe.jpg",
-    group: "social",
     register: "você",
   },
   {
     id: "alojamento",
     level: "A2",
+    topic: "travel",
     minutes: 10,
     title: "Checking in",
     titlePt: "Na receção",
@@ -152,6 +160,7 @@ export const speakScenarios: SpeakScenario[] = [
   {
     id: "radio-chat",
     level: "B1",
+    topic: "leisure",
     minutes: 10,
     title: "After the news",
     titlePt: "Depois das notícias",
@@ -166,6 +175,7 @@ export const speakScenarios: SpeakScenario[] = [
   {
     id: "livro",
     level: "B1",
+    topic: "shopping",
     minutes: 10,
     title: "In the bookshop",
     titlePt: "Na livraria",
@@ -180,6 +190,7 @@ export const speakScenarios: SpeakScenario[] = [
   {
     id: "habitacao",
     level: "B2",
+    topic: "social",
     minutes: 12,
     title: "Over dinner: the city",
     titlePt: "À mesa",
@@ -190,12 +201,12 @@ export const speakScenarios: SpeakScenario[] = [
     openerEn: "And you, what do you think? Is this city still for the people who live here?",
     goals: ["Use por um lado / por outro", "Hedge with diria que", "Leave the door open"],
     image: "/scenes/dinner.jpg",
-    group: "social",
     register: "tu",
   },
   {
     id: "saudade-talk",
     level: "B2",
+    topic: "social",
     minutes: 10,
     title: "Missing home, a little less",
     titlePt: "Saudades",
@@ -206,12 +217,12 @@ export const speakScenarios: SpeakScenario[] = [
     openerEn: "Do you feel at ease yet, or do you still miss home?",
     goals: ["Use ter saudades de", "Qualify with já menos", "Ask them something back"],
     image: "/scenes/balcony.jpg",
-    group: "social",
     register: "você",
   },
   {
     id: "mesa-serio",
     level: "C1",
+    topic: "social",
     minutes: 12,
     title: "The table, in earnest",
     titlePt: "A mesa, a sério",
@@ -222,12 +233,12 @@ export const speakScenarios: SpeakScenario[] = [
     openerEn: "This city is no longer for the people who live here. Full stop. Or do you still think otherwise?",
     goals: ["Use ainda que + subjunctive", "Quote without owning: há quem diga", "Land with podemos ficar por aqui"],
     image: "/scenes/dinner.jpg",
-    group: "social",
     register: "tu",
   },
   {
     id: "almoco-familia",
     level: "A2",
+    topic: "social",
     minutes: 10,
     title: "Family lunch",
     titlePt: "Almoço em família",
@@ -242,12 +253,12 @@ export const speakScenarios: SpeakScenario[] = [
       "Ask when you can visit again",
     ],
     image: "/scenes/family-lunch.jpg",
-    group: "social",
     register: "você",
   },
   {
     id: "amigos-da-ines",
     level: "A2",
+    topic: "social",
     minutes: 10,
     title: "Meeting her friends",
     titlePt: "Conhecer os amigos",
@@ -262,12 +273,12 @@ export const speakScenarios: SpeakScenario[] = [
       "Order a drink with the group",
     ],
     image: "/scenes/friends.jpg",
-    group: "social",
     register: "tu",
   },
   {
     id: "cafe-colegas",
     level: "B1",
+    topic: "social",
     minutes: 10,
     title: "Coffee with colleagues",
     titlePt: "Café com os colegas",
@@ -282,7 +293,6 @@ export const speakScenarios: SpeakScenario[] = [
       "Ask e você — how was the weekend",
     ],
     image: "/scenes/colleagues.jpg",
-    group: "social",
     register: "você",
   },
 ];

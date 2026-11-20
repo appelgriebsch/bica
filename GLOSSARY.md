@@ -90,7 +90,7 @@ Seen in: `src/routes/practice.tsx`, `src/routes/speak/index.tsx`, `src/lib/onlin
 
 ## Scene
 
-A Conversas situation: setting, partner and goals (`SpeakScenario`). Today’s Speak card says "A short scene". A Lesson dialogue uses that same heading for a script, not for Conversas. A Travel Scene (below) is a separate Practice item, not a Conversas Scene.
+A Conversas situation: level, topic, setting, partner and goals (`SpeakScenario`); `/speak` groups scenes by level, then topic (#154, ADR 0022). Today’s Speak card says "A short scene". A Lesson dialogue uses that same heading for a script, not for Conversas. A Travel Scene (below) is a separate Practice item, not a Conversas Scene.
 
 Seen in: `src/data/types.ts`, `src/data/scenarios.ts`, `src/routes/index.tsx`, `src/routes/speak/index.tsx`, `src/components/lesson-player.tsx`
 
@@ -174,6 +174,6 @@ Seen in: `src/routes/me.tsx`, `src/data/phrasebook.ts`
 
 ## Social Scenes
 
-A named set in Conversas, listed first under "Cenas sociais" on `/speak`: family, friends and colleagues situations tagged `group: "social"` on `SpeakScenario`, from A2 up. Each Scene states its register (tu or você) — as a pill on the `/speak` card, in the `/speak/$id` kicker and in the setting text — and the partner prompt pins that register (`registerPrompt` in `src/lib/chat-core.ts`), with the end-of-scene review repeating it as a `Register:` line (ADR 0021). 8 chat scenes: the family lunch, meeting the partner's friends and the colleagues' coffee are new (#135); the 5 existing friend/colleague situations were retagged (#134). The same 8 situations also run as offline scripted scenes on Practice under "Cenas sociais" (`SocialScene`: 1:1 `scenarioId` link to the Conversas partner, a required `lessonId` whose words feed Palavras), opened via `/scene/$id`. The 3 new situations got their own illustrations via `scripts/scene-regen` (#136); the 5 existing ones keep their current images.
+A named set in Conversas: family, friends and colleagues situations tagged `topic: "social"` on `SpeakScenario`, from A2 up, grouped under the "Social" topic of their level on `/speak` (#154, ADR 0022). Each Scene states its register (tu or você) — as a pill on the `/speak` card, in the `/speak/$id` kicker and in the setting text — and the partner prompt pins that register (`registerPrompt` in `src/lib/chat-core.ts`), with the end-of-scene review repeating it as a `Register:` line (ADR 0021). 8 chat scenes: the family lunch, meeting the partner's friends and the colleagues' coffee are new (#135); the 5 existing friend/colleague situations were retagged (#134). The same 8 situations also run as offline scripted scenes on Practice under "Cenas sociais" (`SocialScene`: 1:1 `scenarioId` link to the Conversas partner, a required `lessonId` whose words feed Palavras), opened via `/scene/$id`. The 3 new situations got their own illustrations via `scripts/scene-regen` (#136); the 5 existing ones keep their current images.
 
 Seen in: `src/data/scenarios.ts`, `src/data/social-scenes.ts`, `src/data/types.ts`, `src/routes/speak/index.tsx`, `src/routes/speak/$id.tsx`, `src/routes/scene/$id.tsx`, `src/routes/practice.tsx`, `src/components/register-pill.tsx`, `src/lib/chat-core.ts`, `docs/adr/0021-social-scenes.md`

@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, BookOpen, Clock3, Headphones, MessageCircle, PenLine, RotateCcw, WholeWord } from "lucide-react";
+import { flushSync } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { StartLevelPicker } from "@/components/start-level";
@@ -34,23 +35,19 @@ function Home() {
   const [showPicker, setShowPicker] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
-  const pickerMounted = useRef(false);
 
   useEffect(() => {
     setHour(new Date().getHours());
     void loadPtVoice();
   }, []);
 
-  // #158: opening reveals the picker and moves focus there; closing returns
-  // focus to the toggle. Skip the first run so Today doesn't steal focus.
-  useEffect(() => {
-    if (!pickerMounted.current) {
-      pickerMounted.current = true;
-      return;
-    }
-    if (showPicker) pickerRef.current?.focus();
-    else toggleRef.current?.focus();
-  }, [showPicker]);
+  // #158: move focus in the click, not in an effect. A mount effect runs twice
+  // under StrictMode and would land focus on this toggle on a fresh Today load.
+  function togglePicker() {
+    const open = !showPicker;
+    flushSync(() => setShowPicker(open));
+    (open ? pickerRef : toggleRef).current?.focus();
+  }
 
   const greet = greetingForHour(hour);
   const doneIds = useMemo(() => new Set(Object.keys(completed)), [completed]);
@@ -108,7 +105,7 @@ function Home() {
             type="button"
             aria-expanded={showPicker}
             aria-controls="today-level-picker"
-            onClick={() => setShowPicker((open) => !open)}
+            onClick={togglePicker}
             className="mt-2 text-sm font-medium text-accent underline-offset-2 hover:underline"
           >
             or choose yourself

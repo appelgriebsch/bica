@@ -48,6 +48,8 @@ test("Today's level toggle exposes aria-expanded and aria-controls", () => {
   assert.match(home, /aria-expanded=\{showPicker\}/);
   assert.match(home, /aria-controls="today-level-picker"/);
   assert.match(home, /id="today-level-picker"/);
+  assert.match(home, /flushSync\(\(\) => setShowPicker\(open\)\)/);
+  assert.doesNotMatch(home, /pickerMounted/);
 });
 
 test("a2-q2 uses a, not à, before Belém", () => {

@@ -1,5 +1,5 @@
 import { Loader2, Snail, Square } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NO_VOICE_NOTE } from "@/components/pt-voice-notice";
 import { useSpeakPlayback } from "@/components/use-speak-playback";
 import { Button } from "@/components/ui/button";
@@ -7,12 +7,18 @@ import type { QuizQuestion } from "@/data/types";
 import { QUIZ_RATE } from "@/lib/tts";
 import { answersMatch, cn } from "@/lib/utils";
 
+const focusable =
+  "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+
 export function QuizBlock({
   questions,
   onFinished,
+  lastLabel = "See results",
 }: {
   questions: QuizQuestion[];
   onFinished: (correct: number) => void;
+  /** Last item of a placement band that continues says "Next band" (#158). */
+  lastLabel?: string;
 }) {
   const [index, setIndex] = useState(0);
   const { playing, activate, reset, none: noVoice, loading: voiceLoading } = useSpeakPlayback(
@@ -23,12 +29,26 @@ export function QuizBlock({
   const [typed, setTyped] = useState("");
   const [typedChecked, setTypedChecked] = useState(false);
   const correctRef = useRef(0);
+  const promptRef = useRef<HTMLHeadingElement>(null);
+  const feedbackRef = useRef<HTMLHeadingElement>(null);
 
   const question = questions[index];
+  const revealed = question
+    ? question.kind === "type"
+      ? typedChecked
+      : picked !== null
+    : false;
+
+  // #158: Next/See results unmounts the control that had focus, and Check
+  // unmounts itself. Move focus to the next prompt, or to the result heading.
+  useEffect(() => {
+    if (!question) return;
+    if (question.kind === "type" && typedChecked) feedbackRef.current?.focus();
+    else promptRef.current?.focus();
+  }, [index, typedChecked, question]);
+
   if (!question) return null;
 
-  const revealed =
-    question.kind === "type" ? typedChecked : picked !== null;
   const ok =
     question.kind === "type"
       ? answersMatch(typed, question.accept ?? [])
@@ -66,7 +86,13 @@ export function QuizBlock({
       <p className="text-xs font-medium uppercase tracking-wider text-accent">
         Quiz · {index + 1} / {questions.length}
       </p>
-      <h2 className="mt-2 font-display text-2xl font-medium">{question.prompt}</h2>
+      <h2
+        ref={promptRef}
+        tabIndex={-1}
+        className={cn("mt-2 font-display text-2xl font-medium", focusable)}
+      >
+        {question.prompt}
+      </h2>
       {(question.kind === "listen" || question.speak) && question.speak && (
         <div className="mt-3 flex items-center gap-2">
           <Button
@@ -174,9 +200,17 @@ export function QuizBlock({
 
       {revealed && (
         <div className="mt-4">
-          <p className={cn("text-sm font-medium", ok ? "text-success" : "text-danger")}>
+          <h3
+            ref={feedbackRef}
+            tabIndex={-1}
+            className={cn(
+              "text-sm font-medium",
+              focusable,
+              ok ? "text-success" : "text-danger",
+            )}
+          >
             {ok ? "That's it." : "Not quite."}
-          </p>
+          </h3>
           <p className="mt-1 text-sm text-muted">{question.explain}</p>
           {question.kind === "type" && !ok && (question.accept?.[0] ?? "") && (
             <p className="mt-1 text-sm text-fg">
@@ -184,7 +218,7 @@ export function QuizBlock({
             </p>
           )}
           <Button className="mt-4 w-full" onClick={goNext}>
-            {index === questions.length - 1 ? "See results" : "Next"}
+            {index === questions.length - 1 ? lastLabel : "Next"}
           </Button>
         </div>
       )}

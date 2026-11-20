@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
 import { QuizBlock } from "@/components/quiz-block";
@@ -22,12 +22,17 @@ export const Route = createFileRoute("/placement")({ component: PlacementPage })
 
 const ALL_ZERO: Record<CefrLevel, number> = { A1: 0, A2: 0, B1: 0, B2: 0, C1: 0 };
 
+const focusable =
+  "outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+
 function PlacementPage() {
+  const navigate = useNavigate();
   const setFloor = useProgress((s) => s.setFloor);
   const [bandIndex, setBandIndex] = useState(0);
   const [scores, setScores] = useState<Partial<Record<CefrLevel, number>>>({});
-  const [accepted, setAccepted] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  const resultRef = useRef<HTMLHeadingElement>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
 
   const running = bandIndex < placementBands.length;
   const band = placementBands[bandIndex];
@@ -41,12 +46,23 @@ function PlacementPage() {
     setBandIndex((i) => i + 1);
   }
 
+  // #158: accepting writes floor + floorUpdatedAt (setFloor) and leaves for Today.
   function accept() {
     setFloor(recommended);
     announce(`Start level set to ${recommended}.`);
     toast(`Start level set to ${recommended}.`);
-    setAccepted(true);
+    void navigate({ to: "/" }).then(() => {
+      document.getElementById("today-heading")?.focus();
+    });
   }
+
+  // See results replaces the quiz, and Choose another level replaces its button.
+  useEffect(() => {
+    if (!running) resultRef.current?.focus();
+  }, [running]);
+  useEffect(() => {
+    if (showPicker) pickerRef.current?.focus();
+  }, [showPicker]);
 
   return (
     <AppShell>
@@ -68,14 +84,25 @@ function PlacementPage() {
             {band.level} · {bandIndex + 1} of {placementBands.length}
           </p>
           <div className="mt-2">
-            <QuizBlock key={band.level} questions={band.items} onFinished={finishBand} />
+            <QuizBlock
+              key={band.level}
+              questions={band.items}
+              onFinished={finishBand}
+              lastLabel={bandIndex === placementBands.length - 1 ? "See results" : "Next band"}
+            />
           </div>
         </>
       ) : (
         <>
           <p className="mt-2 text-sm text-muted">Your recommended start level.</p>
           <div className="mt-4 rounded-[var(--radius-lg)] bg-surface p-5 shadow-[var(--shadow-border)]">
-            <p className="font-display text-4xl font-medium">{recommended}</p>
+            <h2
+              ref={resultRef}
+              tabIndex={-1}
+              className={cn("font-display text-4xl font-medium", focusable)}
+            >
+              {recommended}
+            </h2>
             <p className="mt-1 font-medium">{meta.title}</p>
             <p className="mt-1 text-sm text-muted">{meta.blurb}</p>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -98,15 +125,12 @@ function PlacementPage() {
             </div>
           </div>
 
-          {accepted ? (
-            <Button asChild className="mt-6 w-full">
-              <Link to="/" className="no-underline">
-                Go to Today
-                <ArrowRight />
-              </Link>
-            </Button>
-          ) : showPicker ? (
-            <div className="mt-6">
+          {showPicker ? (
+            <div
+              ref={pickerRef}
+              tabIndex={-1}
+              className={cn("mt-6", focusable)}
+            >
               <StartLevelPicker label="Start from" />
               <Button asChild variant="outline" className="mt-4 w-full">
                 <Link to="/" className="no-underline">

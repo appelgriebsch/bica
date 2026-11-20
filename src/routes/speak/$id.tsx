@@ -126,6 +126,10 @@ function SpeakScene() {
   // #150: Send is only sendable online, idle and non-empty; otherwise it is a
   // quiet ghost with aria-disabled (never native disabled, so it stays focusable).
   const canSend = online && !busy && Boolean(draft.trim());
+  // #158 L1: before the first learner line, Finish stays focusable. Omit the
+  // attribute once a line exists so OnlineOnly can still set it while offline.
+  const noLearnerLine = !turns.some((t) => t.role === "user");
+  const finishBusy = busy || review.status === "loading";
 
   async function onSend() {
     const text = draft.trim();
@@ -343,12 +347,19 @@ function SpeakScene() {
           type="button"
           variant="outline"
           className="mt-4 w-full"
-          onClick={() => void onFinish()}
-          disabled={
-            busy ||
-            review.status === "loading" ||
-            !turns.some((t) => t.role === "user")
-          }
+          // #158 L1: no learner line stays focusable (aria-disabled, like Send).
+          // A press announces why and sends nothing; offline, OnlineOnly toasts.
+          // With a line, busy/loading still use native disabled.
+          {...(noLearnerLine ? { "aria-disabled": true } : {})}
+          disabled={!noLearnerLine && finishBusy}
+          onClick={(e) => {
+            if (noLearnerLine) {
+              e.preventDefault();
+              if (online) announce("Say something first.");
+              return;
+            }
+            void onFinish();
+          }}
         >
           <Flag /> Finish scene — see my corrections
         </Button>
@@ -396,7 +407,7 @@ function SpeakScene() {
           onChange={(e) => setDraft(e.target.value)}
           placeholder={listening ? "A ouvir…" : "Write in Portuguese…"}
           maxLength={500}
-          className="h-12 min-h-12 flex-1 rounded-[var(--radius-md)] border border-border bg-surface px-3 text-base text-fg outline-none ring-accent placeholder:text-subtle focus:ring-2"
+          className="h-12 min-h-12 min-w-0 flex-1 rounded-[var(--radius-md)] border border-border bg-surface px-3 text-base text-fg outline-none ring-accent placeholder:text-subtle focus:ring-2"
         />
         <MicButton
           value={draft}

@@ -177,6 +177,28 @@ export type SocialScene = {
   scenarioId: string;
 };
 
+/**
+ * Service Scenes (#173, ADR 0032): scripted public-service situations on Practice
+ * (e.g. booking a consulta at the centro de saúde by phone). The Travel Scenes
+ * pattern (ADR 0016) with a required `lessonId` and a 1:1 Conversas `scenarioId`
+ * partner; the partner carries the register (ADR 0021), not the scene.
+ */
+export type ServiceScene = {
+  id: string;
+  level: CefrLevel;
+  minutes: number;
+  title: string;
+  titlePt: string;
+  setting: string;
+  partner: string;
+  lines: DialogueLine[];
+  image: string;
+  /** Matching lesson; its words feed Palavras when finished (ADR 0016 pattern). */
+  lessonId: string;
+  /** Conversas partner, online-only (ADR 0032). */
+  scenarioId: string;
+};
+
 /** Travel Phrasebook (#77, ADR 0015): a trip situation, or "anywhere" for the staples group. */
 export type PhraseSituation = TravelSituation | "anywhere";
 

@@ -396,4 +396,25 @@ export const speakScenarios: SpeakScenario[] = [
     image: "/scenes/terrace.jpg",
     register: "você",
   },
+  {
+    id: "marcar-consulta",
+    level: "A2",
+    topic: "health",
+    minutes: 8,
+    title: "Booking a consulta",
+    titlePt: "Marcar consulta",
+    setting:
+      "You are on the phone with the receção of the centro de saúde, weekday morning. Book a consulta with o médico de família, say your sintomas in one sentence, confirm the time. Falam de você.",
+    partner: "The receptionist at the centro de saúde",
+    openerPt: "Bom dia. Em que posso ajudar?",
+    openerEn: "Good morning. How can I help?",
+    goals: [
+      "Open the call: estou + posso falar com a receção",
+      "Marcar uma consulta para + day (para quinta-feira)",
+      "Say the sintomas in one sentence (dói-me a garganta)",
+      "Confirm the hora and close politely (até quinta-feira)",
+    ],
+    image: "/scenes/phone.jpg",
+    register: "você",
+  },
 ];

@@ -13,6 +13,10 @@
  * position, 8 min, 7 questions of all four kinds), its coverage (mais/menos …
  * do que, o mais / o menos + adjective, the irregulars melhor/pior/maior/menor)
  * and its ptNote (PT keeps "do que", BR drops it).
+ * #166 (gap G3, ADR 0029): the `gram-b1-perfeito-composto` drill shape (B1,
+ * 4th position, 10 min, 7 questions of all four kinds), its coverage (ter +
+ * participle, the irregulars feito/dito/visto/posto, the composto-vs-simples
+ * contrast) and its ptNote (PT keeps "tenho …", BR uses the simple pretérito).
  * Run with `bun run test` (node --test scripts/*.test.mjs). */
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -73,7 +77,7 @@ test("gram-a1-enclise is the 4th A1 drill: 8 min, 7 questions of all four kinds"
 });
 
 test("ptNote shape on the drills that carry one: non-empty pt/br/en, pt !== br", () => {
-  for (const id of ["gram-a1-enclise", "gram-a2-imperativo", "gram-a2-comparativos", "gram-b2-cliticos"]) {
+  for (const id of ["gram-a1-enclise", "gram-a2-imperativo", "gram-a2-comparativos", "gram-b1-perfeito-composto", "gram-b2-cliticos"]) {
     const drill = grammarDrills.find((d) => d.id === id);
     assert.ok(drill?.ptNote, `${id} needs a ptNote`);
     const { pt, br, en } = drill.ptNote;
@@ -183,6 +187,54 @@ test("the gram-a2-comparativos ptNote contrasts PT 'do que' with BR 'que'", () =
   const { pt, br } = drill.ptNote;
   assert.ok(/mais\b[^.]{0,20}do que/i.test(pt), "pt side keeps 'do que' (mais … do que)");
   assert.ok(/mais\b[^.]{0,20}que/i.test(br) && !/do que/i.test(br), "br side drops the 'do' (mais … que)");
+});
+
+test("gram-b1-perfeito-composto is the 4th B1 drill: 10 min, 7 questions of all four kinds", () => {
+  const b1 = grammarDrills.filter((d) => d.level === "B1");
+  const drill = b1.find((d) => d.id === "gram-b1-perfeito-composto");
+  assert.ok(drill, "gram-b1-perfeito-composto missing");
+  assert.equal(
+    b1.indexOf(drill),
+    3,
+    "gram-b1-perfeito-composto must be the 4th B1 drill (the Next-drill chain follows array order)",
+  );
+  assert.equal(drill.minutes, 10);
+  assert.equal(drill.quiz.length, 7);
+  assert.deepEqual(
+    [...new Set(drill.quiz.map((q) => q.kind))].sort(),
+    ["choice", "listen", "truefalse", "type"],
+    "all four existing quiz kinds",
+  );
+  for (const q of drill.quiz) {
+    assert.ok(q.explain.trim(), `${drill.id}/${q.id}: explain required`);
+    if (q.kind === "listen") assert.ok(q.speak?.trim(), `${q.id}: listen needs a speak line (Play + Slower)`);
+    if (q.kind === "type") assert.ok(q.accept?.length, `${q.id}: type needs accept`);
+  }
+  assert.ok(drill.quiz.some((q) => q.kind === "listen" && q.speak), "at least one listen with speak");
+  assert.equal(drill.examples.length, 3, "three examples, like every drill");
+});
+
+test("gram-b1-perfeito-composto covers ter + participle, the irregulars, and the composto-vs-simples contrast", () => {
+  const drill = grammarDrills.find((d) => d.id === "gram-b1-perfeito-composto");
+  assert.ok(drill, "gram-b1-perfeito-composto missing");
+  const all = [
+    drill.body,
+    ...drill.examples.map((e) => e.pt),
+    ...drill.quiz.flatMap((q) => [q.prompt, ...(q.options ?? []), ...(q.accept ?? []), q.explain]),
+  ].join(" ");
+  assert.ok(/\b(tenho|tens|tem)\s+[a-zà-ú]+/i.test(all), "ter (presente) + participle must be drilled");
+  for (const w of ["feito", "dito", "visto", "posto"]) {
+    assert.ok(new RegExp(`\\b${w}\\b`, "i").test(all), `irregular participle ${w} missing`);
+  }
+  assert.ok(/composto/i.test(all) && /simples/i.test(all), "the composto-vs-simples contrast must be drilled");
+});
+
+test("the gram-b1-perfeito-composto ptNote contrasts PT 'tenho …' with BR simple pretérito", () => {
+  const drill = grammarDrills.find((d) => d.id === "gram-b1-perfeito-composto");
+  assert.ok(drill?.ptNote, "gram-b1-perfeito-composto needs a ptNote");
+  const { pt, br } = drill.ptNote;
+  assert.ok(/\btenho\b/i.test(pt), "pt side keeps ter + participle (tenho andado)");
+  assert.ok(/\bandei\b|\bcomi\b|\bfiz\b/i.test(br) && !/\btenho\b/i.test(br), "br side uses the simple pretérito (andei)");
 });
 
 test("grammar/$id.tsx renders <PortugalNote> only under drill.ptNote, after the examples list", () => {

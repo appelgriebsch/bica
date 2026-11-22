@@ -7,6 +7,7 @@ import { grammarDrills } from "./grammar";
 import { radioBulletins } from "./radio";
 import { readingPieces } from "./reading";
 import { speakScenarios } from "./scenarios";
+import { serviceScenes } from "./service-scenes";
 import { socialScenes } from "./social-scenes";
 import { travelScenes } from "./travel-scenes";
 import { phraseGroups, travelPhrases } from "./phrasebook";
@@ -19,6 +20,7 @@ import type {
   RadioBulletin,
   ReadingPiece,
   ScenarioTopic,
+  ServiceScene,
   SocialScene,
   SpeakScenario,
   TravelScene,
@@ -146,6 +148,7 @@ export {
   speakScenarios,
   travelScenes,
   socialScenes,
+  serviceScenes,
   radioBulletins,
   readingPieces,
   grammarDrills,
@@ -279,14 +282,20 @@ export function getSocialScene(id: string): SocialScene | undefined {
   return socialScenes.find((s) => s.id === id);
 }
 
-/** One scripted scene of either kind (#81, ADR 0021): travel or social. */
+export function getServiceScene(id: string): ServiceScene | undefined {
+  return serviceScenes.find((s) => s.id === id);
+}
+
+/** One scripted scene of any kind (#81, ADR 0021; #173, ADR 0032): travel, social or service. */
 export function getScriptedScene(
   id: string,
-): { scene: TravelScene | SocialScene; kind: "travel" | "social" } | undefined {
+): { scene: TravelScene | SocialScene | ServiceScene; kind: "travel" | "social" | "service" } | undefined {
   const travel = getTravelScene(id);
   if (travel) return { scene: travel, kind: "travel" };
   const social = getSocialScene(id);
   if (social) return { scene: social, kind: "social" };
+  const service = getServiceScene(id);
+  if (service) return { scene: service, kind: "service" };
   return undefined;
 }
 

@@ -37,7 +37,7 @@ function ScenePage() {
         </Button>
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wider text-accent">
-            {kind === "social" ? "Cenas sociais" : "Cenas de viagem"} · {scene.level}
+            {kind === "travel" ? "Cenas de viagem" : kind === "social" ? "Cenas sociais" : "Cenas de serviço"} · {scene.level}
             {scenario?.register ? ` · ${scenario.register}` : ""} · {scene.minutes} min
           </p>
           <h1 className="truncate font-display text-2xl font-medium tracking-tight">

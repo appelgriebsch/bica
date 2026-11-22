@@ -34,7 +34,7 @@ function compile(file) {
 }
 const load = (file) => import(pathToFileURL(compile(file)).href);
 
-const { speakScenarios, cefrRank, socialScenes, getSocialScene, getScriptedScene, getLesson, travelScenes } =
+const { speakScenarios, cefrRank, socialScenes, serviceScenes, getSocialScene, getScriptedScene, getLesson, travelScenes } =
   await load("src/data/curriculum.ts");
 
 const registerSentence = (r) => (r === "tu" ? "Falam de tu." : "Falam de você.");
@@ -102,11 +102,13 @@ test("social scenes (#135, ADR 0021): contract — ids, level, lesson with vocab
   assert.deepEqual([...linked].sort(), [...socialScenarioIds].sort(), "social scenes must map 1:1 to social scenarios");
 });
 
-test("getScriptedScene resolves both kinds (#135, ADR 0021)", () => {
+test("getScriptedScene resolves all three kinds (#135 ADR 0021, #173 ADR 0032)", () => {
   const travel = travelScenes[0];
   assert.deepEqual(getScriptedScene(travel.id), { scene: travel, kind: "travel" });
   const social = socialScenes[0];
   assert.deepEqual(getScriptedScene(social.id), { scene: social, kind: "social" });
   assert.equal(getSocialScene(social.id), social);
+  const service = serviceScenes[0];
+  assert.deepEqual(getScriptedScene(service.id), { scene: service, kind: "service" });
   assert.equal(getScriptedScene("nope"), undefined);
 });

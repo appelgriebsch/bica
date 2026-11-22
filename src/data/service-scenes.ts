@@ -44,7 +44,7 @@ export const serviceScenes: ServiceScene[] = [
       { speaker: "You", pt: "Quinta-feira às dez fica bem. Obrigado!", en: "Thursday at ten is fine. Thank you!" },
       { speaker: "Receptionist", pt: "Está marcado. Até quinta-feira!", en: "It's booked. See you Thursday!" },
     ],
-    image: "/scenes/phone.jpg",
+    image: "/scenes/centro-saude.jpg",
     lessonId: "a2-saude",
     scenarioId: "marcar-consulta",
   },

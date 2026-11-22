@@ -74,7 +74,7 @@ test("the first service scene (#173): service-marcar-consulta pairs with a2-saud
   assert.equal(scene.level, "A2");
   assert.equal(scene.lessonId, "a2-saude", "lesson link feeds a2-saude vocab to Palavras (L4/#168)");
   assert.equal(scene.scenarioId, "marcar-consulta");
-  assert.equal(scene.image, "/scenes/phone.jpg");
+  assert.equal(scene.image, "/scenes/centro-saude.jpg");
   assert.ok(existsSync(join(root, "public", scene.image)), "image must exist under public/");
   assert.ok(
     scene.lines.some((l) => l.speaker === "You") && scene.lines.some((l) => l.speaker !== "You"),

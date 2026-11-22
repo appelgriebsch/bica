@@ -16,6 +16,9 @@ export function sceneImageFor(setting: string): string {
   if (s.includes("padaria") || s.includes("bakery")) {
     return "/scenes/padaria.jpg";
   }
+  if (s.includes("sharing a table")) {
+    return "/scenes/shared-table.jpg";
+  }
   if (s.includes("tasca")) {
     return "/scenes/tasca.jpg";
   }
@@ -118,14 +121,19 @@ export function sceneImageFor(setting: string): string {
   ) {
     return "/scenes/office.jpg";
   }
+  if (s.includes("texting")) {
+    return "/scenes/texting.jpg";
+  }
+  if (s.includes("centro de saúde") || s.includes("centro de saude")) {
+    return "/scenes/centro-saude.jpg";
+  }
   if (
     s.includes("phone") ||
     s.includes("voice note") ||
-    s.includes("texting") ||
     s.includes("interview") ||
     s.includes("saudade")
   ) {
-    return "/scenes/phone.jpg";
+    return "/scenes/phone-call.jpg";
   }
   if (
     s.includes("radio") ||

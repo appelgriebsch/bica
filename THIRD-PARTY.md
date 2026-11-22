@@ -95,17 +95,18 @@ The [Brand Guidelines](https://x.ai/legal/brand-guidelines) (dated 2025-02-14), 
 
 ### Scene illustrations (Mistral AI)
 
-These 23 files in `public/scenes/` are AI-generated illustrations, produced on
+These 27 files in `public/scenes/` are AI-generated illustrations, produced on
 2026-11-15 with Mistral AI — BFL FLUX1.1 [pro] Ultra via the la plateforme
 `image_generation` built-in tool (ADR 0009, issue #93/#102). The [Mistral
 Terms of Use](https://mistral.ai/terms-of-use/) assign all intellectual
 property rights in the output to the user and require no attribution phrase;
 Bica discloses them as AI-generated (EU AI Act Art. 50). They replaced the
-former Grok-generated scenes in the same change. The three social-scene additions (ADR 0021, issue #136: `colleagues.jpg`, `family-lunch.jpg`, `friends.jpg`) are new illustrations, generated on 2026-11-18 via `scripts/scene-regen` with the same Mistral AI `image_generation` tool (BFL FLUX1.1 [pro] Ultra) — not reuses of the `office.jpg` / `dinner.jpg` / `terrace.jpg` art.
+former Grok-generated scenes in the same change. The three social-scene additions (ADR 0021, issue #136: `colleagues.jpg`, `family-lunch.jpg`, `friends.jpg`) are new illustrations, generated on 2026-11-18 via `scripts/scene-regen` with the same Mistral AI `image_generation` tool (BFL FLUX1.1 [pro] Ultra) — not reuses of the `office.jpg` / `dinner.jpg` / `terrace.jpg` art. The four follow-up additions that split the most-reused scenes (`centro-saude.jpg`, `phone-call.jpg`, `shared-table.jpg`, `texting.jpg`) are placeholders copying the current `phone.jpg` / `tasca.jpg` art until `scripts/scene-regen/regen-scenes.mjs --only=centro-saude,phone-call,shared-table,texting` runs with `MISTRAL_API_KEY`; from then on they are new Mistral illustrations like the rest.
 
 - `public/scenes/balcony.jpg`
 - `public/scenes/books.jpg`
 - `public/scenes/cafe.jpg`
+- `public/scenes/centro-saude.jpg`
 - `public/scenes/colleagues.jpg`
 - `public/scenes/dinner.jpg`
 - `public/scenes/doorway.jpg`
@@ -119,11 +120,14 @@ former Grok-generated scenes in the same change. The three social-scene addition
 - `public/scenes/padaria.jpg`
 - `public/scenes/pastelaria.jpg`
 - `public/scenes/phone.jpg`
+- `public/scenes/phone-call.jpg`
 - `public/scenes/radio.jpg`
+- `public/scenes/shared-table.jpg`
 - `public/scenes/stairwell.jpg`
 - `public/scenes/street.jpg`
 - `public/scenes/tasca.jpg`
 - `public/scenes/terrace.jpg`
+- `public/scenes/texting.jpg`
 - `public/scenes/ticket.jpg`
 - `public/scenes/tram.jpg`
 

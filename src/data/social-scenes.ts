@@ -7,9 +7,10 @@ import type { SocialScene } from "./types";
  * to a matching lesson whose words feed Palavras when finished, and to the
  * Conversas partner that carries the same register. Lines are written in the
  * stated register; the setting says it in words ("Falam de tu." / "Falam de você.").
- * The three new situations use their own JPGs (family-lunch/friends/colleagues.jpg,
- * #136); until they are regenerated via scripts/scene-regen those files reuse the
- * dinner/terrace/office art.
+ * family-lunch/friends/colleagues.jpg (#136) are regenerated Mistral illustrations.
+ * social-planos/social-marcar-encontro use the new texting.jpg/phone-call.jpg, which
+ * are placeholders (copies of phone.jpg) until `regen-scenes.mjs --only=texting,phone-call`
+ * runs with MISTRAL_API_KEY.
  */
 export const socialScenes: SocialScene[] = [
   {
@@ -195,7 +196,7 @@ export const socialScenes: SocialScene[] = [
       { speaker: "You", pt: "Ótimo. Até amanhã!", en: "Great. See you tomorrow!" },
       { speaker: "Inês", pt: "Até! Combinado.", en: "See you! Deal." },
     ],
-    image: "/scenes/phone.jpg",
+    image: "/scenes/texting.jpg",
     lessonId: "a2-planos",
     scenarioId: "planos",
   },
@@ -229,7 +230,7 @@ export const socialScenes: SocialScene[] = [
       { speaker: "You", pt: "Combinado! Até sexta-feira.", en: "Deal! See you Friday." },
       { speaker: "Inês", pt: "Até sexta! Beijinhos.", en: "See you Friday! Kisses." },
     ],
-    image: "/scenes/phone.jpg",
+    image: "/scenes/phone-call.jpg",
     lessonId: "a1-dias",
     scenarioId: "marcar-encontro",
   },

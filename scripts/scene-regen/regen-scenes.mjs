@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Prototype (issue #93): regenerate the 23 scene illustrations in
+ * Prototype (issue #93): regenerate the 27 scene illustrations in
  * public/scenes/ via Mistral's built-in `image_generation` tool (BFL FLUX1.1
  * [pro] Ultra) so the xAI attribution on those files can eventually go.
  * Research + prototype only — nothing is shipped by this script; it writes to
@@ -21,7 +21,7 @@
  * chunks (download via GET {base}/v1/files/{file_id}/content) are also handled.
  *
  * Usage (from the repo root):
- *   MISTRAL_API_KEY=... node scripts/scene-regen/regen-scenes.mjs                 # all 23, photoreal
+ *   MISTRAL_API_KEY=... node scripts/scene-regen/regen-scenes.mjs                 # all 27, photoreal
  *   MISTRAL_API_KEY=... node scripts/scene-regen/regen-scenes.mjs --only=tram,cafe,street   # QC subset
  *   MISTRAL_API_KEY=... node scripts/scene-regen/regen-scenes.mjs --styles=photo,illustration  # both styles
  *   node scripts/scene-regen/regen-scenes.mjs --dry-run --styles=photo,illustration  # print prompts, no calls
@@ -285,7 +285,7 @@ async function main() {
     perStyle,
     totalLatencyMs: totalMs,
     estCostUsd: +(ok * COST_PER_IMAGE_USD).toFixed(2),
-    note: "built-in image_generation tool in /v1/chat/completions bills ~$0.10/image; 23 scenes x 1 style ≈ $2.30, x2 styles ≈ $4.60. /v1/agents is deprecated (404) — do not use it",
+    note: "built-in image_generation tool in /v1/chat/completions bills ~$0.10/image; 27 scenes x 1 style ≈ $2.70, x2 styles ≈ $5.40. /v1/agents is deprecated (404) — do not use it",
   };
   await writeFile(join(OUT, "regen-log.json"), JSON.stringify(log, null, 2));
   console.log(`\n${JSON.stringify(log.summary, null, 2)}`);

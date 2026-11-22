@@ -11,7 +11,7 @@ import {
  * before any Lesson is finished. Static data in the precached bundle, so the
  * list works offline; audio is the shared on-device pt-PT SpeakButton.
  *
- * The phrases are derived from the six Travel Scenes (#76): every "You" line
+ * The phrases are derived from the seven Travel Scenes (#76, #167): every "You" line
  * is a phrase a traveller actually says, plus the "anywhere" staples below
  * (lifted from vetted A1 lesson entries where possible), all deduped by
  * normalizePt. The id is `travel:<situation>:<normalised pt>` — the same shape
@@ -73,7 +73,7 @@ export type PhraseGroup = {
 
 const ANYWHERE_LABEL = { pt: "Qualquer lado", en: "Anywhere" } as const;
 
-/** Groups in display order: the "anywhere" staples first, then the six situations. */
+/** Groups in display order: the "anywhere" staples first, then the seven situations. */
 export function phraseGroups(): PhraseGroup[] {
   const groups: PhraseGroup[] = [];
   const anywhere = travelPhrases.filter((p) => p.situation === "anywhere");

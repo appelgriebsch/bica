@@ -1,5 +1,7 @@
 /** #125 (ADR 0015): Travel Phrasebook data contract and save-to-Palavras semantics.
- * Run with `bun run test` (node --test scripts/*.test.mjs). */
+ * #167 (gap S4, ADR 0030): the seventh "market" situation adds scene-mercado's You
+ * lines — derived 26 → 30, total 34 → 38 — and the Travel Phrasebook gains a
+ * market group. Run with `bun run test` (node --test scripts/*.test.mjs). */
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -37,9 +39,9 @@ const { TRAVEL_SITUATIONS } = await load("src/data/types.ts");
 const { normalizePt, todayKey } = await load("src/lib/utils.ts");
 const { transferSchema } = await load("src/lib/transfer-schema.ts");
 
-test("26 phrases derived from the scenes' You lines: valid situations, scene levels", () => {
+test("30 phrases derived from the scenes' You lines: valid situations, scene levels", () => {
   const derived = travelPhrases.filter((p) => p.situation !== "anywhere");
-  assert.equal(derived.length, 26, `expected 26 derived phrases, got ${derived.length}`);
+  assert.equal(derived.length, 30, `expected 30 derived phrases, got ${derived.length}`);
   for (const p of derived) {
     assert.ok(TRAVEL_SITUATIONS.includes(p.situation), `unknown situation: ${p.id}`);
     const scene = travelScenes.find((s) => s.situation === p.situation);
@@ -55,10 +57,10 @@ test("26 phrases derived from the scenes' You lines: valid situations, scene lev
   }
 });
 
-test("#126: 8 'anywhere' staples, A1, deduped against the 34 total", () => {
+test("#126: 8 'anywhere' staples, A1, deduped against the 38 total", () => {
   const staples = travelPhrases.filter((p) => p.situation === "anywhere");
   assert.equal(staples.length, 8, `expected 8 staples, got ${staples.length}`);
-  assert.equal(travelPhrases.length, 34, `expected 34 phrases total, got ${travelPhrases.length}`);
+  assert.equal(travelPhrases.length, 38, `expected 38 phrases total, got ${travelPhrases.length}`);
   const ids = travelPhrases.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length, "duplicate phrase ids across derived + staples");
   for (const p of staples) {
@@ -82,6 +84,8 @@ test("phraseGroups: 'anywhere' first, then one group per situation in TRAVEL_SIT
     assert.equal(g.labelEn, scene.title);
     assert.ok(g.phrases.length > 0);
   }
+  const market = groups.find((g) => g.situation === "market");
+  assert.ok(market && market.labelPt === "No mercado" && market.phrases.length > 0, "market group renders (#167)");
   const total = groups.reduce((n, g) => n + g.phrases.length, 0);
   assert.equal(total, travelPhrases.length, "every phrase is in exactly one group");
 });

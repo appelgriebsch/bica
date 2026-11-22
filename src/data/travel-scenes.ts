@@ -251,4 +251,52 @@ export const travelScenes: TravelScene[] = [
     lessonId: "a1-onde-fica",
     scenarioId: "direcoes",
   },
+  {
+    id: "scene-mercado",
+    situation: "market",
+    level: "A2",
+    minutes: 10,
+    title: "At the market",
+    titlePt: "No mercado",
+    setting:
+      "A stall at Mercado da Ribeira, late morning. Olives in tubs, bread, fish on ice. Ask for quantities, check the price, haggle politely, pay.",
+    partner: "Rui, the market vendor",
+    lines: [
+      {
+        speaker: "Vendor",
+        pt: "Boa tarde! O que lhe apetece hoje?",
+        en: "Good afternoon! What would you like today?",
+      },
+      {
+        speaker: "You",
+        pt: "Queria um quarto de quilo de azeitonas, se faz favor.",
+        en: "I'd like a quarter kilo of olives, please.",
+      },
+      { speaker: "Vendor", pt: "Mais um pouco? Chega assim?", en: "A bit more? Is that enough?" },
+      {
+        speaker: "You",
+        pt: "Chega, obrigado. Quanto custa?",
+        en: "That's enough, thank you. How much is it?",
+      },
+      { speaker: "Vendor", pt: "Fica em três euros e vinte.", en: "That comes to three twenty." },
+      {
+        speaker: "You",
+        pt: "É demasiado caro. Faz por dois euros?",
+        en: "It's too expensive. Two euros?",
+      },
+      {
+        speaker: "Vendor",
+        pt: "Para si, dois e cinquenta. E meio quilo de queijo?",
+        en: "For you, two fifty. And half a kilo of cheese?",
+      },
+      {
+        speaker: "You",
+        pt: "Está bem, pode ser. Aqui tem. Obrigado!",
+        en: "Alright, that's fine. Here you are. Thank you!",
+      },
+    ],
+    image: "/scenes/market.jpg",
+    lessonId: "a2-compras",
+    scenarioId: "mercado",
+  },
 ];

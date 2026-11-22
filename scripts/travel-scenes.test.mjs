@@ -1,6 +1,8 @@
 /** #116 (ADR 0016): Travel Scenes data contract — every scene resolves to a matching
  * A1/A2 lesson with vocab (feeds Palavras), an optional Conversas partner, and a
- * precached image. Run with `bun run test` (node --test scripts/*.test.mjs). */
+ * precached image. #167 (gap S4, ADR 0030): the seventh situation "market" with
+ * scene-mercado linked to a2-compras + the mercado Conversas partner.
+ * Run with `bun run test` (node --test scripts/*.test.mjs). */
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -49,7 +51,7 @@ test("travel scenes exist with unique ids and known situations at A1/A2", () => 
   }
 });
 
-test("exactly the six #76 situations are present", () => {
+test("exactly the seven #76/#167 situations are present", () => {
   const situations = travelScenes.map((s) => s.situation).sort();
   assert.deepEqual(situations, [...TRAVEL_SITUATIONS].sort());
 });
@@ -73,6 +75,27 @@ test("every scenarioId resolves to a Conversas scenario at the same level", () =
     assert.ok(scenario, `${s.id}: scenarioId ${s.scenarioId} not found`);
     assert.equal(scenario.level, s.level, `${s.id}: scenario level mismatch`);
   }
+});
+
+test("scene-mercado (#167, ADR 0030): market situation, linked to a2-compras and the mercado partner", () => {
+  const scene = getTravelScene("scene-mercado");
+  assert.ok(scene, "scene-mercado missing");
+  assert.equal(scene.situation, "market");
+  assert.equal(scene.level, "A2");
+  assert.equal(scene.lessonId, "a2-compras", "lesson link feeds a2-compras vocab to Palavras");
+  assert.equal(scene.scenarioId, "mercado");
+  assert.equal(scene.image, "/scenes/market.jpg");
+  assert.ok(scene.lines.length >= 6 && scene.lines.length <= 10, "6-10 scripted lines");
+  const lesson = getLesson("a2-compras");
+  assert.ok(
+    lesson?.sections.some((s) => s.type === "vocab" && s.items.length > 0),
+    "a2-compras must have a vocab section",
+  );
+  const scenario = speakScenarios.find((x) => x.id === "mercado");
+  assert.ok(
+    scenario && scenario.level === "A2" && scenario.topic === "shopping" && scenario.register === "você",
+    "the mercado Conversas partner must be A2/shopping/register você",
+  );
 });
 
 test("every scene image exists under public/scenes (precached by sw.js)", () => {

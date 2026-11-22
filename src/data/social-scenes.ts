@@ -200,6 +200,40 @@ export const socialScenes: SocialScene[] = [
     scenarioId: "planos",
   },
   {
+    id: "social-marcar-encontro",
+    level: "A2",
+    minutes: 10,
+    title: "Fixing a time over the phone",
+    titlePt: "Marcar um encontro",
+    setting:
+      "You are on the phone with a Portuguese friend. Fix a day and a time to meet — propose, adjust, close. Falam de tu.",
+    partner: "Inês, a friend",
+    lines: [
+      { speaker: "Inês", pt: "Alô? Sou a Inês. Tudo bem?", en: "Hello? It's Inês. All good?" },
+      {
+        speaker: "You",
+        pt: "Olá, Inês! Tudo. Olha, vamos jantar na sexta-feira às oito?",
+        en: "Hi Inês! Fine. Look, shall we have dinner on Friday at eight?",
+      },
+      { speaker: "Inês", pt: "Sexta às oito? Pode ser. Onde é que vamos?", en: "Friday at eight? Sure. Where are we going?" },
+      {
+        speaker: "You",
+        pt: "Conheces aquele restaurante novo perto do metro?",
+        en: "Do you know that new restaurant near the metro?",
+      },
+      {
+        speaker: "Inês",
+        pt: "Conheço, sim. Então ficamos às oito em frente a ele?",
+        en: "I do. So, eight o'clock in front of it?",
+      },
+      { speaker: "You", pt: "Combinado! Até sexta-feira.", en: "Deal! See you Friday." },
+      { speaker: "Inês", pt: "Até sexta! Beijinhos.", en: "See you Friday! Kisses." },
+    ],
+    image: "/scenes/phone.jpg",
+    lessonId: "a1-dias",
+    scenarioId: "marcar-encontro",
+  },
+  {
     id: "social-fim-de-semana",
     level: "A2",
     minutes: 10,

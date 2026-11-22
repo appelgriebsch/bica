@@ -93,6 +93,26 @@ export const speakScenarios: SpeakScenario[] = [
     register: "tu",
   },
   {
+    id: "marcar-encontro",
+    level: "A2",
+    topic: "social",
+    minutes: 10,
+    title: "Fixing a time over the phone",
+    titlePt: "Marcar um encontro",
+    setting:
+      "You are on the phone with a Portuguese friend. Fix a day and a time to meet — propose a weekday and an hour, adjust, close with combinado. Falam de tu.",
+    partner: "Inês, a friend",
+    openerPt: "Alô! Aqui é a Inês. Vamos marcar alguma coisa?",
+    openerEn: "Hi! It's Inês. Shall we fix a time for something?",
+    goals: [
+      "Propose a day with na + weekday (na sexta-feira)",
+      "Suggest a time with às … horas e meia",
+      "Close with combinado",
+    ],
+    image: "/scenes/phone.jpg",
+    register: "tu",
+  },
+  {
     id: "trabalho-chat",
     level: "A2",
     topic: "work",

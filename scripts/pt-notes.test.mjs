@@ -25,6 +25,11 @@
  * cinza/suéter/terno contrast, inserted at order 10 in a1-city
  * (a1-mesa renumbered 10→11), plus a guard pin (shape, vocab ≥5, image,
  * quiz kinds, colour/agreement/tamanho coverage).
+ * #177 (gap L5, plan #209 — no ADR, owner decision): lesson
+ * `a2-tempos-livres` joins NOTED_LESSONS with the basquetebol/voleibol/
+ * andebol vs basquete/vôlei/handebol contrast, inserted at order 5 in
+ * a2-talk (a2-amigos renumbered 5→6), plus a guard pin (shape, vocab ≥5,
+ * image, quiz kinds, futebol/praia/arraial/convite coverage).
  * Run with `bun run test` (node --test scripts/*.test.mjs). */
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -75,6 +80,7 @@ const NOTED_LESSONS = [
   "a1-mesa",
   "a1-roupa",
   "a2-tempo",
+  "a2-tempos-livres",
   "a2-planos",
   "a2-farmacia",
   "a2-compras",
@@ -142,6 +148,8 @@ test("the T2 widening contrasts are present (spelling, words, word order)", () =
   assert.ok(hasNote("a2-casa", "arrendamento", "aluguel"), "renting contrast missing");
   assert.ok(hasNote("a1-roupa", "cinzento", "cinza"), "grey contrast missing (a1-roupa)");
   assert.ok(hasNote("a1-roupa", "camisola", "suéter"), "sweater contrast missing (a1-roupa)");
+  assert.ok(hasNote("a2-tempos-livres", "basquetebol", "basquete"), "basketball contrast missing (a2-tempos-livres)");
+  assert.ok(hasNote("a2-tempos-livres", "voleibol", "vôlei"), "volleyball contrast missing (a2-tempos-livres)");
 });
 
 test("every A1/A2 lesson whose section body or quiz explain mentions Brazil has a ptNote (#82 AC1)", () => {
@@ -386,6 +394,50 @@ test("a1-roupa (#174, plan #205): order 10 in a1-city after a1-metro, a1-mesa re
   ].join(" ");
   for (const re of [/vermelho/i, /vermelha/i, /azul/i, /cinzento/i, /camisola/i, /tamanho/i, /número/i]) {
     assert.ok(re.test(all), `coverage: ${re} missing from a1-roupa`);
+  }
+});
+
+test("a2-tempos-livres (#177, plan #209): order 5 in a2-talk, a2-amigos renumbered 6, 12 min, skill mix, vocab >= 5, image exists, quiz kinds, coverage", () => {
+  const lesson = lessons.find((l) => l.id === "a2-tempos-livres");
+  assert.ok(lesson, "a2-tempos-livres missing");
+  assert.equal(lesson.level, "A2");
+  assert.equal(lesson.unitId, "a2-talk");
+  assert.equal(lesson.order, 5, "inserted in a2-talk at order 5 (after a2-trabalho at 4)");
+  assert.equal(lessons.find((l) => l.id === "a2-trabalho")?.order, 4, "a2-trabalho stays at 4");
+  assert.equal(lessons.find((l) => l.id === "a2-amigos")?.order, 6, "a2-amigos renumbered 5→6 (display-only, progress is id-keyed)");
+  assert.equal(lesson.minutes, 12);
+  assert.equal(lesson.skill, "mix");
+  assert.equal(lesson.image, "/scenes/miradouro.jpg");
+  assert.ok(existsSync(join(root, "public", lesson.image)), "lesson image must exist under public/");
+  const vocab = lesson.sections.find((s) => s.type === "vocab");
+  assert.ok(vocab && vocab.items.length >= 5, "vocab section with >=5 items (feeds Palavras on completion)");
+  assert.deepEqual(
+    [...new Set(lesson.quiz.map((q) => q.kind))].sort(),
+    ["choice", "listen", "truefalse", "type"],
+    "quiz uses only the four existing kinds",
+  );
+  for (const q of lesson.quiz) {
+    assert.ok(q.explain.trim(), `${q.id}: explain required`);
+    if (q.kind === "listen") assert.ok(q.speak?.trim(), `${q.id}: listen needs a speak line (Play + Slower)`);
+    if (q.kind === "type") assert.ok(q.accept?.length, `${q.id}: type needs accept`);
+  }
+  const all = [
+    lesson.summary,
+    ...lesson.goals,
+    ...lesson.sections.flatMap((s) => [
+      "title" in s ? s.title : "",
+      "body" in s ? s.body : "",
+      "kicker" in s ? s.kicker : "",
+      ...("setting" in s ? [s.setting] : []),
+      ...("items" in s ? s.items.flatMap((i) => [i.pt, i.en, i.examplePt, i.exampleEn]) : []),
+      ...("examples" in s ? s.examples.flatMap((e) => [e.pt, e.en]) : []),
+      ...("lines" in s ? s.lines.flatMap((l) => [l.pt, l.en]) : []),
+      ...("phrase" in s ? [s.phrase.pt, s.phrase.en] : []),
+    ]),
+    ...lesson.quiz.flatMap((q) => [q.prompt, ...(q.options ?? []), ...(q.accept ?? []), q.explain]),
+  ].join(" ");
+  for (const re of [/futebol/i, /praia/i, /arraial/i, /convite/i, /basquetebol/i, /adepto/i]) {
+    assert.ok(re.test(all), `coverage: ${re} missing from a2-tempos-livres`);
   }
 });
 

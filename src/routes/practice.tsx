@@ -117,8 +117,8 @@ function PracticePage() {
                 Gramática
               </span>
               <span className="mt-1 block text-sm text-muted">
-                {nextGram.level}: {nextGram.titlePt}. Three drills on every
-                level, {nextGram.minutes} min each.
+                {nextGram.level}: {nextGram.titlePt}. At least three drills on
+                every level, {nextGram.minutes} min each.
               </span>
             </span>
           </Link>

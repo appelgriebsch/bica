@@ -71,6 +71,34 @@ export const grammarDrills: GrammarDrill[] = [
     ],
   },
   {
+    id: "gram-a1-enclise",
+    level: "A1",
+    minutes: 8,
+    title: "Chamo-me — the pronoun rides the verb",
+    titlePt: "Énclise",
+    focus: "Pronouns after the verb; reflexive verbs",
+    body: "In Portugal the little pronoun hangs on the end of the verb: chamo-me, dói-me, dá-me. Reflexive verbs take the same move: levanto-me, chama-se. Only at the start of a sentence, or after não, does the pronoun go back in front — Não me chamo…",
+    examples: [
+      { pt: "Chamo-me Andreas.", en: "My name is Andreas (lit. I call myself Andreas)." },
+      { pt: "Dói-me a cabeça.", en: "My head hurts (lit. hurts-me the head)." },
+      { pt: "Levanto-me às sete.", en: "I get up at seven (lit. I raise myself at seven)." },
+    ],
+    ptNote: {
+      pt: "Chamo-me Andreas. / Dói-me a cabeça.",
+      br: "Meu nome é Andreas. / Minha cabeça dói.",
+      en: "Portugal hangs the pronoun on the verb (énclise); Brazil puts it in front (proclise).",
+    },
+    quiz: [
+      { id: "q1", kind: "choice", prompt: "How do you say “my name is Andreas” in Portugal…", options: ["Meu nome é Andreas", "Chamo-me Andreas", "Eu chamo Andreas", "Nome-me é Andreas"], answer: 1, explain: "Énclise — the pronoun hangs on the verb: chamo-me." },
+      { id: "q2", kind: "choice", prompt: "“My head hurts” in Lisbon…", options: ["A cabeça dói-me", "Dói-me a cabeça", "Dói a cabeça para mim", "Cabeça-me dói a"], answer: 1, explain: "Dói-me a cabeça." },
+      { id: "q3", kind: "type", prompt: "Type 'I get up at seven'.", accept: ["levanto-me às sete", "levanto-me as sete", "levanto-me às 7"], explain: "Levanto-me (reflexive) + às sete." },
+      { id: "q4", kind: "truefalse", prompt: "After não the pronoun moves in front: “Não me chamo Andreas.”", options: ["True", "False"], answer: 0, explain: "Sentence start and não push the pronoun back in front (proclise)." },
+      { id: "q5", kind: "choice", prompt: "He calls himself… (chamar-se)", options: ["chama-se", "chamo-se", "chamam-se", "chama-me-se"], answer: 0, explain: "Ele chama-se." },
+      { id: "q6", kind: "listen", prompt: "What hurts?", speak: "Dói-me a garganta.", options: ["The head", "The throat", "The hand", "Nothing at all"], answer: 1, explain: "Dói-me a garganta." },
+      { id: "q7", kind: "choice", prompt: "“Dá-me isso” — dá-me means…", options: ["give it to me", "give it to you", "it costs me", "bring it to us"], answer: 0, explain: "Dá-me = dá (it gives) + me." },
+    ],
+  },
+  {
     id: "gram-a2-continuo",
     level: "A2",
     minutes: 8,
@@ -221,6 +249,11 @@ export const grammarDrills: GrammarDrill[] = [
       { pt: "O que te apetece?", en: "What do you feel like?" },
       { pt: "Posso falar consigo um momento?", en: "May I speak with you a moment? (polite)" },
     ],
+    ptNote: {
+      pt: "Custa-me acordar cedo. / Lembro-me de ti.",
+      br: "Custa para mim acordar cedo. / Eu me lembro de você.",
+      en: "Same split as A1: Portugal hangs the pronoun on the verb, Brazil puts it in front of it.",
+    },
     quiz: [
       { id: "q1", kind: "choice", prompt: "“Custa-me” literally hangs the pronoun…", options: ["Before the verb always", "On the verb: custa-me", "In a separate word 'para mim' only", "Never in Portugal"], answer: 1, explain: "European enclitic: verb-me." },
       { id: "q2", kind: "choice", prompt: "Polite 'with you' is…", options: ["com tu", "consigo", "convosco always", "com você-te"], answer: 1, explain: "Falar consigo." },

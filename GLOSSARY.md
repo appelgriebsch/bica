@@ -78,7 +78,7 @@ Seen in: `src/routes/practice.tsx`, `src/data/reading.ts`, `src/routes/read/$id.
 
 ## Grammar / Verbs
 
-Grammar drills and verb tables by Level. Practice titles them Gramática and Verbos. Gramática is three drills on every level. Verbos is one desk per level.
+Grammar drills and verb tables by Level. Practice titles them Gramática and Verbos. Gramática is at least three drills on every level. Verbos is one desk per level.
 
 Seen in: `src/routes/practice.tsx`, `src/routes/grammar/index.tsx`, `src/routes/verbs/index.tsx`, `src/data/types.ts`
 

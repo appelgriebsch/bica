@@ -7,7 +7,7 @@ import { QuizBlock } from "@/components/quiz-block";
 import { SpeakButton } from "@/components/speak-button";
 import { Button } from "@/components/ui/button";
 import { getReading, readingPieces } from "@/data/curriculum";
-import type { ReadingPiece } from "@/data/types";
+import type { ReadingPiece, ReadingTask } from "@/data/types";
 import { persistCompletion } from "@/lib/record-progress";
 import { READ_RATE } from "@/lib/tts";
 
@@ -128,6 +128,8 @@ function ReadPlayer({ piece }: { piece: ReadingPiece }) {
 
             {piece.ptNote && <PortugalNote note={piece.ptNote} />}
 
+            {piece.task && <TaskBlock task={piece.task} />}
+
             <Button className="mt-8 w-full" onClick={() => setPhase("quiz")}>
               Check what stuck
             </Button>
@@ -135,5 +137,61 @@ function ReadPlayer({ piece }: { piece: ReadingPiece }) {
         )}
       </div>
     </div>
+  );
+}
+
+/** #178 (gap P1, plan #210): written-task block — prompt, local-only draft textarea,
+ * model-answer reveal with Speak, self-check checklist. No network, no storage, no AI:
+ * the draft lives in component state and never leaves the device. */
+function TaskBlock({ task }: { task: ReadingTask }) {
+  const [draft, setDraft] = useState("");
+  const [showModel, setShowModel] = useState(false);
+  const [checked, setChecked] = useState<Record<number, boolean>>({});
+  const words = draft.trim() ? draft.trim().split(/\s+/).length : 0;
+  return (
+    <section className="mt-6 rounded-[var(--radius-lg)] bg-surface p-4 shadow-[var(--shadow-border)]">
+      <p className="text-xs font-medium uppercase tracking-wider text-accent">{task.practiceLabel}</p>
+      <p className="mt-2 font-display text-xl leading-relaxed">{task.prompt.pt}</p>
+      <p className="mt-1 text-sm text-muted">{task.prompt.en}</p>
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        rows={6}
+        aria-label="A sua mensagem"
+        placeholder="Escreva aqui a sua mensagem…"
+        className="mt-3 w-full rounded-[var(--radius-md)] border border-border bg-bg p-3 text-base text-fg"
+      />
+      <p className="mt-1 text-xs tabular-nums text-subtle">
+        {words} / {task.minWords}–{task.maxWords} palavras
+      </p>
+      <Button variant="outline" className="mt-3" onClick={() => setShowModel((s) => !s)}>
+        {showModel ? "Hide model answer" : "Show model answer"}
+      </Button>
+      {showModel && (
+        <div className="mt-3 rounded-[var(--radius-md)] border border-border p-3">
+          <p className="font-display text-lg leading-relaxed">{task.model.pt}</p>
+          <p className="mt-2 text-sm text-muted">{task.model.en}</p>
+          <SpeakButton text={task.model.pt} rate={READ_RATE} layout="footer" />
+        </div>
+      )}
+      <ul className="mt-4 space-y-1">
+        {task.checklist.map((c, i) => (
+          <li key={c.pt}>
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-[var(--radius-md)] px-2 py-1 text-sm">
+              <input
+                type="checkbox"
+                className="size-4 accent-[var(--color-accent)]"
+                checked={Boolean(checked[i])}
+                onChange={() => setChecked((s) => ({ ...s, [i]: !s[i] }))}
+              />
+              <span>
+                <span className="block font-medium">{c.pt}</span>
+                <span className="block text-xs text-muted">{c.en}</span>
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

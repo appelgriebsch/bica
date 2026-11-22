@@ -72,9 +72,9 @@ Seen in: `src/routes/practice.tsx`, `src/data/radio.ts`, `src/routes/listen/$id.
 
 ## Uma página
 
-Reading pieces. The Practice card title; Today calls the same thing Read.
+Reading pieces. The Practice card title; Today calls the same thing Read. Written tasks (kind `task`, #178) are practice with a model answer and a self-check checklist — not an official exam; fully offline, and the draft never leaves the device.
 
-Seen in: `src/routes/practice.tsx`, `src/data/reading.ts`, `src/routes/read/$id.tsx`
+Seen in: `src/routes/practice.tsx`, `src/data/reading.ts`, `src/routes/read/$id.tsx`, `src/data/types.ts`
 
 ## Grammar / Verbs
 

@@ -377,6 +377,11 @@ function PracticePage() {
                   <span className="block truncate font-medium text-fg">{p.titlePt}</span>
                   <span className="block text-xs text-subtle">
                     {p.level} · {p.minutes} min
+                    {p.kind === "task" && (
+                      <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-fg">
+                        escrita
+                      </span>
+                    )}
                   </span>
                 </span>
               </Link>

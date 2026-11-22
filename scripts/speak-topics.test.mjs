@@ -1,7 +1,11 @@
 /** #154 (ADR 0022): Conversas topic contract. Every `speakScenarios` entry carries a
  * valid `topic` from SCENARIO_TOPICS with a label, and `speakScenarioGroups()` renders
  * each scenario exactly once — levels in cefrRank order, topics in SCENARIO_TOPICS
- * order, authored array order kept inside a group. Run with `bun run test`. */
+ * order, authored array order kept inside a group.
+ * #172 (gap S2, plan #200 — no ADR, owner decision): the three upper-level work
+ * scenes entrevista (B1) / reclamacao (B2) / reuniao (C1), all register você,
+ * reusing precached images, pinned below; the generic grouping tests above need
+ * no count changes. Run with `bun run test`. */
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -91,5 +95,34 @@ test("authored array order is kept within each group (#154)", () => {
         `order changed in ${g.level}/${t.topic}`,
       );
     }
+  }
+});
+
+test("#172 (gap S2, plan #200): entrevista/reclamacao/reuniao — B1/B2/C1, topic work, register você, precached image, >=3 goals, register sentence, grouped under level/work", () => {
+  const expected = {
+    entrevista: ["B1", "/scenes/office.jpg"],
+    reclamacao: ["B2", "/scenes/padaria.jpg"],
+    reuniao: ["C1", "/scenes/terrace.jpg"],
+  };
+  for (const [id, [level, image]] of Object.entries(expected)) {
+    const s = speakScenarios.find((x) => x.id === id);
+    assert.ok(s, `scenario ${id} missing`);
+    assert.equal(s.topic, "work", `${id}: topic must be work`);
+    assert.equal(s.level, level, `${id}: level`);
+    assert.equal(s.register, "você", `${id}: register (pill + prompt + review line are data-driven, ADR 0021)`);
+    assert.equal(s.image, image, `${id}: image`);
+    assert.ok(existsSync(join(root, "public", s.image)), `${id}: image not under public/`);
+    assert.ok(s.title && s.titlePt && s.setting && s.partner, `${id}: fields`);
+    assert.ok(s.openerPt && s.openerEn, `${id}: openerPt/openerEn feed the partner prompt`);
+    assert.ok(s.goals.length >= 3, `${id}: needs >=3 goals`);
+    assert.ok(s.setting.endsWith("Falam de você."), `${id}: setting must end with the register sentence`);
+  }
+  for (const [id, [level]] of Object.entries(expected)) {
+    const group = speakScenarioGroups().find((g) => g.level === level);
+    const work = group?.topics.find((t) => t.topic === "work");
+    assert.ok(
+      work?.scenarios.some((s) => s.id === id),
+      `${id} must render in the ${level}/work group on /speak (ADR 0022)`,
+    );
   }
 });

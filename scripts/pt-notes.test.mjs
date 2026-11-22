@@ -10,6 +10,11 @@
  * joins NOTED_LESSONS with the Está?/Alô phone-opener contrast, appended at
  * max a2-life order + 1, plus a guard pin (shape, vocab ≥5 for the S1/#173
  * lessonId contract, coverage of está?/estou, posso falar com, recado).
+ * #170 (gap L2, plan #198 — no ADR, same owner decision): lesson
+ * `a2-ctt-banco` joins NOTED_LESSONS with the multibanco/levantar vs caixa
+ * eletrônico/sacar contrast, appended at max a2-life order + 1, plus a guard
+ * pin (shape, vocab ≥5 for a future S-scene lessonId contract, coverage of
+ * carta/encomenda/selos/multibanco/levantar dinheiro).
  * Run with `bun run test` (node --test scripts/*.test.mjs). */
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -64,6 +69,7 @@ const NOTED_LESSONS = [
   "a2-compras",
   "a2-saude",
   "a2-telefone",
+  "a2-ctt-banco",
 ];
 
 test("the A1/A2 lessons carrying a note are exactly the planned set", () => {
@@ -120,6 +126,7 @@ test("the T2 widening contrasts are present (spelling, words, word order)", () =
   assert.ok(hasNote("a2-compras", "ficam-lhe bem", "em você"), "word-order contrast missing");
   assert.ok(hasNote("a2-saude", "centro de saúde", "posto de saúde"), "health-centre contrast missing");
   assert.ok(hasNote("a2-telefone", "está?", "alô"), "phone-opener contrast missing");
+  assert.ok(hasNote("a2-ctt-banco", "multibanco", "caixa eletrônico"), "ATM contrast missing");
 });
 
 test("every A1/A2 lesson whose section body or quiz explain mentions Brazil has a ptNote (#82 AC1)", () => {
@@ -181,11 +188,14 @@ test("a2-telefone (#169, plan #197): appended at max a2-life order + 1, 12 min, 
   assert.ok(lesson, "a2-telefone missing");
   assert.equal(lesson.level, "A2");
   assert.equal(lesson.unitId, "a2-life");
-  const others = lessons.filter((l) => l.unitId === "a2-life" && l.id !== "a2-telefone");
+  // Appended at max+1 of the a2-life lessons authored BEFORE it (append-stable:
+  // later appends like a2-ctt-banco do not change this set).
+  const life = lessons.filter((l) => l.unitId === "a2-life");
+  const before = life.slice(0, life.findIndex((l) => l.id === "a2-telefone"));
   assert.equal(
     lesson.order,
-    Math.max(...others.map((l) => l.order)) + 1,
-    "appended last in a2-life: order = max+1, never renumber existing lessons",
+    Math.max(...before.map((l) => l.order)) + 1,
+    "appended in a2-life: order = max+1 of the lessons before it, never renumber existing lessons",
   );
   assert.equal(lesson.minutes, 12);
   assert.equal(lesson.image, "/scenes/phone.jpg");
@@ -221,6 +231,54 @@ test("a2-telefone (#169, plan #197): appended at max a2-life order + 1, 12 min, 
     assert.ok(re.test(all), `coverage: ${re} missing from a2-telefone`);
   }
   assert.ok(/centro de saúde/i.test(all), "the dialogue must tie to L4/#168 (calling the centro de saúde)");
+});
+
+test("a2-ctt-banco (#170, plan #198): appended at max a2-life order + 1, 12 min, vocab >= 5, image exists, quiz kinds, coverage", () => {
+  const lesson = lessons.find((l) => l.id === "a2-ctt-banco");
+  assert.ok(lesson, "a2-ctt-banco missing");
+  assert.equal(lesson.level, "A2");
+  assert.equal(lesson.unitId, "a2-life");
+  // Same append-stable formulation as the a2-telefone pin (#169).
+  const life = lessons.filter((l) => l.unitId === "a2-life");
+  const before = life.slice(0, life.findIndex((l) => l.id === "a2-ctt-banco"));
+  assert.equal(
+    lesson.order,
+    Math.max(...before.map((l) => l.order)) + 1,
+    "appended in a2-life: order = max+1 of the lessons before it, never renumber existing lessons",
+  );
+  assert.equal(lesson.minutes, 12);
+  assert.equal(lesson.image, "/scenes/ticket.jpg");
+  assert.ok(existsSync(join(root, "public", lesson.image)), "lesson image must exist under public/");
+  const vocab = lesson.sections.find((s) => s.type === "vocab");
+  assert.ok(vocab && vocab.items.length >= 5, "vocab section with >=5 items (a future S-scene lessonId contract needs vocab)");
+  assert.deepEqual(
+    [...new Set(lesson.quiz.map((q) => q.kind))].sort(),
+    ["choice", "listen", "truefalse", "type"],
+    "quiz uses only the four existing kinds",
+  );
+  for (const q of lesson.quiz) {
+    assert.ok(q.explain.trim(), `${q.id}: explain required`);
+    if (q.kind === "listen") assert.ok(q.speak?.trim(), `${q.id}: listen needs a speak line (Play + Slower)`);
+    if (q.kind === "type") assert.ok(q.accept?.length, `${q.id}: type needs accept`);
+  }
+  const all = [
+    lesson.summary,
+    ...lesson.goals,
+    ...lesson.sections.flatMap((s) => [
+      "title" in s ? s.title : "",
+      "body" in s ? s.body : "",
+      "kicker" in s ? s.kicker : "",
+      ...("setting" in s ? [s.setting] : []),
+      ...("items" in s ? s.items.flatMap((i) => [i.pt, i.en, i.examplePt, i.exampleEn]) : []),
+      ...("examples" in s ? s.examples.flatMap((e) => [e.pt, e.en]) : []),
+      ...("lines" in s ? s.lines.flatMap((l) => [l.pt, l.en]) : []),
+      ...("phrase" in s ? [s.phrase.pt, s.phrase.en] : []),
+    ]),
+    ...lesson.quiz.flatMap((q) => [q.prompt, ...(q.options ?? []), ...(q.accept ?? []), q.explain]),
+  ].join(" ");
+  for (const re of [/carta/i, /encomenda/i, /selos/i, /multibanco/i, /levantar dinheiro/i, /prestaçõ?es/i]) {
+    assert.ok(re.test(all), `coverage: ${re} missing from a2-ctt-banco`);
+  }
 });
 
 test("portugal-note.tsx renders SpeakButton only for the pt form", () => {

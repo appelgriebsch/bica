@@ -211,6 +211,8 @@ export type ReadingPiece = {
   titlePt: string;
   paragraphs: { pt: string; en: string }[];
   notes: { pt: string; en: string }[];
+  /** Portugal × Brasil note (#164, ADR 0027), rendered below the notes on /read/$id. */
+  ptNote?: PtNote;
   image: string;
   quiz: QuizQuestion[];
 };

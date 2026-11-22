@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { DoneCard } from "@/components/lesson-player";
+import { PortugalNote } from "@/components/portugal-note";
 import { QuizBlock } from "@/components/quiz-block";
 import { SpeakButton } from "@/components/speak-button";
 import { Button } from "@/components/ui/button";
@@ -124,6 +125,8 @@ function ReadPlayer({ piece }: { piece: ReadingPiece }) {
                 </ul>
               </section>
             )}
+
+            {piece.ptNote && <PortugalNote note={piece.ptNote} />}
 
             <Button className="mt-8 w-full" onClick={() => setPhase("quiz")}>
               Check what stuck

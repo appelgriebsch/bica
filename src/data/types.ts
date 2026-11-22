@@ -224,11 +224,25 @@ export type RadioBulletin = {
   quiz: QuizQuestion[];
 };
 
+/** #178 (gap P1, plan #210): a written task on a reading piece — offline self-check, no AI call. */
+export type ReadingTask = {
+  prompt: { pt: string; en: string };
+  /** Model answer, 60–80 words; played with the on-device Speak button. */
+  model: { pt: string; en: string };
+  checklist: { pt: string; en: string }[];
+  minWords: number;
+  maxWords: number;
+  /** Visible label: practice, not an official exam (#86 AC). */
+  practiceLabel: string;
+};
+
 export type ReadingPiece = {
   id: string;
   level: CefrLevel;
   minutes: number;
-  kind: "notice" | "message" | "news" | "page" | "column";
+  kind: "notice" | "message" | "news" | "page" | "column" | "task";
+  /** Only for kind "task" (#178): the written-task block on /read/$id. */
+  task?: ReadingTask;
   source: string;
   title: string;
   titlePt: string;

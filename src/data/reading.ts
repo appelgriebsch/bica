@@ -694,4 +694,83 @@ export const readingPieces: ReadingPiece[] = [
       },
     ],
   },
+  {
+    id: "read-tarefa-mensagem",
+    level: "A2",
+    minutes: 12,
+    kind: "task",
+    source: "Practice task — not an official CIPLE exam",
+    title: "Uma mensagem ao senhorio",
+    titlePt: "Escrever uma mensagem",
+    paragraphs: [
+      {
+        pt: "Na CIPLE, a escrita junta-se à leitura: dois textos curtos. Aqui pratica uma mensagem curta ao senhorio — 60 a 80 palavras, em registo formal.",
+        en: "In CIPLE, writing goes with reading: two short texts. Here you practise a short message to your landlord — 60 to 80 words, formal register.",
+      },
+      {
+        pt: "Isto é prática, não um exame oficial. Escreva no seu próprio ritmo; o modelo aparece quando pedir. Nada sai deste telemóvel.",
+        en: "This is practice, not an official exam. Write at your own pace; the model answer appears when you ask for it. Nothing leaves this device.",
+      },
+    ],
+    notes: [
+      { pt: "Escrevo-lhe porque…", en: "I'm writing to you because…" },
+      { pt: "não funciona / está avariado", en: "doesn't work / is broken" },
+      { pt: "Podia mandar alguém?", en: "Could you send someone?" },
+      { pt: "Fico à espera da sua resposta.", en: "I look forward to your reply." },
+      { pt: "Cumprimentos,", en: "Best regards," },
+    ],
+    image: "/scenes/phone.jpg",
+    task: {
+      prompt: {
+        pt: "Escreva uma mensagem de 60–80 palavras ao seu senhorio (formal, você): o ar condicionado do quarto não funciona. Diga o problema, o que precisa e feche com cumprimentos.",
+        en: "Write a 60–80-word message to your landlord (formal você): the air conditioning in the room doesn't work. State the problem, what you need, and close politely.",
+      },
+      model: {
+        pt: "Boa tarde, senhor Silva. Escrevo-lhe sobre o ar condicionado do meu quarto, que continua sem funcionar desde a semana passada. Já falei consigo na visita, mas até agora ainda não há novedade. O quarto fica muito quente à tarde, por isso não consigo descansar. Podia mandar alguém esta semana, se faz favor? Fico à espera da sua resposta e agradeço desde já a atenção. Cumprimentos, Ana",
+        en: "Good afternoon, Mr Silva. I'm writing about the air conditioning in my room, which has still not worked since last week. I already spoke to you at the viewing, but so far there is no news. The room gets very hot in the afternoon, so I can't rest. Could you send someone this week, please? I look forward to your reply and thank you in advance for your attention. Best regards, Ana",
+      },
+      checklist: [
+        { pt: "Cumpri a tarefa: mensagem de 60–80 palavras", en: "Task done: a 60–80-word message" },
+        { pt: "Usei o registo formal (você / o senhor)", en: "Formal register (você / o senhor)" },
+        { pt: "Usei vocabulário-chave: quarto, não funciona, podia…", en: "Key vocabulary: quarto, não funciona, podia…" },
+        { pt: "Fechei com cumprimentos", en: "Closed with cumprimentos" },
+      ],
+      minWords: 60,
+      maxWords: 80,
+      practiceLabel: "Practice — not an official CIPLE exam",
+    },
+    quiz: [
+      {
+        id: "q1",
+        kind: "choice",
+        prompt: "CIPLE marks reading + writing together — how many short texts?",
+        options: ["One", "Two", "Five", "Ten"],
+        answer: 1,
+        explain: "Two short texts, 60–80 words each.",
+      },
+      {
+        id: "q2",
+        kind: "choice",
+        prompt: "Formal register with the senhorio: 'you' is…",
+        options: ["tu", "você / o senhor", "vocês, always", "no pronoun at all"],
+        answer: 1,
+        explain: "Formal você — o senhor / a senhora (ties to a2-casa).",
+      },
+      {
+        id: "q3",
+        kind: "choice",
+        prompt: "A formal way to open the message…",
+        options: ["Escrevo-lhe porque…", "E aí, tudo bem?", "Olá, tudo fixe?", "Querido amigo,"],
+        answer: 0,
+        explain: "Escrevo-lhe porque… — the formal opener.",
+      },
+      {
+        id: "q4",
+        kind: "type",
+        prompt: "Type 'I look forward to your reply' (Fico à espera…).",
+        accept: ["fico à espera da sua resposta", "Fico à espera da sua resposta."],
+        explain: "Fico à espera da sua resposta.",
+      },
+    ],
+  },
 ];

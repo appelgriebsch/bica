@@ -9,6 +9,10 @@
  * 7 questions of all four kinds), its coverage (affirmative + negative
  * imperativo, tu / você / o senhor, dá-me vs dá-lhe placement) and its ptNote
  * (Brazilian proclise side by side).
+ * #165 (gap G4, ADR 0028): the `gram-a2-comparativos` drill shape (A2, 5th
+ * position, 8 min, 7 questions of all four kinds), its coverage (mais/menos …
+ * do que, o mais / o menos + adjective, the irregulars melhor/pior/maior/menor)
+ * and its ptNote (PT keeps "do que", BR drops it).
  * Run with `bun run test` (node --test scripts/*.test.mjs). */
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -69,7 +73,7 @@ test("gram-a1-enclise is the 4th A1 drill: 8 min, 7 questions of all four kinds"
 });
 
 test("ptNote shape on the drills that carry one: non-empty pt/br/en, pt !== br", () => {
-  for (const id of ["gram-a1-enclise", "gram-a2-imperativo", "gram-b2-cliticos"]) {
+  for (const id of ["gram-a1-enclise", "gram-a2-imperativo", "gram-a2-comparativos", "gram-b2-cliticos"]) {
     const drill = grammarDrills.find((d) => d.id === id);
     assert.ok(drill?.ptNote, `${id} needs a ptNote`);
     const { pt, br, en } = drill.ptNote;
@@ -130,6 +134,55 @@ test("the gram-a2-imperativo ptNote shows the Brazilian proclise side by side", 
   const { pt, br } = drill.ptNote;
   assert.ok(/dá-me|diga-me/i.test(pt), "pt side keeps the enclitic imperativo (dá-me / diga-me)");
   assert.ok(/me dá|me diz/i.test(br), "br side uses proclise (me dá / me diz)");
+});
+
+test("gram-a2-comparativos is the 5th A2 drill: 8 min, 7 questions of all four kinds", () => {
+  const a2 = grammarDrills.filter((d) => d.level === "A2");
+  const drill = a2.find((d) => d.id === "gram-a2-comparativos");
+  assert.ok(drill, "gram-a2-comparativos missing");
+  assert.equal(
+    a2.indexOf(drill),
+    4,
+    "gram-a2-comparativos must be the 5th A2 drill (the Next-drill chain follows array order)",
+  );
+  assert.equal(drill.minutes, 8);
+  assert.equal(drill.quiz.length, 7);
+  assert.deepEqual(
+    [...new Set(drill.quiz.map((q) => q.kind))].sort(),
+    ["choice", "listen", "truefalse", "type"],
+    "all four existing quiz kinds",
+  );
+  for (const q of drill.quiz) {
+    assert.ok(q.explain.trim(), `${drill.id}/${q.id}: explain required`);
+    if (q.kind === "listen") assert.ok(q.speak?.trim(), `${q.id}: listen needs a speak line (Play + Slower)`);
+    if (q.kind === "type") assert.ok(q.accept?.length, `${q.id}: type needs accept`);
+  }
+  assert.ok(drill.quiz.some((q) => q.kind === "listen" && q.speak), "at least one listen with speak");
+  assert.equal(drill.examples.length, 3, "three examples, like every drill");
+});
+
+test("gram-a2-comparativos covers mais/menos … do que, o mais/o menos + adjective, and the irregulars", () => {
+  const drill = grammarDrills.find((d) => d.id === "gram-a2-comparativos");
+  assert.ok(drill, "gram-a2-comparativos missing");
+  const all = [
+    drill.body,
+    ...drill.examples.map((e) => e.pt),
+    ...drill.quiz.flatMap((q) => [q.prompt, ...(q.options ?? []), ...(q.accept ?? []), q.explain]),
+  ].join(" ");
+  assert.ok(/mais\b[^.]{0,20}do que/i.test(all), "mais … do que must be drilled");
+  assert.ok(/menos\b[^.]{0,20}do que/i.test(all), "menos … do que must be drilled");
+  assert.ok(/\b[oa] mais\b|\b[oa] menos\b/i.test(all), "o mais / o menos + adjective (superlative) must appear");
+  for (const w of ["melhor", "pior", "maior", "menor"]) {
+    assert.ok(new RegExp(`\\b${w}\\b`, "i").test(all), `irregular ${w} missing`);
+  }
+});
+
+test("the gram-a2-comparativos ptNote contrasts PT 'do que' with BR 'que'", () => {
+  const drill = grammarDrills.find((d) => d.id === "gram-a2-comparativos");
+  assert.ok(drill?.ptNote, "gram-a2-comparativos needs a ptNote");
+  const { pt, br } = drill.ptNote;
+  assert.ok(/mais\b[^.]{0,20}do que/i.test(pt), "pt side keeps 'do que' (mais … do que)");
+  assert.ok(/mais\b[^.]{0,20}que/i.test(br) && !/do que/i.test(br), "br side drops the 'do' (mais … que)");
 });
 
 test("grammar/$id.tsx renders <PortugalNote> only under drill.ptNote, after the examples list", () => {

@@ -119,6 +119,14 @@ export const units: Unit[] = [
     image: "/scenes/books.jpg",
   },
   {
+    id: "b1-work",
+    level: "B1",
+    title: "Work",
+    titlePt: "O trabalho",
+    blurb: "The interview, the CV, the contract, the formal email.",
+    image: "/scenes/office.jpg",
+  },
+  {
     id: "b2-fluent",
     level: "B2",
     title: "Fluency",

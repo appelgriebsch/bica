@@ -1,10 +1,11 @@
 /**
- * Prompt table for regenerating the 23 scene illustrations in public/scenes/
- * with a non-xAI provider (issue #93; +3 social scenes, issue #136). One prompt
- * per scene, derived from the settings mapped in src/lib/scene-image.ts and
- * from visual QC of the current JPGs.
+ * Prompt table for regenerating the 27 scene illustrations in public/scenes/
+ * with a non-xAI provider (issue #93; +3 social scenes, issue #136; +4 dedicated
+ * scenes splitting the most-reused images: phone.jpg was shared by 6 scenario
+ * entries, tasca.jpg by 3). One prompt per scene, derived from the settings
+ * mapped in src/lib/scene-image.ts and from visual QC of the current JPGs.
  *
- * The shared STYLE prefix locks the art direction across all 23 scenes so the
+ * The shared STYLE prefix locks the art direction across all 27 scenes so the
  * set reads as one photo series: warm photoreal Lisbon, golden-hour or soft
  * daylight, azulejo/cobblestone cues, muted cream-terracotta-ochre palette with
  * azulejo blue accents.
@@ -56,6 +57,10 @@ export const SCENES = {
   cafe:
     "Close-up of a white cup of espresso on a saucer on a polished marble café counter, blue-and-white azulejo tile wall behind, " +
     "a glass sugar dispenser, soft morning light through a window, shallow depth of field.",
+  "centro-saude":
+    "The reception of a Portuguese centro de sa\u00fade: a clean white service counter with a computer monitor, a telephone and a " +
+    "queue-ticket dispenser, a small 'Rece\u00e7\u00e3o' sign on the wall, bright daylight through large windows, pale green wall accents, " +
+    "calm orderly public-service interior.",
   colleagues:
     "A bright modern office kitchenette on a Friday afternoon: light wood cabinets and a white countertop, a coffee machine with " +
     "a glass jug and two mugs, a manual grinder, colleagues chatting while pouring coffee, papers and a laptop on the counter, " +
@@ -98,9 +103,16 @@ export const SCENES = {
   phone:
     "A smartphone lying on a café table showing a messaging app chat, next to a dark ceramic cup of espresso on a saucer, " +
     "granite tabletop, blurred Lisbon street in the background with a yellow tram passing, soft daylight.",
+  "phone-call":
+    "A young person holding a phone to their ear mid voice call, standing at a caf\u00e9 window in Lisbon, warm late-afternoon light, " +
+    "gesturing with the free hand while talking, blurred street with a yellow tram outside the window, candid everyday moment.",
   radio:
     "A vintage wooden radio on a windowsill, the window open with a lace curtain, panoramic view over Lisbon's terracotta rooftops " +
     "and the Tagus river at golden hour, warm backlight through the window.",
+  "shared-table":
+    "A crowded traditional tasca at lunch: a long shared wooden table with a white paper tablecloth where two strangers sit side " +
+    "by side eating, glasses of red wine, a bottle of vinho da casa, a bread basket and a bowl of olives between them, blue-and-white " +
+    "azulejo dado on the walls, warm dim light, other full tables in the background.",
   stairwell:
     "An old Lisbon building stairwell: a worn wooden staircase with turned balusters climbing upward, blue-and-white azulejo tiles " +
     "on the walls, a green apartment door, stone tile floor, soft light from a window above.",
@@ -113,6 +125,10 @@ export const SCENES = {
   terrace:
     "A café terrace on a Lisbon street at golden hour: a round marble table with two glasses of red wine, metal café chairs, " +
     "a cobblestone street and ochre buildings behind a wrought-iron railing, warm low sunlight.",
+  texting:
+    "Close-up of two hands holding a smartphone and typing a text message, a messaging app chat with reply bubbles on the " +
+    "screen, over a home kitchen table with a ceramic coffee cup and a plate with a pastel de nata, warm evening indoor light, " +
+    "softly blurred Lisbon apartment behind.",
   ticket:
     "A museum ticket office: a wooden counter with a service bell and a tray of tickets, a glass partition behind it with a desk " +
     "and computer inside, framed signage on the beige wall, soft daylight.",

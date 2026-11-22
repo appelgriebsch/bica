@@ -38,7 +38,7 @@ real crops: the lesson-player hero (16:9, <code>object-cover</code>) and the pra
 <div class="criteria">
   <strong>Pass criteria per scene per style (all must hold):</strong>
   <ul>
-    <li>Style consistency within the set: warm Lisbon cues (azulejos, cobblestones, terracotta roofs), coherent palette across all 23 scenes.</li>
+    <li>Style consistency within the set: warm Lisbon cues (azulejos, cobblestones, terracotta roofs), coherent palette across all 27 scenes.</li>
     <li>Subject matches the scene's role in <code>src/lib/scene-image.ts</code> and is recognizable at the 16:9 center crop (safe margins).</li>
     <li>No watermark, logo, signature, or gibberish text; any signage lettering must be legible or absent.</li>
     <li>No people unless the current scene has them (only <code>market</code> has blurred background shoppers); no distorted anatomy.</li>
@@ -59,17 +59,17 @@ real crops: the lesson-player hero (16:9, <code>object-cover</code>) and the pra
 // Injected by regen-scenes.mjs (replaces the /*__STYLES__*/ … [ … ] span):
 // [{id:"photo",label:"…"}, …]
 const STYLES = /*__STYLES__*/[{"id":"photo","label":"photoreal (current look)"}];
-const NAMES = ["balcony","books","cafe","colleagues","dinner","doorway","farmacia","family-lunch","friends","kitchen-radio","market","miradouro","office","padaria","pastelaria","phone","radio","stairwell","street","tasca","terrace","ticket","tram"];
+const NAMES = ["balcony","books","cafe","centro-saude","colleagues","dinner","doorway","farmacia","family-lunch","friends","kitchen-radio","market","miradouro","office","padaria","pastelaria","phone","phone-call","radio","shared-table","stairwell","street","tasca","terrace","texting","ticket","tram"];
 const ROLES = {
   balcony: "balcony view (dusk)", books: "bookshop / novel", cafe: "café counter, espresso",
-  colleagues: "office kitchenette, coffee with colleagues",
+  "centro-saude": "health-centre reception (phone)", colleagues: "office kitchenette, coffee with colleagues",
   dinner: "dinner table, wine", doorway: "building entrance / lift", farmacia: "pharmacy", "family-lunch": "family lunch at the parents' table",
   friends: "meeting friends on a terrace",
   "kitchen-radio": "kitchen radio / news", market: "Mercado da Ribeira stall", miradouro: "viewpoint bench",
   office: "office kitchenette", padaria: "bakery counter", pastelaria: "pastelaria, pastel de nata",
-  phone: "phone chat + bica", radio: "radio on windowsill", stairwell: "building stairwell",
+  phone: "phone chat + bica", "phone-call": "voice call with a friend", radio: "radio on windowsill", "shared-table": "sharing a full tasca table", stairwell: "building stairwell",
   street: "steep Alfama street (fallback)", tasca: "tasca interior", terrace: "terrace table, vinho",
-  ticket: "museum ticket office", tram: "elétrico 28",
+  texting: "texting dinner plans", ticket: "museum ticket office", tram: "elétrico 28",
 };
 const wrap = document.getElementById("scenes");
 const state = {}; // key `${style}:${name}` -> {verdict, notes}

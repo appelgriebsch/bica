@@ -89,7 +89,7 @@ export const speakScenarios: SpeakScenario[] = [
     openerPt: "Olá! Então, vais ter tempo amanhã à noite?",
     openerEn: "Hi! So, will you have time tomorrow night?",
     goals: ["Propose a time with que tal", "Accept or suggest another", "Close with combinado"],
-    image: "/scenes/phone.jpg",
+    image: "/scenes/texting.jpg",
     register: "tu",
   },
   {
@@ -109,7 +109,7 @@ export const speakScenarios: SpeakScenario[] = [
       "Suggest a time with às … horas e meia",
       "Close with combinado",
     ],
-    image: "/scenes/phone.jpg",
+    image: "/scenes/phone-call.jpg",
     register: "tu",
   },
   {
@@ -125,7 +125,7 @@ export const speakScenarios: SpeakScenario[] = [
     openerPt: "E então, o que faz? Se não é indiscrição.",
     openerEn: "So, what do you do? If it's not too nosy.",
     goals: ["Use trabalho em / com", "Say estou de férias if true", "Ask e o senhor?"],
-    image: "/scenes/tasca.jpg",
+    image: "/scenes/shared-table.jpg",
   },
   {
     id: "farmacia",
@@ -414,7 +414,7 @@ export const speakScenarios: SpeakScenario[] = [
       "Say the sintomas in one sentence (dói-me a garganta)",
       "Confirm the hora and close politely (até quinta-feira)",
     ],
-    image: "/scenes/phone.jpg",
+    image: "/scenes/centro-saude.jpg",
     register: "você",
   },
 ];

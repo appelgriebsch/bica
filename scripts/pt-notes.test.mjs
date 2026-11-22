@@ -15,6 +15,11 @@
  * eletrônico/sacar contrast, appended at max a2-life order + 1, plus a guard
  * pin (shape, vocab ≥5 for a future S-scene lessonId contract, coverage of
  * carta/encomenda/selos/multibanco/levantar dinheiro).
+ * #171 (gap L3, plan #199 — no ADR, owner decision): lesson `a2-casa`
+ * joins NOTED_LESSONS with the arrendamento/renda/senhorio vs
+ * aluguel/proprietário contrast, appended at max a2-life order + 1,
+ * plus a guard pin (shape, vocab ≥5 for the S-pattern lessonId
+ * contract, coverage of quarto/caução/renda/arrendamento/senhorio).
  * Run with `bun run test` (node --test scripts/*.test.mjs). */
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -70,6 +75,7 @@ const NOTED_LESSONS = [
   "a2-saude",
   "a2-telefone",
   "a2-ctt-banco",
+  "a2-casa",
 ];
 
 test("the A1/A2 lessons carrying a note are exactly the planned set", () => {
@@ -127,6 +133,7 @@ test("the T2 widening contrasts are present (spelling, words, word order)", () =
   assert.ok(hasNote("a2-saude", "centro de saúde", "posto de saúde"), "health-centre contrast missing");
   assert.ok(hasNote("a2-telefone", "está?", "alô"), "phone-opener contrast missing");
   assert.ok(hasNote("a2-ctt-banco", "multibanco", "caixa eletrônico"), "ATM contrast missing");
+  assert.ok(hasNote("a2-casa", "arrendamento", "aluguel"), "renting contrast missing");
 });
 
 test("every A1/A2 lesson whose section body or quiz explain mentions Brazil has a ptNote (#82 AC1)", () => {
@@ -278,6 +285,55 @@ test("a2-ctt-banco (#170, plan #198): appended at max a2-life order + 1, 12 min,
   ].join(" ");
   for (const re of [/carta/i, /encomenda/i, /selos/i, /multibanco/i, /levantar dinheiro/i, /prestaçõ?es/i]) {
     assert.ok(re.test(all), `coverage: ${re} missing from a2-ctt-banco`);
+  }
+});
+
+test("a2-casa (#171, plan #199): appended at max a2-life order + 1, 12 min, skill mix, vocab >= 5, image exists, quiz kinds, coverage", () => {
+  const lesson = lessons.find((l) => l.id === "a2-casa");
+  assert.ok(lesson, "a2-casa missing");
+  assert.equal(lesson.level, "A2");
+  assert.equal(lesson.unitId, "a2-life");
+  // Same append-stable formulation as the a2-telefone/a2-ctt-banco pins (#169/#170).
+  const life = lessons.filter((l) => l.unitId === "a2-life");
+  const before = life.slice(0, life.findIndex((l) => l.id === "a2-casa"));
+  assert.equal(
+    lesson.order,
+    Math.max(...before.map((l) => l.order)) + 1,
+    "appended in a2-life: order = max+1 of the lessons before it, never renumber existing lessons",
+  );
+  assert.equal(lesson.minutes, 12);
+  assert.equal(lesson.skill, "mix");
+  assert.equal(lesson.image, "/scenes/balcony.jpg");
+  assert.ok(existsSync(join(root, "public", lesson.image)), "lesson image must exist under public/");
+  const vocab = lesson.sections.find((s) => s.type === "vocab");
+  assert.ok(vocab && vocab.items.length >= 5, "vocab section with >=5 items (the S-pattern lessonId contract needs vocab)");
+  assert.deepEqual(
+    [...new Set(lesson.quiz.map((q) => q.kind))].sort(),
+    ["choice", "listen", "truefalse", "type"],
+    "quiz uses only the four existing kinds",
+  );
+  for (const q of lesson.quiz) {
+    assert.ok(q.explain.trim(), `${q.id}: explain required`);
+    if (q.kind === "listen") assert.ok(q.speak?.trim(), `${q.id}: listen needs a speak line (Play + Slower)`);
+    if (q.kind === "type") assert.ok(q.accept?.length, `${q.id}: type needs accept`);
+  }
+  const all = [
+    lesson.summary,
+    ...lesson.goals,
+    ...lesson.sections.flatMap((s) => [
+      "title" in s ? s.title : "",
+      "body" in s ? s.body : "",
+      "kicker" in s ? s.kicker : "",
+      ...("setting" in s ? [s.setting] : []),
+      ...("items" in s ? s.items.flatMap((i) => [i.pt, i.en, i.examplePt, i.exampleEn]) : []),
+      ...("examples" in s ? s.examples.flatMap((e) => [e.pt, e.en]) : []),
+      ...("lines" in s ? s.lines.flatMap((l) => [l.pt, l.en]) : []),
+      ...("phrase" in s ? [s.phrase.pt, s.phrase.en] : []),
+    ]),
+    ...lesson.quiz.flatMap((q) => [q.prompt, ...(q.options ?? []), ...(q.accept ?? []), q.explain]),
+  ].join(" ");
+  for (const re of [/cauç/i, /renda/i, /arrendamento/i, /senhorio/i, /quarto/i]) {
+    assert.ok(re.test(all), `coverage: ${re} missing from a2-casa`);
   }
 });
 

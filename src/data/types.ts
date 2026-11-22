@@ -134,6 +134,7 @@ export const TRAVEL_SITUATIONS = [
   "accommodation",
   "chemist",
   "directions",
+  "market",
 ] as const;
 
 export type TravelSituation = (typeof TRAVEL_SITUATIONS)[number];

@@ -162,13 +162,13 @@ Seen in: `src/data/placement.ts`, `src/routes/placement.tsx`, `src/routes/index.
 
 ## Travel Scenes
 
-Scripted trip scenes on Practice, under "Cenas de viagem": café, restaurant, transport, accommodation, chemist, asking the way. Each opens `/scene/$id` without finishing the A1 path, works offline (text and on-device audio), and links to a matching A1/A2 Lesson whose words feed Palavras, plus an online-only Conversas partner (`TravelScene`, ADR 0016).
+Scripted trip scenes on Practice, under "Cenas de viagem": café, restaurant, transport, accommodation, chemist, asking the way, the market. Each opens `/scene/$id` without finishing the A1 path, works offline (text and on-device audio), and links to a matching A1/A2 Lesson whose words feed Palavras, plus an online-only Conversas partner (`TravelScene`, ADR 0016).
 
 Seen in: `src/routes/practice.tsx`, `src/routes/scene/$id.tsx`, `src/data/travel-scenes.ts`, `src/data/types.ts`, `src/components/dialogue.tsx`
 
 ## Travel Phrasebook
 
-"On the trip" on You: trip phrases grouped by situation, available before any Lesson and working offline. "Qualquer lado" (the anywhere staples) first, then the six Travel Scenes' situations with their "You" lines. Each phrase plays with the Speak button and can be saved to Palavras. Below it, "From your conversas" holds the words saved from Conversas replies and "From your lessons" the words from finished Lessons.
+"On the trip" on You: trip phrases grouped by situation, available before any Lesson and working offline. "Qualquer lado" (the anywhere staples) first, then the seven Travel Scenes' situations with their "You" lines. Each phrase plays with the Speak button and can be saved to Palavras. Below it, "From your conversas" holds the words saved from Conversas replies and "From your lessons" the words from finished Lessons.
 
 Seen in: `src/routes/me.tsx`, `src/data/phrasebook.ts`
 

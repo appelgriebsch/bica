@@ -315,4 +315,25 @@ export const speakScenarios: SpeakScenario[] = [
     image: "/scenes/colleagues.jpg",
     register: "você",
   },
+  {
+    id: "mercado",
+    level: "A2",
+    topic: "shopping",
+    minutes: 10,
+    title: "At the market",
+    titlePt: "No mercado",
+    setting:
+      "You are at a stall in Mercado da Ribeira, late morning. Tubs of olives, bread, fish on ice. Ask for quantities, check the price, say it is too expensive, then pay. Falam de você.",
+    partner: "Rui, the market vendor",
+    openerPt: "Boa tarde! O que lhe apetece hoje?",
+    openerEn: "Good afternoon! What would you like today?",
+    goals: [
+      "Ask for um quarto / meio quilo de…",
+      "Ask quanto custa",
+      "Say é demasiado caro",
+      "Pay and thank",
+    ],
+    image: "/scenes/market.jpg",
+    register: "você",
+  },
 ];

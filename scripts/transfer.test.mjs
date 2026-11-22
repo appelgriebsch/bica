@@ -75,7 +75,11 @@ function light() {
     floorUpdatedAt: null,
   };
 }
-/** Every lesson and every vocab card of the real catalogue: the largest real snapshot. */
+/** Every lesson and every vocab card of the real catalogue: the largest real snapshot.
+ * Must stay within the ADR 0005 frame cap — the round-trip test asserts
+ * frames.length <= MAX_PARTS, so content growth past the cap fails loudly.
+ * (Cap raised 16 → 24 by the 2026-11-22 addendum after #168's a2-saude pushed
+ * the max profile to 17 frames.) */
 function heavy() {
   const completed = {};
   lessons.forEach((l, i) => {
@@ -224,8 +228,10 @@ test("AAD n is computed before encryption and matches the frames", async () => {
   }
 });
 
-test("overflow: more than 16 frames is refused, never truncated", async () => {
-  const noise = T.base45Encode(crypto.getRandomValues(new Uint8Array(6000)));
+test("overflow: more than MAX_PARTS frames is refused, never truncated", async () => {
+  // Random noise sized to need more than MAX_PARTS frames (base45 ≈ 1.5 chars/byte).
+  const noiseBytes = Math.ceil(((T.MAX_PARTS + 1) * T.PAYLOAD_CHARS) / 1.5);
+  const noise = T.base45Encode(crypto.getRandomValues(new Uint8Array(noiseBytes)));
   await assert.rejects(framesOf({ noise }), (e) => e.kind === "too-large");
 });
 
@@ -341,7 +347,7 @@ test("framing: order, duplicates, conflicts, sessions, versions, caps", () => {
     "BQ1:SID1:0/3:ABC", // i = 0
     "BQ1:SID1:4/3:ABC", // i > n
     "BQ1:SID1:01/3:ABC", // non-canonical
-    "BQ1:SID1:1/17:ABC", // n > 16
+    `BQ1:SID1:1/${T.MAX_PARTS + 1}:ABC`, // n > MAX_PARTS
     "BQ1:sid1:1/3:ABC", // lowercase SID
     "BQ1:SID:1/3:ABC",
     "BQ1:SID1:1/3:",
@@ -351,7 +357,7 @@ test("framing: order, duplicates, conflicts, sessions, versions, caps", () => {
   ]) {
     assert.equal(T.parseFrame(bad), null, bad);
   }
-  assert.ok(T.parseFrame(`BQ1:SID1:16/16:${"A".repeat(600 - 15)}`));
+  assert.ok(T.parseFrame(`BQ1:SID1:${T.MAX_PARTS}/${T.MAX_PARTS}:${"A".repeat(600 - 15)}`));
   assert.equal(s.expiresAt, 5 * 60 * 1000);
   s.clear();
   assert.equal(s.collection, null);

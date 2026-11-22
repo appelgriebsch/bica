@@ -41,3 +41,11 @@ A heavy progress fixture measured about 2.6 KB with gzip. The selected wire code
 - Existing merge semantics can change individual records/settings and can reduce streak when the later study day has a shorter streak. The UI must not promise that every value only increases.
 - Camera policy changes and explicit PWA update code are necessary client work. The existing /_shell fallback omits CSP/Permissions-Policy; broad remediation is outside this decision.
 - The schema must distinguish observed timestamps from scheduled SRS due dates. Current scheduling reaches 30 days ahead. Observed dates are bounded at today + 1. cards.due is bounded at today + 31.
+
+## Addendum 2026-11-22 (#196, #168): frame cap raised 16 → 24
+
+The decision above capped `n` at 16. Measured after #168 (lesson `a2-saude` added 7 vocab cards): the absolute max progress profile — all 34 lessons completed plus all 254 catalogue vocab cards saved — deflates to ~5.2 KB and needs **17 frames**, so a genuinely maxed-out user hit the visible "too-large" failure and could no longer QR-transfer progress at all.
+
+The cap is raised to **24** (`MAX_PARTS` in `src/lib/transfer.ts`). That gives ~7 frames of headroom (roughly 50 more vocab cards, i.e. several lessons) before content growth reaches it again; the round-trip test in `scripts/transfer.test.mjs` asserts the absolute-max fixture stays within `MAX_PARTS`, so exceeding the cap fails the build loudly and the cap is re-decided here, deliberately.
+
+Unchanged: per-frame density (450–500 payload chars, frames completed at 600 — the cap only bounds the frame *count*, i.e. scan-session length, still well inside the 5-minute session), the BQ1 framing, the crypto, the schema bounds, and "oversized payloads fail visibly, never truncate".

@@ -2,6 +2,10 @@
  * the required A1/A2 contrasts, the planned set of noted lessons, the
  * "mentions Brazil ⇒ has a note" coverage guard for A1/A2 (#140), and a source
  * assertion that only the European `pt` form is playable.
+ * #168 (gap L4, ADR 0031): lesson `a2-saude` joins NOTED_LESSONS with the
+ * centro de saúde vs posto de saúde contrast, plus a guard pin for its shape
+ * (order 6 in a2-life, 12 min, vocab ≥5 for the S1 lessonId contract, image,
+ * quiz kinds, 112/inscrição/utente/marcar-consulta coverage, orders 7/8).
  * Run with `bun run test` (node --test scripts/*.test.mjs). */
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -54,6 +58,7 @@ const NOTED_LESSONS = [
   "a2-planos",
   "a2-farmacia",
   "a2-compras",
+  "a2-saude",
 ];
 
 test("the A1/A2 lessons carrying a note are exactly the planned set", () => {
@@ -108,6 +113,7 @@ test("the T2 widening contrasts are present (spelling, words, word order)", () =
   assert.ok(hasNote("a1-dias", "à segunda", "na segunda"), "weekday preposition contrast missing (a1-dias)");
   assert.ok(hasNote("a2-planos", "connosco", "conosco"), "spelling contrast missing");
   assert.ok(hasNote("a2-compras", "ficam-lhe bem", "em você"), "word-order contrast missing");
+  assert.ok(hasNote("a2-saude", "centro de saúde", "posto de saúde"), "health-centre contrast missing");
 });
 
 test("every A1/A2 lesson whose section body or quiz explain mentions Brazil has a ptNote (#82 AC1)", () => {
@@ -120,6 +126,48 @@ test("every A1/A2 lesson whose section body or quiz explain mentions Brazil has 
       assert.ok(notesOf(lesson).length > 0, `${lesson.id} mentions Brazil but has no ptNote`);
     }
   }
+});
+
+test("a2-saude (#168, ADR 0031): order 6 in a2-life, 12 min, vocab >= 5, image exists, quiz kinds, coverage; compras/hotel renumbered 7/8", () => {
+  const lesson = lessons.find((l) => l.id === "a2-saude");
+  assert.ok(lesson, "a2-saude missing");
+  assert.equal(lesson.level, "A2");
+  assert.equal(lesson.unitId, "a2-life");
+  assert.equal(lesson.order, 6, "inserted after a2-farmacia");
+  assert.equal(lesson.minutes, 12);
+  assert.equal(lesson.image, "/scenes/farmacia.jpg");
+  assert.ok(existsSync(join(root, "public", lesson.image)), "lesson image must exist under public/");
+  const vocab = lesson.sections.find((s) => s.type === "vocab");
+  assert.ok(vocab && vocab.items.length >= 5, "vocab section with >=5 items (the S1/#173 lessonId contract needs vocab)");
+  assert.deepEqual(
+    [...new Set(lesson.quiz.map((q) => q.kind))].sort(),
+    ["choice", "listen", "truefalse", "type"],
+    "quiz uses only the four existing kinds",
+  );
+  for (const q of lesson.quiz) {
+    assert.ok(q.explain.trim(), `${q.id}: explain required`);
+    if (q.kind === "listen") assert.ok(q.speak?.trim(), `${q.id}: listen needs a speak line (Play + Slower)`);
+    if (q.kind === "type") assert.ok(q.accept?.length, `${q.id}: type needs accept`);
+  }
+  const all = [
+    lesson.summary,
+    ...lesson.goals,
+    ...lesson.sections.flatMap((s) => [
+      "title" in s ? s.title : "",
+      "body" in s ? s.body : "",
+      "kicker" in s ? s.kicker : "",
+      ...("items" in s ? s.items.flatMap((i) => [i.pt, i.en, i.examplePt, i.exampleEn]) : []),
+      ...("examples" in s ? s.examples.flatMap((e) => [e.pt, e.en]) : []),
+      ...("lines" in s ? s.lines.flatMap((l) => [l.pt, l.en]) : []),
+      ...("phrase" in s ? [s.phrase.pt, s.phrase.en] : []),
+    ]),
+    ...lesson.quiz.flatMap((q) => [q.prompt, ...(q.options ?? []), ...(q.accept ?? []), q.explain]),
+  ].join(" ");
+  for (const frag of ["112", "inscri", "utente", "marcar uma consulta"]) {
+    assert.ok(all.toLowerCase().includes(frag), `coverage: "${frag}" missing from a2-saude`);
+  }
+  assert.equal(lessons.find((l) => l.id === "a2-compras")?.order, 7, "a2-compras renumbered 6→7");
+  assert.equal(lessons.find((l) => l.id === "a2-hotel")?.order, 8, "a2-hotel renumbered 7→8");
 });
 
 test("portugal-note.tsx renders SpeakButton only for the pt form", () => {

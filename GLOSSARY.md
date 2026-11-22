@@ -78,7 +78,7 @@ Seen in: `src/routes/practice.tsx`, `src/data/reading.ts`, `src/routes/read/$id.
 
 ## Grammar / Verbs
 
-Grammar drills and verb tables by Level. Practice titles them Gramática and Verbos. Gramática is at least three drills on every level — A2 carries five, the fifth being comparativos e superlativos (`gram-a2-comparativos`); B1 carries four, the fourth being pretérito perfeito composto (`gram-b1-perfeito-composto`). Verbos is one desk per level.
+Grammar drills and verb tables by Level. Practice titles them Gramática and Verbos. Gramática is at least three drills on every level — A2 carries five, the fifth being comparativos e superlativos (`gram-a2-comparativos`); B1 carries five, the fifth being a voz passiva (`gram-b1-passiva`). Verbos is one desk per level.
 
 Seen in: `src/routes/practice.tsx`, `src/routes/grammar/index.tsx`, `src/routes/verbs/index.tsx`, `src/data/types.ts`
 

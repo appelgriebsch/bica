@@ -17,6 +17,11 @@
  * 4th position, 10 min, 7 questions of all four kinds), its coverage (ter +
  * participle, the irregulars feito/dito/visto/posto, the composto-vs-simples
  * contrast) and its ptNote (PT keeps "tenho …", BR uses the simple pretérito).
+ * #175 (gap G6, plan #206 — no ADR, owner decision): the `gram-b1-passiva`
+ * drill appended as the 5th B1 drill (10 min, 7 questions of all four kinds),
+ * its coverage (ser + participle agreement foi escrita / foram escritas, the
+ * por agent, the dizem que contrast) and its ptNote (PT analytic passive vs
+ * BR active / se-passive); GLOSSARY B1 count updated in the same PR.
  * Run with `bun run test` (node --test scripts/*.test.mjs). */
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -77,7 +82,7 @@ test("gram-a1-enclise is the 4th A1 drill: 8 min, 7 questions of all four kinds"
 });
 
 test("ptNote shape on the drills that carry one: non-empty pt/br/en, pt !== br", () => {
-  for (const id of ["gram-a1-enclise", "gram-a2-imperativo", "gram-a2-comparativos", "gram-b1-perfeito-composto", "gram-b2-cliticos"]) {
+  for (const id of ["gram-a1-enclise", "gram-a2-imperativo", "gram-a2-comparativos", "gram-b1-perfeito-composto", "gram-b1-passiva", "gram-b2-cliticos"]) {
     const drill = grammarDrills.find((d) => d.id === id);
     assert.ok(drill?.ptNote, `${id} needs a ptNote`);
     const { pt, br, en } = drill.ptNote;
@@ -235,6 +240,54 @@ test("the gram-b1-perfeito-composto ptNote contrasts PT 'tenho …' with BR simp
   const { pt, br } = drill.ptNote;
   assert.ok(/\btenho\b/i.test(pt), "pt side keeps ter + participle (tenho andado)");
   assert.ok(/\bandei\b|\bcomi\b|\bfiz\b/i.test(br) && !/\btenho\b/i.test(br), "br side uses the simple pretérito (andei)");
+});
+
+test("gram-b1-passiva is the 5th B1 drill: 10 min, 7 questions of all four kinds", () => {
+  const b1 = grammarDrills.filter((d) => d.level === "B1");
+  const drill = b1.find((d) => d.id === "gram-b1-passiva");
+  assert.ok(drill, "gram-b1-passiva missing");
+  assert.equal(
+    b1.indexOf(drill),
+    4,
+    "gram-b1-passiva must be the 5th B1 drill, appended after gram-b1-perfeito-composto (the Next-drill chain follows array order)",
+  );
+  assert.equal(drill.minutes, 10);
+  assert.equal(drill.quiz.length, 7);
+  assert.deepEqual(
+    [...new Set(drill.quiz.map((q) => q.kind))].sort(),
+    ["choice", "listen", "truefalse", "type"],
+    "all four existing quiz kinds",
+  );
+  for (const q of drill.quiz) {
+    assert.ok(q.explain.trim(), `${drill.id}/${q.id}: explain required`);
+    if (q.kind === "listen") assert.ok(q.speak?.trim(), `${q.id}: listen needs a speak line (Play + Slower)`);
+    if (q.kind === "type") assert.ok(q.accept?.length, `${q.id}: type needs accept`);
+  }
+  assert.ok(drill.quiz.some((q) => q.kind === "listen" && q.speak), "at least one listen with speak");
+  assert.equal(drill.examples.length, 3, "three examples, like every drill");
+});
+
+test("gram-b1-passiva covers ser + participle agreement, the por agent, and the dizem que contrast", () => {
+  const drill = grammarDrills.find((d) => d.id === "gram-b1-passiva");
+  assert.ok(drill, "gram-b1-passiva missing");
+  const all = [
+    drill.focus,
+    drill.body,
+    ...drill.examples.flatMap((e) => [e.pt, e.en]),
+    ...drill.quiz.flatMap((q) => [q.prompt, ...(q.options ?? []), ...(q.accept ?? []), q.explain]),
+  ].join(" ");
+  assert.ok(/foi escrita/i.test(all), "feminine singular agreement (foi escrita) must be drilled");
+  assert.ok(/foram escritas/i.test(all), "plural agreement (foram escritas) must be drilled");
+  assert.ok(/\bpor\b|pelo|pela/i.test(all), "the por agent must be drilled");
+  assert.ok(/dizem que/i.test(all), "the impersonal dizem que contrast must be drilled");
+});
+
+test("the gram-b1-passiva ptNote contrasts the PT analytic passive with BR active / se-passive", () => {
+  const drill = grammarDrills.find((d) => d.id === "gram-b1-passiva");
+  assert.ok(drill?.ptNote, "gram-b1-passiva needs a ptNote");
+  const { pt, br } = drill.ptNote;
+  assert.ok(/foi aprovada|é controlada/i.test(pt), "pt side keeps the analytic passive (foi aprovada)");
+  assert.ok(/aprovaram|aprovou-se/i.test(br) && !/foi aprovada/i.test(br), "br side uses active (aprovaram) or se-passive (aprovou-se)");
 });
 
 test("grammar/$id.tsx renders <PortugalNote> only under drill.ptNote, after the examples list", () => {

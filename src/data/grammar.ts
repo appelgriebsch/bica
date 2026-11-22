@@ -222,8 +222,8 @@ export const grammarDrills: GrammarDrill[] = [
     id: "gram-b1-subjuntivo",
     level: "B1",
     minutes: 10,
-    title: "The first subjunctive",
-    titlePt: "O subjuntivo",
+    title: "The first conjuntivo",
+    titlePt: "O conjuntivo",
     focus: "Wish, doubt, emotion, and a different subject after que",
     body: "Take the eles present, drop -m, add the opposite vowel: falar → fale; comer → coma. Ir → vá. Ser → seja. Estar → esteja. Ter → tenha. Haver → haja. You need it after que when the subject changes and you wish, doubt, or feel: quero que venhas, é importante que esteja.",
     examples: [

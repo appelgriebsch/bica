@@ -224,6 +224,8 @@ export type GrammarDrill = {
   focus: string;
   body: string;
   examples: { pt: string; en: string }[];
+  /** Portugal × Brasil note (#160, ADR 0024), rendered below the examples on /grammar/$id. */
+  ptNote?: PtNote;
   quiz: QuizQuestion[];
 };
 

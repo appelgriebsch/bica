@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { DoneCard } from "@/components/lesson-player";
+import { PortugalNote } from "@/components/portugal-note";
 import { QuizBlock } from "@/components/quiz-block";
 import { SpeakButton } from "@/components/speak-button";
 import { Button } from "@/components/ui/button";
@@ -97,6 +98,8 @@ function GrammarPlayer({ drill }: { drill: GrammarDrill }) {
                 </li>
               ))}
             </ul>
+
+            {drill.ptNote && <PortugalNote note={drill.ptNote} />}
 
             <Button className="mt-8 w-full" onClick={() => setPhase("quiz")}>
               Start the drill

@@ -16,8 +16,8 @@ function GrammarIndex() {
       <h1 className="font-display text-3xl font-medium tracking-tight">Gramática</h1>
       <p className="mt-2 text-muted">
         Drills for each level. A short rule, three examples, then a quiz. Eight
-        to ten minutes — then back to the path. Three on every level, A1 through
-        C1.
+        to ten minutes — then back to the path. At least three on every level, A1
+        through C1.
       </p>
 
       <div className="mt-8 space-y-10">

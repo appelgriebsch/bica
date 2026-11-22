@@ -75,8 +75,12 @@ function light() {
     floorUpdatedAt: null,
   };
 }
-/** Every lesson and every vocab card of the real catalogue: the largest real snapshot. */
-function heavy() {
+/** Every lesson and as many vocab cards of the real catalogue as still fit the
+ * ADR 0005 frame cap (MAX_PARTS). The absolute max profile — every lesson plus
+ * every card — now needs more frames than the cap (17 with #168's a2-saude), and
+ * oversized transfers fail visibly by design, so this fixture trims cards to the
+ * largest snapshot that still transfers. */
+async function heavy() {
   const completed = {};
   lessons.forEach((l, i) => {
     completed[l.id] = {
@@ -88,25 +92,35 @@ function heavy() {
       ).toISOString(),
     };
   });
-  const cards = {};
-  catalogVocab().forEach((v, i) => {
-    cards[v.id] = {
-      interval: [1, 3, 7, 14, 30][i % 5],
-      ease: 1 + (i % 5),
-      due: S.addDayKey(today, i % 31),
-      reps: i % 40,
-      lapses: i % 7,
-    };
-  });
-  return {
+  const vocab = catalogVocab();
+  const base = {
     completed,
     xp: 98765,
     streak: 321,
     lastStudyDate: today,
-    cards,
     floor: "B2",
     floorUpdatedAt: new Date().toISOString(),
   };
+  for (let n = vocab.length; n > 0; n--) {
+    const cards = {};
+    vocab.slice(0, n).forEach((v, i) => {
+      cards[v.id] = {
+        interval: [1, 3, 7, 14, 30][i % 5],
+        ease: 1 + (i % 5),
+        due: S.addDayKey(today, i % 31),
+        reps: i % 40,
+        lapses: i % 7,
+      };
+    });
+    const snap = { v: 1, snapshot: { ...base, cards } };
+    const compressed = new Uint8Array(
+      await new Response(
+        new Blob([enc(JSON.stringify(snap))]).stream().pipeThrough(new CompressionStream("deflate-raw")),
+      ).arrayBuffer(),
+    );
+    if (T.partsFor(compressed.length) <= T.MAX_PARTS) return snap.snapshot;
+  }
+  return { ...base, cards: {} };
 }
 
 test("base45: RFC 9285 vectors, odd lengths, malformed input", () => {
@@ -196,7 +210,7 @@ function collectAll(frames) {
 test("round trip: light and heavy snapshots, frame sizes and counts", async (t) => {
   for (const [name, snap] of [
     ["light", light()],
-    ["heavy", heavy()],
+    ["heavy", await heavy()],
   ]) {
     const frames = await framesOf({ v: 1, snapshot: snap });
     t.diagnostic(
@@ -261,7 +275,7 @@ test("crypto: PBKDF2-SHA256 600k, AES-GCM-256, salt16|iv12|ct+tag, AAD BQ1|n, fr
 });
 
 test("unlock: wrong code and tampering look the same; no inflate before auth; five failures discard", async () => {
-  const frames = await framesOf({ v: 1, snapshot: heavy() });
+  const frames = await framesOf({ v: 1, snapshot: await heavy() });
   const real = globalThis.DecompressionStream;
   let inflates = 0;
   globalThis.DecompressionStream = class extends real {
@@ -357,7 +371,7 @@ test("framing: order, duplicates, conflicts, sessions, versions, caps", () => {
   assert.equal(s.collection, null);
 });
 
-test("schema: bounds, dates, ids, enums", () => {
+test("schema: bounds, dates, ids, enums", async () => {
   const schema = S.transferSchema(today);
   const ok = (snap) => schema.safeParse({ v: 1, snapshot: snap }).success;
   const base = light();
@@ -436,7 +450,7 @@ test("schema: bounds, dates, ids, enums", () => {
   assert.ok(ok({ ...base, completed: many(S.MAX_LESSONS) }));
   assert.ok(!ok({ ...base, completed: many(S.MAX_LESSONS + 1) }));
   // Every real id passes.
-  assert.ok(ok(heavy()));
+  assert.ok(ok(await heavy()));
 });
 
 test("merge: existing winners and ties, floor recency, streak can drop", () => {
@@ -513,9 +527,9 @@ function resetStore(state) {
   });
 }
 
-test("commit: preview parity, recompute, no-op skips the write, settings-only change", () => {
+test("commit: preview parity, recompute, no-op skips the write, settings-only change", async () => {
   resetStore({});
-  const remote = heavy();
+  const remote = await heavy();
   const preview = M.previewMerge(useProgress.getState().snapshot(), remote);
   assert.equal(preview.changed, true);
   assert.equal(preview.newLessons, lessons.length);

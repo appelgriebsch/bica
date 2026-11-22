@@ -59,10 +59,21 @@ const fut = {
 };
 
 const cond = {
+  ser: tense("Condicional", "would", ["seria", "serias", "seria", "seríamos", "seriam"]),
+  estar: tense("Condicional", "would", ["estaria", "estarias", "estaria", "estaríamos", "estariam"]),
   ir: tense("Condicional", "would", ["iria", "irias", "iria", "iríamos", "iriam"]),
   ter: tense("Condicional", "would", ["teria", "terias", "teria", "teríamos", "teriam"]),
   fazer: tense("Condicional", "would", ["faria", "farias", "faria", "faríamos", "fariam"]),
+  querer: tense("Condicional", "would", ["queria", "querias", "queria", "queríamos", "queriam"]),
   poder: tense("Condicional", "would", ["poderia", "poderias", "poderia", "poderíamos", "poderiam"]),
+};
+
+/** #176 (gap G7): the conditional of courtesy at a counter — queria um café, podia ajudar? */
+const cortesia = {
+  ser: tense("Cond. de cortesia", "polite would", ["seria", "serias", "seria", "seríamos", "seriam"]),
+  estar: tense("Cond. de cortesia", "polite would", ["estaria", "estarias", "estaria", "estaríamos", "estariam"]),
+  querer: tense("Cond. de cortesia", "polite would", ["queria", "querias", "queria", "queríamos", "queriam"]),
+  poder: tense("Cond. de cortesia", "polite would", ["podia", "podias", "podia", "podíamos", "podiam"]),
 };
 
 const futConj = {
@@ -102,17 +113,19 @@ export const verbDesks: VerbDesk[] = [
   {
     id: "verb-a2-preterito",
     level: "A2",
-    minutes: 12,
-    title: "Yesterday — pretérito",
-    titlePt: "Pretérito",
-    focus: "Finished actions: fui, estive, tive, quis, fiz",
-    body: "Pretérito is a closed door: it happened, it's done. I went, I was (for a stretch), I had, I wanted, I did. Ser and ir share the whole set: fui, foste, foi. Right-now action in Portugal is still estar a + infinitive — ontem is this page.",
+    minutes: 16,
+    title: "Pasts and the polite would",
+    titlePt: "Passados e cortesia",
+    focus: "Pretérito, imperfeito, and the conditional of courtesy: queria, podia",
+    body: "Pretérito is a closed door: it happened, it's done — fui, estive, fiz. Imperfeito paints the scene: era tarde, chovia, eu ia de elétrico — habits and background (the full pretérito-vs-imperfeito contrast waits for B1). And the polite would at any counter: queria um café, podia ajudar? The conditional of courtesy is how Portugal softens a request.",
     verbs: [
-      verb("ser", "to be — I was (identity, event)", [pret.ser], "Same forms as ir. Context decides: fui professor vs fui ao café."),
-      verb("ir", "to go — I went", [pret.ir]),
-      verb("estar", "to be — I was (state, place)", [pret.estar]),
-      verb("ter", "to have — I had", [pret.ter]),
-      verb("fazer", "to do / make — I did", [pret.fazer]),
+      verb("ser", "to be — I was (identity, event)", [pret.ser, impf.ser, cortesia.ser], "Same pretérito forms as ir. Context decides: fui professor vs fui ao café. Seria = polite 'would be'."),
+      verb("ir", "to go — I went", [pret.ir, impf.ir], "Ia todos os dias = I used to go every day."),
+      verb("estar", "to be — I was (state, place)", [pret.estar, impf.estar, cortesia.estar], "Estava = I was (state); estaria = polite 'would be'."),
+      verb("ter", "to have — I had", [pret.ter, impf.ter], "Tinha = I had (habit/state)."),
+      verb("fazer", "to do / make — I did", [pret.fazer, impf.fazer], "Fazia = I used to do."),
+      verb("querer", "to want — polite would", [cortesia.querer], "Queria um café, por favor — the polite order. A1-level survival at a Portuguese counter."),
+      verb("poder", "to be able — polite would", [cortesia.poder], "Podia ajudar-me? — could you help me (polite)."),
     ],
     quiz: [
       { id: "q1", kind: "choice", prompt: "I went to Lisbon yesterday…", options: ["Ia a Lisboa", "Fui a Lisboa", "Vou a Lisboa", "Era a Lisboa"], answer: 1, explain: "Finished trip = pretérito fui." },
@@ -122,6 +135,9 @@ export const verbDesks: VerbDesk[] = [
       { id: "q5", kind: "choice", prompt: "Ele, pretérito of estar…", options: ["estava", "esteve", "está", "estive"], answer: 1, explain: "Ele esteve." },
       { id: "q6", kind: "listen", prompt: "Which verb?", speak: "Ontem tive uma reunião.", options: ["ter", "ir", "ser", "estar"], answer: 0, explain: "Tive = I had." },
       { id: "q7", kind: "choice", prompt: "Right now, in Portugal, 'I'm ordering' is…", options: ["Estou pedindo", "Estou a pedir", "Pedi agora ser", "Estava a pedir ontem"], answer: 1, explain: "Estar a + infinitive. Pretérito is yesterday." },
+      { id: "q8", kind: "choice", prompt: "Imperfeito of ser, eu…", options: ["era", "fui", "sou", "seria"], answer: 0, explain: "Eu era — background/habit, not a closed event." },
+      { id: "q9", kind: "listen", prompt: "What does the customer order politely?", speak: "Queria um café, por favor.", options: ["A blunt 'quero'", "A coffee, politely (queria)", "A tea", "The bill at once"], answer: 1, explain: "Queria um café — the conditional of courtesy." },
+      { id: "q10", kind: "type", prompt: "Type 'could you help me?' (polite, poder).", accept: ["podia ajudar-me", "podia ajudar-me?", "podia me ajudar"], explain: "Podia ajudar-me?" },
     ],
   },
   {

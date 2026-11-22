@@ -20,6 +20,11 @@
  * aluguel/proprietário contrast, appended at max a2-life order + 1,
  * plus a guard pin (shape, vocab ≥5 for the S-pattern lessonId
  * contract, coverage of quarto/caução/renda/arrendamento/senhorio).
+ * #174 (gap L6, plan #205 — no ADR, owner decision): lesson `a1-roupa`
+ * joins NOTED_LESSONS with the cinzento/camisola/fato vs
+ * cinza/suéter/terno contrast, inserted at order 10 in a1-city
+ * (a1-mesa renumbered 10→11), plus a guard pin (shape, vocab ≥5, image,
+ * quiz kinds, colour/agreement/tamanho coverage).
  * Run with `bun run test` (node --test scripts/*.test.mjs). */
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -68,6 +73,7 @@ const NOTED_LESSONS = [
   "a1-dias",
   "a1-metro",
   "a1-mesa",
+  "a1-roupa",
   "a2-tempo",
   "a2-planos",
   "a2-farmacia",
@@ -134,6 +140,8 @@ test("the T2 widening contrasts are present (spelling, words, word order)", () =
   assert.ok(hasNote("a2-telefone", "está?", "alô"), "phone-opener contrast missing");
   assert.ok(hasNote("a2-ctt-banco", "multibanco", "caixa eletrônico"), "ATM contrast missing");
   assert.ok(hasNote("a2-casa", "arrendamento", "aluguel"), "renting contrast missing");
+  assert.ok(hasNote("a1-roupa", "cinzento", "cinza"), "grey contrast missing (a1-roupa)");
+  assert.ok(hasNote("a1-roupa", "camisola", "suéter"), "sweater contrast missing (a1-roupa)");
 });
 
 test("every A1/A2 lesson whose section body or quiz explain mentions Brazil has a ptNote (#82 AC1)", () => {
@@ -334,6 +342,50 @@ test("a2-casa (#171, plan #199): appended at max a2-life order + 1, 12 min, skil
   ].join(" ");
   for (const re of [/cauç/i, /renda/i, /arrendamento/i, /senhorio/i, /quarto/i]) {
     assert.ok(re.test(all), `coverage: ${re} missing from a2-casa`);
+  }
+});
+
+test("a1-roupa (#174, plan #205): order 10 in a1-city after a1-metro, a1-mesa renumbered 11, 12 min, skill mix, vocab >= 5, image exists, quiz kinds, coverage", () => {
+  const lesson = lessons.find((l) => l.id === "a1-roupa");
+  assert.ok(lesson, "a1-roupa missing");
+  assert.equal(lesson.level, "A1");
+  assert.equal(lesson.unitId, "a1-city");
+  assert.equal(lesson.order, 10, "inserted after a1-metro (order 9)");
+  assert.equal(lessons.find((l) => l.id === "a1-metro")?.order, 9, "a1-metro stays at 9");
+  assert.equal(lessons.find((l) => l.id === "a1-mesa")?.order, 11, "a1-mesa renumbered 10→11 (display-only, progress is id-keyed)");
+  assert.equal(lesson.minutes, 12);
+  assert.equal(lesson.skill, "mix");
+  assert.equal(lesson.image, "/scenes/market.jpg");
+  assert.ok(existsSync(join(root, "public", lesson.image)), "lesson image must exist under public/");
+  const vocab = lesson.sections.find((s) => s.type === "vocab");
+  assert.ok(vocab && vocab.items.length >= 5, "vocab section with >=5 items (feeds Palavras on completion)");
+  assert.deepEqual(
+    [...new Set(lesson.quiz.map((q) => q.kind))].sort(),
+    ["choice", "listen", "truefalse", "type"],
+    "quiz uses only the four existing kinds",
+  );
+  for (const q of lesson.quiz) {
+    assert.ok(q.explain.trim(), `${q.id}: explain required`);
+    if (q.kind === "listen") assert.ok(q.speak?.trim(), `${q.id}: listen needs a speak line (Play + Slower)`);
+    if (q.kind === "type") assert.ok(q.accept?.length, `${q.id}: type needs accept`);
+  }
+  const all = [
+    lesson.summary,
+    ...lesson.goals,
+    ...lesson.sections.flatMap((s) => [
+      "title" in s ? s.title : "",
+      "body" in s ? s.body : "",
+      "kicker" in s ? s.kicker : "",
+      ...("setting" in s ? [s.setting] : []),
+      ...("items" in s ? s.items.flatMap((i) => [i.pt, i.en, i.examplePt, i.exampleEn]) : []),
+      ...("examples" in s ? s.examples.flatMap((e) => [e.pt, e.en]) : []),
+      ...("lines" in s ? s.lines.flatMap((l) => [l.pt, l.en]) : []),
+      ...("phrase" in s ? [s.phrase.pt, s.phrase.en] : []),
+    ]),
+    ...lesson.quiz.flatMap((q) => [q.prompt, ...(q.options ?? []), ...(q.accept ?? []), q.explain]),
+  ].join(" ");
+  for (const re of [/vermelho/i, /vermelha/i, /azul/i, /cinzento/i, /camisola/i, /tamanho/i, /número/i]) {
+    assert.ok(re.test(all), `coverage: ${re} missing from a1-roupa`);
   }
 });
 

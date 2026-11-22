@@ -47,6 +47,7 @@ const NOTED_LESSONS = [
   "a1-ordinais",
   "a1-bica",
   "a1-onde-fica",
+  "a1-dias",
   "a1-metro",
   "a1-mesa",
   "a2-tempo",
@@ -104,6 +105,7 @@ test("the T2 widening contrasts are present (spelling, words, word order)", () =
   assert.ok(hasNote("a1-onde-fica", "autocarro", "ônibus"), "transport contrast missing (a1-onde-fica)");
   assert.ok(hasNote("a1-metro", "autocarro", "ônibus"), "transport contrast missing (a1-metro)");
   assert.ok(hasNote("a1-mesa", "ementa", "cardápio"), "menu contrast missing");
+  assert.ok(hasNote("a1-dias", "à segunda", "na segunda"), "weekday preposition contrast missing (a1-dias)");
   assert.ok(hasNote("a2-planos", "connosco", "conosco"), "spelling contrast missing");
   assert.ok(hasNote("a2-compras", "ficam-lhe bem", "em você"), "word-order contrast missing");
 });
